@@ -25,7 +25,7 @@ from sklearn.metrics import (
 from sklearn.metrics import (
     mean_absolute_error
 )
-
+#%%
 # =====================================
 # Data Preprocessing (전처리)
 # =====================================
@@ -80,7 +80,7 @@ df_p15d['ts'] = df_p15d['ts'].dt.floor('min')
 # ts 기준 시간순 정렬
 df_p15d = df_p15d.sort_values('ts')
 
-# ts 중복 제거 (음수 사용량 발생 원인 제거)
+#%% ts 중복 제거 
 df_p15d = (
     df_p15d
     .drop_duplicates(
@@ -96,10 +96,26 @@ df_p15d = df_p15d.reset_index(drop=True)
 print(df_p15d['ts'].head(10))
 
 
+#%% 🔥ts에서 빈 날짜, 빈 시간대 확인
+
+full_ts = pd.date_range(
+    start=df_p15d['ts'].min(),
+    end=df_p15d['ts'].max(),
+    freq='15min'
+)
+
+missing_ts = full_ts.difference(
+    df_p15d['ts']
+)
+
+print(
+    f'누락된 시간 개수 : {len(missing_ts)}'
+)
+
 # ♻️수정 >>> ts에서 빈 날짜, 빈 시간대 확인 
 
 
-#%% ✨kwh_15m 생성
+#%% 🔥kwh_15m 생성
 # 누적 전력량(kwh_sum) → 15분 사용량
 
 # 시간 간격(분) 계산
@@ -132,110 +148,35 @@ print(
 )
 
 
+#%% ✨1시간 사용량 생성
 
-#%% 🔥kwh_15m 기초통계량 확인
-
-print(df_p15d['kwh_15m'].describe())
-
-
-
-#%% 🔥kwh_sum Spike(중간 이상치) 후보 추출
-
-# 이전 / 현재 / 다음 누적값
-prev = df_p15d['kwh_sum'].shift(1)
-curr = df_p15d['kwh_sum']
-next_ = df_p15d['kwh_sum'].shift(-1)
-
-# Spike 크기 계산 ? 27 ~ 72kwh spike
-df_p15d['spike_up'] = curr - prev
-df_p15d['spike_down'] = curr - next_
-
-# 중간값이 증가했다가 바로 감소하는 경우
-spike_mask = (
-    (curr > prev) &
-    (next_ < curr)
+# ts를 인덱스로 설정
+df_hour = (
+    df_p15d
+    .set_index('ts')
+    .resample('1h')
+    .agg(
+        kwh_1h=('kwh_15m', 'sum'),
+        cnt=('kwh_15m', 'count')
+    )
+    .reset_index()
 )
 
-# 후보 확인
-print(f"Spike 후보 개수 : {spike_mask.sum()}")
-
-print(
-    df_p15d.loc[
-        spike_mask,
-        [
-            'ts',
-            'kwh_sum',
-            'spike_up',
-            'spike_down'
-        ]
-    ]
-)
-
-# CSV 저장 (EDA 및 육안 검증용)
-df_p15d.loc[
-    spike_mask,
-    [
-        'ts',
-        'kwh_sum',
-        'spike_up',
-        'spike_down'
-    ]
-].to_csv(
-    'kwh_sum_spike_candidate.csv',
-    index=False,
-    encoding='utf-8-sig'
-)
-
-print("저장 완료 : kwh_sum_spike_candidate.csv")
-
-
-#%% 🔥제거될 비정상 데이터 저장 (EDA용)
-
-outlier_df = df_p15d[
-    (df_p15d['kwh_15m'] < 0)
-    |
-    (df_p15d['kwh_15m'] > 20)
+# 15분 데이터가 4개 모두 존재하는 시간만 사용
+df_hour = df_hour[
+    df_hour['cnt'] == 4
 ]
 
-outlier_df.to_csv(
-    'kwh_15m_outlier.csv',
-    index=False,
-    encoding='utf-8-sig'
-)
-
-print(f'저장된 이상치 개수 : {len(outlier_df)}')
-
-
-#%% 🔥비정상 kwh_15m 제거 (0 ~ 20 범위만 유지)
-
-
-# 제거 전 개수
-before = len(df_p15d)
-
-# 0 <= kwh_15m <= 20 만 유지
-df_p15d = (
-    df_p15d[
-        (df_p15d['kwh_15m'] >= 0)
-        &
-        (df_p15d['kwh_15m'] <= 20)
-    ]
-    .reset_index(drop=True)
-)
-
-# 제거 후 개수
-after = len(df_p15d)
-
-print(f'제거된 행 개수 : {before - after}')
-print(f'남은 데이터 개수 : {after}')
+# (선택) 이후 feature 생성 시 cnt는 필요 없으므로 제거
+df_hour = df_hour.drop(columns='cnt')
 
 # 확인
-print('\nkwh_15m 기초통계량')
-print(df_p15d['kwh_15m'].describe().round(3))
+print(df_hour.head())
+print(df_hour.shape)
 
 
 
-
-#%% eda ts에서 빈 날짜, 빈 시간대 확인
+#%% 📈eda ts에서 빈 날짜, 빈 시간대 확인
 
 # 전체 기간(15분 간격) 생성
 full_ts = pd.date_range(
@@ -258,7 +199,7 @@ else:
 
 
 
-#%% eda 날짜별 누락 개수 확인
+#%% 📈eda 날짜별 누락 개수 확인
 missing_df = pd.DataFrame({'missing_ts': missing_ts})
 missing_df['date'] = missing_df['missing_ts'].dt.date
 
@@ -282,10 +223,8 @@ df_p15d.to_csv(
 
 
 
+#%% ===============feature engineering==================
 
-# =====================================
-# feature engineering
-# =====================================
 
 
 #%% ✨1시간 사용량 생성 
@@ -316,7 +255,7 @@ print(df_hour.shape)
 
 # 
 
-#%% ♻️ eda df_hour에서 누락된 날짜와 시간대 ?
+#%% 📈 eda df_hour에서 누락된 날짜와 시간대 ?
 
 # 전체 1시간 시계열 생성
 full_hour = pd.date_range(
@@ -339,7 +278,7 @@ else:
     print('\n누락된 날짜와 시간이 없습니다.')
 
 
-#%% ♻️eda 누락된 시간대가 많은 달(내림차순) ?
+#%% 📈eda 누락된 시간대가 많은 달(내림차순) ?
 # 누락된 시간대가 많은 달은 예측의 오차 발생 가능
 # month
 # 2025-09    144
@@ -361,7 +300,7 @@ monthly_missing = (
 print(monthly_missing)
 
 
-#%% ♻️eda 1월달 누락된 날짜 분포 ? 
+#%% 📈eda 1월달 누락된 날짜 분포 ? 
 # 하순(21~31일)    57
 # 상순(1~10일)     16
 # 중순(11~20일)     9
@@ -769,10 +708,7 @@ print("저장 완료 : df_hour_after_diff.csv")
 
 
 
-
-# ====================================
-# Walk-Forward Validation
-# ====================================
+#%%================Walk-Forward Validation=====================
 
 # %% Walk-Forward 전 필수 점검 / shape (6366, 33)
 print(df_hour.shape)
@@ -903,10 +839,14 @@ for fold_num, (train_period, valid_period) in enumerate(
 print("생성된 Fold 수 :", len(cv_datasets))
 
 
+
+
 # =====================================
 # LightGBM Baseline Model
 # =====================================
-#%% 🔥Walk-Forward Validation
+
+
+#%% ===============LightGBM Baseline Training====================
 cv_results = []
 
 print("생성된 Fold 수 :", len(cv_datasets))
@@ -1002,7 +942,7 @@ print(
 )
 
 
-#%% 🔥Fold별 최소값 확인
+#%% 📈Fold별 최소값 확인
 
 for fold_data in cv_datasets:
 
@@ -1035,12 +975,18 @@ for fold_data in cv_datasets:
 
 
 
+
+
+
 # =====================================
 # 데이터 품질 개선
 # =====================================
-# --------------------------
-# LigntGBM Baseline 결과 분석(♻️: 수정필요)
-# --------------------------
+
+
+# -------------------------------------
+# LightGBM Baseline 결과 분석 (♻️ 수정 필요)
+# -------------------------------------
+#
 #  fold      MAE     RMSE         MAPE
 #     1 0.214601 0.553940 6.108244e+00
 #     2 0.226443 0.827104 5.512481e+14
@@ -1056,14 +1002,14 @@ for fold_data in cv_datasets:
 #
 # Fold 1 min=0.9000000000 max=7.1000
 # Fold 2 min=0.0000000000 max=12.1000
-# Fold 3 min=0.0000000000 max=188.1000♻️
+# Fold 3 min=0.0000000000 max=188.1000 ♻️
 # Fold 4 min=1.0000000000 max=7.1000
 # Fold 5 min=0.9000000000 max=6.7000
 # Fold 6 min=1.2000000000 max=6.5000
-# --------------------------
+# -------------------------------------
 
 
-#%% 🔥 Fold 3 이상치 조사
+# %% 📈 Fold 3 이상치 조사
 # Fold 3 Validation 구간 최대 사용량 확인
 
 # Fold 3 데이터 추출
@@ -1087,7 +1033,7 @@ print(
 )
 
 
-#%% 🔥 데이터 공백 구간(15분 초과 간격) 확인
+# %% 📈 데이터 공백 구간(15분 초과 간격) 확인
 df_p15d['time_diff'] = (
     df_p15d['ts']
     .diff()
@@ -1103,19 +1049,22 @@ print(
     ]
 )
 
-# --------------------------
+# -------------------------------------
 # 분석 메모
+# -------------------------------------
+#
 # Fold 3에서 kwh_1h 최대값 188.1 확인
-# --------------------------
+#
 # Fold 3 최대값(188.1 kWh) 이상치 원인 분석 완료
 # 2026-01-29 17:45 이전에 장시간 데이터 공백(time_diff > 15분) 확인
 # time_diff == 15 조건으로 kwh_15m 재생성 후 이상치 제거
 # Fold 3 최대값 188.1 → 6.9 kWh로 정상화 확인
 
 
-# --------------------------
-# LigntGBM Baseline 결과 분석(♻️: 수정필요)
-# --------------------------
+# -------------------------------------
+# LightGBM Baseline 결과 분석 (♻️ 수정 필요)
+# -------------------------------------
+#
 #  fold      MAE     RMSE         MAPE
 #     1 0.137295 0.297410 4.788370e+00
 #     2 0.127951 0.391537 5.300565e+14
@@ -1131,14 +1080,14 @@ print(
 #
 # Fold 1 min=0.9000000000 max=6.5000
 # Fold 2 min=0.0000000000 max=7.3000
-# Fold 3 min=-46.8000000000♻️ max=6.9000
+# Fold 3 min=-46.8000000000 ♻️ max=6.9000
 # Fold 4 min=1.0000000000 max=7.1000
 # Fold 5 min=0.9000000000 max=6.7000
 # Fold 6 min=1.2000000000 max=6.5000
-# --------------------------
+# -------------------------------------
 
 
-#%% 🔥 음수 사용량(kwh_15m < 0) 원인 조사
+# %% 📈 음수 사용량(kwh_15m < 0) 원인 조사
 
 # 음수 사용량 발생 건수
 print("음수 건수 :", (df_p15d['kwh_15m'] < 0).sum())
@@ -1157,10 +1106,7 @@ print(
 )
 
 
-
-
-
-#%% 🔥 ts 중복 확인
+# %% 📈 ts 중복 확인
 
 dup_ts = df_p15d[
     df_p15d.duplicated(
@@ -1178,25 +1124,26 @@ print(
     .sort_values('ts')
 )
 
-
-# --------------------------
+# -------------------------------------
 # 분석 메모
+# -------------------------------------
+#
 # 음수 사용량(kwh_15m < 0) 원인 조사
-# --------------------------
+#
 # 동일 ts에 서로 다른 kwh_sum 값이 중복 저장되어 있었음
 # kwh_sum은 전체 기간 동안 정상 우상향으로 계량기 리셋 아님
 # Fold 3 최소값(-46.8 kWh)은 데이터 중복에 의한 이상치로 판단
 # ts 중복 제거 후 kwh_15m 및 df_hour 재생성 필요
 
 
-
-# ==================================================
-# LigntGBM Baseline 결과 분석(♻️: 수정필요)
-# ==================================================
-#  fold      MAE     RMSE         MAPE
+# =====================================
+# LightGBM Baseline 결과 분석 (♻️ 수정 필요)
+# =====================================
+#
+#  fold      MAE     RMSE     MAPE
 #     1 0.095296 0.165802 3.610072e+00
-#     2 0.088568 0.154397 3.322567e+14♻️
-#     3 0.196353 0.401435 3.157398e+15♻️
+#     2 0.088568 0.154397 3.322567e+14 ♻️
+#     3 0.196353 0.401435 3.157398e+15 ♻️
 #     4 0.055305 0.091562 2.047781e+00
 #     5 0.040926 0.071851 1.559780e+00
 #     6 0.044616 0.078194 1.735451e+00
@@ -1207,22 +1154,19 @@ print(
 # MAPE    5.816092e+14
 #
 # Fold 1 min=0.9000000000 max=6.5000
-# Fold 2 min=0.0000000000♻️ max=7.3000
-# Fold 3 min=0.0000000000♻️ max=6.9000
+# Fold 2 min=0.0000000000 ♻️ max=7.3000
+# Fold 3 min=0.0000000000 ♻️ max=6.9000
 # Fold 4 min=1.0000000000 max=7.1000
 # Fold 5 min=0.9000000000 max=6.7000
 # Fold 6 min=1.2000000000 max=6.5000
-# ============================================================
+# =====================================
 
 
+# ♻️ 수정 필요
+# 음수 사용량이 아직까지 나오는 부분 해결
 
 
-# ♻️수정필요 >>> 음수 사용량이 아직까지 나오는 부분 해결
-
-
-
-
-#%% 🔥 Fold 2, Fold 3의 0 kWh 발생 시점 확인
+# %% 📈 Fold 2, Fold 3의 0 kWh 발생 시점 확인
 
 for fold_num in [2, 3]:
 
@@ -1248,7 +1192,8 @@ for fold_num in [2, 3]:
         .sort_values('ts')
     )
 
-#%% 🔥 Fold 3의 0 kWh 구간 원본 15분 데이터 확인
+
+# %% 📈 Fold 3의 0 kWh 구간 원본 15분 데이터 확인
 
 start_ts = '2026-01-09 04:00:00+09:00'
 end_ts   = '2026-01-09 16:00:00+09:00'
@@ -1263,19 +1208,25 @@ print(
     ]
 )
 
-# ==================================================
+# =====================================
 # 분석 메모
+# =====================================
+#
 # Fold 2·3의 0 kWh 분석
-# ==================================================
+#
 # Fold 2(1건), Fold 3(65건)의 0 kWh 발생 원인을 조사함.
-# 일부 시간대는 15분 사용량 데이터가 4개 미만인 상태로 1시간 사용량(kwh_1h)이 집계
-# 정상적으로 15분 데이터 4개가 존재하는 시간대만 사용하도록 전처리를 수정
-# 재검증 결과 Fold 2·3의 0 kWh 문제가 해소되었으며 MAPE도 정상 수준으로 안정화
+# 일부 시간대는 15분 사용량 데이터가 4개 미만인 상태로
+# 1시간 사용량(kwh_1h)이 집계됨.
+# 정상적으로 15분 데이터 4개가 존재하는 시간대만 사용하도록
+# 전처리를 수정함.
+# 재검증 결과 Fold 2·3의 0 kWh 문제가 해소되었으며
+# MAPE도 정상 수준으로 안정화됨.
 
 
-# ============================================================
-# LigntGBM Baseline 결과 분석
-# ============================================================
+# =====================================
+# LightGBM Baseline 결과 분석
+# =====================================
+#
 #  fold      MAE     RMSE     MAPE
 #     1 0.104201 0.183405 3.974299
 #     2 0.096800 0.160582 3.637112
@@ -1296,7 +1247,7 @@ print(
 # Fold 4 min=1.0000000000 max=7.1000
 # Fold 5 min=0.9000000000 max=6.7000
 # Fold 6 min=1.2000000000 max=6.5000
-
+# =====================================
 
 
 
@@ -1338,7 +1289,7 @@ print(
 # 1. LightGBM Baseline (모델 객체 저장)
 # ============================================================
 
-#%% 🔥 LightGBM Baseline Training
+
 
 lgbm_cv_results = []
 lgbm_models = []   # fold별 모델 저장
@@ -1389,11 +1340,8 @@ print("\nAverage")
 print(lgbm_results_df[['MAE','RMSE','MAPE']].mean())
 
 
-# ============================================================
-# 2. XGBoost Baseline (모델 객체 저장)
-# ============================================================
 
-#%% 🔥 XGBoost Baseline Training
+#%% ===============XGBoost Baseline Training=======================
 
 xgb_cv_results = []
 xgb_models = []   # fold별 모델 저장
@@ -1465,10 +1413,6 @@ print(xgb_results_df[['MAE','RMSE','MAPE']].mean())
 lgbm_model = lgbm_models[-1]
 xgb_model = xgb_models[-1]
 
-
-# ============================================================
-# 4. LightGBM Feature Importance
-# ============================================================
 
 #%% 🔥 LightGBM Feature Importance
 
@@ -1561,9 +1505,6 @@ print("\n=== Combined Top 20 ===")
 print(merged.head(20))
 
 
-# ============================================================
-# 7. 모델 비교
-# ============================================================
 
 #%% 🔥 Model Comparison
 
@@ -1595,9 +1536,7 @@ print(compare_df)
 # 0  LightGBM  0.096974  0.185960  3.132412
 # 1   XGBoost  0.094370  0.172908  3.138497
 
-#%% ============================================================
-# Feature Selection (Importance 기반 제거)
-# ============================================================
+#%% 🔥Feature Selection (Importance 기반 제거)
 
 drop_features = [
 
@@ -1619,9 +1558,7 @@ print("축소 후 Feature 개수:", X_reduced.shape[1])
 print("\n제거된 Feature:", drop_features)
 
 
-#%% ============================================================
-# LightGBM Retrain (Reduced Feature)
-# ============================================================
+#%% 🔥LightGBM Retrain (Reduced Feature)
 
 lgbm_reduced_results = []
 
@@ -1657,9 +1594,9 @@ for fold_data in cv_datasets:
 print("LightGBM Reduced 완료")
 
 
-#%% ============================================================
+
 # XGBoost Retrain (Reduced Feature)
-# ============================================================
+
 
 xgb_reduced_results = []
 
@@ -1704,9 +1641,8 @@ for fold_data in cv_datasets:
 print("XGBoost Reduced 완료")
 
 
-#%% ============================================================
-# Reduced Model Comparison
-# ============================================================
+#%% 🔥Reduced Model Comparison
+
 
 lgbm_red_df = pd.DataFrame(lgbm_reduced_results)
 xgb_red_df = pd.DataFrame(xgb_reduced_results)
@@ -1747,15 +1683,14 @@ print(compare_reduced)
 # =====================================
 #((Reduced XGBoost Hyper Parameter Tuning))
 # =====================================
-#%% ============================================================
-# 🚀 1. Feature 선택 (Reduced Feature Set 사용)
+#%% ===============XGBoost (Reduced Feature) Optuna==================
+#%% 🚀 1. Feature 선택 (Reduced Feature Set 사용)
 # ============================================================
 
 FEATURES = X_reduced.columns
 
 
-#%% ============================================================
-# 🚀 2. Optuna Objective 함수 정의
+#%% 🚀 2. Optuna Objective 함수 정의
 # ============================================================
 
 def objective(trial):
@@ -1853,8 +1788,7 @@ def objective(trial):
     return np.mean(fold_mae)
 
 
-#%% ============================================================
-# 🚀 5. Optuna Study 실행
+#%% 🚀 5. Optuna Study 실행
 # ============================================================
 # - 50번의 trial 수행 (hyperparameter 탐색)
 # ============================================================
@@ -1867,8 +1801,7 @@ study.optimize(
 )
 
 
-#%% ============================================================
-# 🚀 6. 최적 결과 출력
+#%% 🚀 6. 최적 결과 출력
 # ============================================================
 
 print("\nBest MAE:", study.best_value)
@@ -1915,7 +1848,7 @@ print(study.best_params)
 
 
 
-# =====================================
+#%% =====================================
 # ((Reduced LightGBM Hyper Parameter Tuning))
 # =====================================
 
