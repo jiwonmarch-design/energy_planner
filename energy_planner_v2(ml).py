@@ -1,6 +1,13 @@
 # =====================================
 # 🎉 energy planner project 🎉
 # =====================================
+# 개발 환경
+# Python 3.14 (64 bit)
+# LightGBM / XGBoost 최종 버전
+#
+# VS Code 실행 전
+# Python: Select Interpreter
+# → Python 3.14 (64 bit) 선택
 
 #%% 🔥라이브러리
 import pandas as pd
@@ -2762,4 +2769,83 @@ plt.show()
 
 
 
-# %% 
+
+
+
+
+#%% 🔥마지막 1주일 Actual vs Prediction
+
+# 마지막 168시간(7일)
+last_week = 24 * 7
+
+X_last = X_reduced.iloc[-last_week:]
+y_last = y.iloc[-last_week:]
+
+# 예측
+y_pred = model.predict(X_last)
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(15,5))
+
+plt.plot(
+    y_last.index,
+    y_last.values,
+    label='Actual'
+)
+
+plt.plot(
+    y_last.index,
+    y_pred,
+    label='Prediction'
+)
+
+plt.title('Last Week Actual vs Prediction')
+plt.xlabel('Index')
+plt.ylabel('kWh')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+
+#%%
+# ============================================================
+# v2 한계점 및 개선 필요 사항
+# ============================================================
+
+# 1.
+# 최종 XGBoost 모델은 Walk-Forward Validation에서
+# MAE 약 0.082 수준으로 우수한 성능을 확인함
+
+# 2.
+# Fold 6 Validation 차트에서는
+# Actual과 Prediction이 거의 겹치는 수준으로
+# 검증 데이터에 대한 예측 성능이 양호함
+
+# 3.
+# 그러나 실제 운영을 가정한
+# 24시간 Recursive Forecast 수행 시
+# 예측값이 점차 감소하는 현상이 발생함
+
+# 4.
+# 원인으로는 lag / rolling / diff Feature가
+# 이전 예측값을 다시 입력받는 구조이므로
+# 예측 오차가 누적되는 문제가 존재함
+
+# 5.
+# 특히 lag_1, rolling_mean, diff 계열 Feature는
+# Recursive Forecast 과정에서
+# 실제값이 아닌 예측값으로 대체되므로
+# 장기 예측 시 오차 전파(Error Propagation)가 발생함
+
+# 6.
+# 결과적으로 Validation 성능은 우수하였으나
+# 24시간 이상 미래 예측에서는
+# 사용량 패턴이 점차 평균값 방향으로 수렴하는 현상을 확인함
+
+# 7.
+# 따라서 v3에서는
+# Recursive Forecast 의존도를 줄이고
+# 미래 24시간을 직접 예측하는
+# Multi-Step Forecast 기반 딥러닝 모델(LSTM)을 검토함
