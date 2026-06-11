@@ -1676,6 +1676,13 @@ print("기존 Feature 개수:", X.shape[1])
 print("축소 후 Feature 개수:", X_reduced.shape[1])
 print("\n제거된 Feature:", drop_features)
 
+#%% 💾feature set 저장
+feature_columns = X_reduced.columns.tolist()
+
+import json
+
+with open("feature_columns.json", "w") as f:
+    json.dump(feature_columns, f)
 
 #%% 🔥LightGBM Retrain (Reduced Feature)
 
@@ -2768,48 +2775,51 @@ plt.tight_layout()
 plt.show()
 
 
+#%% 📈 마지막 24시간 Actual vs Prediction
 
+# 마지막 24시간
 
-
-
-
-#%% 🔥마지막 1주일 Actual vs Prediction
-
-# 마지막 168시간(7일)
-last_week = 24 * 7
-
-X_last = X_reduced.iloc[-last_week:]
-y_last = y.iloc[-last_week:]
+X_last = X_reduced.iloc[-24:]
+y_last = y.iloc[-24:]
 
 # 예측
-y_pred = model.predict(X_last)
 
-import matplotlib.pyplot as plt
+y_pred = final_model.predict(X_last)
 
-plt.figure(figsize=(15,5))
+plt.figure(figsize=(12,5))
 
 plt.plot(
-    y_last.index,
+    range(24),
     y_last.values,
+    marker='o',
     label='Actual'
 )
 
 plt.plot(
-    y_last.index,
+    range(24),
     y_pred,
+    marker='s',
     label='Prediction'
 )
 
-plt.title('Last Week Actual vs Prediction')
-plt.xlabel('Index')
+plt.title(
+    'Last 24 Hours Actual vs Prediction'
+)
+
+plt.xlabel('Hour')
 plt.ylabel('kWh')
+
 plt.legend()
 plt.grid(True)
 
 plt.tight_layout()
 plt.show()
 
-#%%
+
+
+
+
+#%% 📈v2 한계점 및 개선 필요 사항
 # ============================================================
 # v2 한계점 및 개선 필요 사항
 # ============================================================
@@ -2849,3 +2859,8 @@ plt.show()
 # Recursive Forecast 의존도를 줄이고
 # 미래 24시간을 직접 예측하는
 # Multi-Step Forecast 기반 딥러닝 모델(LSTM)을 검토함
+
+
+
+
+# %% 

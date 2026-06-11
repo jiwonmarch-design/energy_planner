@@ -423,7 +423,22 @@ print(
 )
 
 
+#%% ✨month / 계절성
+# ts 컬럼에서 월(month) 추출
 
+df_hour['month'] = df_hour['ts'].dt.month
+
+# 확인
+print(df_hour[['ts', 'month']].head())
+
+
+#%% ✨day / 월초/월말 패턴
+# ts 컬럼에서 일(day) 추출
+
+df_hour['day'] = df_hour['ts'].dt.day
+
+# 확인
+print(df_hour[['ts', 'day']].head())
 
 
 #%% 🔥df_temp csv 불러오기
@@ -489,6 +504,108 @@ df_hour['temp_range'] = (
 )
 
 
+# --------------------------
+# 2. ✨temp_centered
+# 최근 7일 평균 대비 현재 기온 편차
+# 7일 = 24 * 7 = 168시간
+df_hour['temp_centered'] = (
+    df_hour['avg_temp']
+    - df_hour['avg_temp']
+        .rolling(window=168, min_periods=1)
+        .mean()
+)
+
+
+# --------------------------
+# 3. ✨temp_ma_24 ✨temp_ma_168
+# 1일 / 7일 이동평균
+df_hour['temp_ma_24'] = (
+    df_hour['avg_temp']
+        .rolling(window=24, min_periods=1)
+        .mean()
+)
+
+df_hour['temp_ma_168'] = (
+    df_hour['avg_temp']
+        .rolling(window=168, min_periods=1)
+        .mean()
+)
+
+
+# --------------------------
+# 4. ✨temp_diff_24 ✨temp_diff_168
+# 1일 전 / 7일 전 대비 기온 변화
+df_hour['temp_diff_24'] = (
+    df_hour['avg_temp'].diff(24)
+)
+
+df_hour['temp_diff_168'] = (
+    df_hour['avg_temp'].diff(168)
+)
+
+
+# --------------------------
+# 5. ✨ Temperature Indicator
+
+# 더운 날
+df_hour['is_hot'] = (
+    df_hour['avg_temp'] >= 28
+).astype(int)
+
+# 추운 날
+df_hour['is_cold'] = (
+    df_hour['avg_temp'] <= 5
+).astype(int)
+
+# 강한 추위
+df_hour['is_very_cold'] = (
+    df_hour['avg_temp'] <= 0
+).astype(int)
+
+# 극한 추위 (광주에서는 드문 이벤트)
+df_hour['is_extreme_cold'] = (
+    df_hour['avg_temp'] <= -3
+).astype(int)
+
+# 전일 대비 평균기온 변화량
+df_hour['temp_diff_prev_day'] = (
+    df_hour['avg_temp']
+    - df_hour['avg_temp'].shift(24)
+)
+
+# 전일 대비 평균기온 5℃ 이상 하락
+df_hour['is_temp_drop_5'] = (
+    df_hour['temp_diff_prev_day'] <= -5
+).astype(int)
+
+
+# --------------------------
+# 6. ✨cooling_degree ✨heating_degree
+# 냉방/난방 필요도
+df_hour['cooling_degree'] = (
+    df_hour['avg_temp'] - 24
+).clip(lower=0)
+
+df_hour['heating_degree'] = (
+    18 - df_hour['avg_temp']
+).clip(lower=0)
+
+
+# 확인
+print(
+    df_hour[
+        [
+            'ts',
+            'avg_temp',
+            'temp_range',
+            'temp_centered',
+            'temp_ma_24',
+            'temp_ma_168',
+            'temp_diff_24',
+            'temp_diff_168'
+        ]
+    ].head()
+)
 
 
 
@@ -658,23 +775,23 @@ print(
     ].head()
 )
 
-#%% Cyclical Feature
+#%% ♻️Cyclical Feature
+# 동일 feature set 비교를 위해 보류
+#df_hour['hour_sin'] = np.sin(
+#    2 * np.pi * df_hour['hour'] / 24
+#)
 
-df_hour['hour_sin'] = np.sin(
-    2 * np.pi * df_hour['hour'] / 24
-)
+#df_hour['hour_cos'] = np.cos(
+#    2 * np.pi * df_hour['hour'] / 24
+#)
 
-df_hour['hour_cos'] = np.cos(
-    2 * np.pi * df_hour['hour'] / 24
-)
+#df_hour['weekday_sin'] = np.sin(
+#    2 * np.pi * df_hour['weekday'] / 7
+#)
 
-df_hour['weekday_sin'] = np.sin(
-    2 * np.pi * df_hour['weekday'] / 7
-)
-
-df_hour['weekday_cos'] = np.cos(
-    2 * np.pi * df_hour['weekday'] / 7
-)
+#df_hour['weekday_cos'] = np.cos(
+#    2 * np.pi * df_hour['weekday'] / 7
+#)
 
 
 #%% 💾Feature Engineering 결과 저장 
@@ -693,46 +810,13 @@ print("저장 완료 : df_hour_v4.csv")
 # Feature Selection
 # =====================================
 #%% 🔥FEATURES
-FEATURES = [
 
-    # 시간
-    'hour_sin',
-    'hour_cos',
+import json
 
-    # 요일
-    'weekday_sin',
-    'weekday_cos',
+with open("feature_columns.json", "r") as f:
+    FEATURES = json.load(f)
 
-    'is_weekend',
-    'is_holiday',
-
-    # 온도
-    'avg_temp',
-    'daily_max_temp',
-    'daily_min_temp',
-    'temp_range',
-
-    'cooling_degree',
-    'heating_degree',
-
-    # Lag
-    'lag_1',
-    'lag_24',
-    'lag_168',
-
-    # Rolling
-    'rolling_mean_3',
-    'rolling_mean_6',
-    'rolling_mean_24',
-    'rolling_max_24',
-    'rolling_min_24',
-
-    # Diff
-    'diff_1',
-    'diff_24',
-    'diff_168'
-
-]
+print(f"Feature 개수: {len(FEATURES)}")
 
 TARGET = 'kwh_1h'
 
@@ -821,7 +905,7 @@ class GRUModel(nn.Module):
     def __init__(
         self,
         input_size,
-        hidden_size=64,
+        hidden_size=128,
         num_layers=2,
         output_size=24
     ):
@@ -899,13 +983,6 @@ for fold, valid_month in enumerate(
         valid_mask
     ].copy()
 
-    valid_df_extended = pd.concat(
-    [
-        train_df.tail(168),
-        valid_df
-    ]
-).reset_index(drop=True)
-
     valid_start = valid_df['ts'].min()
 
     train_df = df_hour[
@@ -918,6 +995,8 @@ for fold, valid_month in enumerate(
             valid_df
         ]
     ).reset_index(drop=True)
+
+    
 
     # scaling
     feature_scaler = StandardScaler()
@@ -971,7 +1050,7 @@ for fold, valid_month in enumerate(
     train_loader = DataLoader(
         train_dataset,
         batch_size=64,
-        shuffle=True
+        shuffle=False
     )
 
     valid_loader = DataLoader(
@@ -983,7 +1062,7 @@ for fold, valid_month in enumerate(
 
     model = GRUModel(
         input_size=len(FEATURES),
-        hidden_size=64,
+        hidden_size=128,
         num_layers=2,
         output_size=24
     )
@@ -1116,7 +1195,232 @@ for fold, valid_month in enumerate(
 
     })
 
-#%%
+#%% 🔥Fold 결과 정리
+
+results_df = pd.DataFrame(results)
+
+print(results_df)
+
+print("\n===== 평균 성능 =====")
+print(f"MAE  : {results_df['mae'].mean():.4f}")
+print(f"RMSE : {results_df['rmse'].mean():.4f}")
+print(f"MAPE : {results_df['mape'].mean():.2f}%")
+
+#%% 📈성능 결과 MAE 0.8123
+
+#   fold valid_month       mae      rmse       mape
+#0     1     2025-11  0.654628  1.013801  32.149175
+#1     2     2025-12  0.773082  1.275124  38.199142
+#2     3     2026-01  1.305654  2.005148  42.007881
+#3     4     2026-02  0.942012  1.425470  35.233486
+#4     5     2026-03  0.633713  1.037139  22.056594
+#5     6     2026-04  0.564558  0.957271  21.266606
+
+#===== 평균 성능 =====
+#MAE  : 0.8123
+#RMSE : 1.2857
+#MAPE : 31.82%
 
 
+#%% 🚀Final Training (전체 데이터 학습)
 
+feature_scaler = StandardScaler()
+target_scaler = StandardScaler()
+
+X_scaled = feature_scaler.fit_transform(
+    df_hour[FEATURES]
+)
+
+y_scaled = target_scaler.fit_transform(
+    df_hour[[TARGET]]
+)
+
+# 🔥Sequence 생성
+
+X_seq, y_seq = create_sequence(
+    X_scaled,
+    y_scaled,
+    lookback=168,
+    horizon=24
+)
+
+print(X_seq.shape)
+print(y_seq.shape)
+
+# 🔥Dataset
+
+train_dataset = PowerDataset(
+    X_seq,
+    y_seq
+)
+
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=64,
+    shuffle=False
+)
+
+# 🔥최종 모델 생성
+
+final_model = GRUModel(
+    input_size=len(FEATURES),
+    hidden_size=128,
+    num_layers=2,
+    output_size=24
+).to(device)
+
+criterion = nn.L1Loss()
+
+optimizer = torch.optim.Adam(
+    final_model.parameters(),
+    lr=0.001
+)
+
+# 🔥학습
+
+EPOCHS = 30
+
+for epoch in range(EPOCHS):
+
+    final_model.train()
+
+    train_loss = 0
+
+    for X_batch, y_batch in train_loader:
+
+        X_batch = X_batch.to(device)
+        y_batch = y_batch.to(device)
+
+        optimizer.zero_grad()
+
+        pred = final_model(X_batch)
+
+        loss = criterion(
+            pred,
+            y_batch
+        )
+
+        loss.backward()
+
+        optimizer.step()
+
+        train_loss += loss.item()
+
+    train_loss /= len(train_loader)
+
+    print(
+        f'Final Training | '
+        f'Epoch {epoch+1}/{EPOCHS} | '
+        f'Loss {train_loss:.4f}'
+    )
+
+print("최종 학습 완료")
+#%% 💾모델 저장
+
+torch.save(
+    final_model.state_dict(),
+    "gru_v4_final.pth"
+)
+
+joblib.dump(
+    feature_scaler,
+    "gru_v4_feature_scaler.pkl"
+)
+
+joblib.dump(
+    target_scaler,
+    "gru_v4_target_scaler.pkl"
+)
+
+print("모델 저장 완료")
+
+
+#%% 📈 Fold 6 Actual vs Prediction
+
+if fold == 6:
+
+    plt.figure(figsize=(12, 5))
+
+    plt.plot(
+        trues_inv[0],
+        marker='o',
+        label='Actual'
+    )
+
+    plt.plot(
+        preds_inv[0],
+        marker='s',
+        label='Prediction'
+    )
+
+    plt.title(
+        '24 Hour Forecast (Fold 6)'
+    )
+
+    plt.xlabel('Forecast Horizon')
+
+    plt.ylabel('kWh')
+
+    plt.legend()
+
+    plt.grid(True)
+
+    plt.show()
+
+#%% 📈 Final Model - 마지막 24시간 Actual vs Prediction
+
+final_model.eval()
+
+with torch.no_grad():
+
+    # 가장 마지막 Sequence
+    X_last = X_seq[-1]
+
+    X_last = torch.tensor(
+        X_last,
+        dtype=torch.float32
+    ).unsqueeze(0).to(device)
+
+    pred_scaled = final_model(X_last)
+
+# 역정규화
+pred_24h = target_scaler.inverse_transform(
+    pred_scaled.cpu().numpy().reshape(-1, 1)
+).flatten()
+
+# 실제 마지막 24시간
+actual_24h = target_scaler.inverse_transform(
+    y_seq[-1].reshape(-1, 1)
+).flatten()
+
+# 그래프
+plt.figure(figsize=(12, 5))
+
+plt.plot(
+    range(1, 25),
+    actual_24h,
+    marker='o',
+    label='Actual'
+)
+
+plt.plot(
+    range(1, 25),
+    pred_24h,
+    marker='s',
+    label='Prediction'
+)
+
+plt.xticks(range(1, 25))
+
+plt.xlabel('Forecast Horizon (Hour)')
+plt.ylabel('kWh')
+
+plt.title(
+    'Final Model - Last 24 Hours Forecast'
+)
+
+plt.legend()
+plt.grid(True)
+
+plt.show()
+# %%

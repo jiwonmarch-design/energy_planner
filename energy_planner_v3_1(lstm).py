@@ -739,7 +739,7 @@ print(
 )
 
 
-#%% 🔥Feature Engineering 결과 저장 
+#%% 💾Feature Engineering 결과 저장 
 
 df_hour.to_csv(
     'df_hour_v3_1.csv',
@@ -754,43 +754,19 @@ print("저장 완료 : df_hour_v3_1.csv")
 
 
 
-#%% 🔥Feature 선택
+#%% ♻️Feature 선택
 
-feature_cols = [
+import json
 
-    # target
-    'kwh_1h',
+with open("feature_columns.json", "r") as f:
+    FEATURES = json.load(f)
 
-    # cyclical
-    'sin_hour',
-    'cos_hour',
-    'sin_week',
-    'cos_week',
-    'sin_month',
-    'cos_month',
+TARGET = 'kwh_1h'
 
-    # calendar
-    'is_weekend',
-    'is_holiday',
+# target + feature 구성
+df_model = df_hour[[TARGET] + FEATURES].copy()
 
-    # weather
-    'avg_temp',
-    'temp_range',
-    'cooling_degree',
-    'heating_degree',
-
-    # lag
-    'lag_1',
-    'lag_24',
-    'lag_168',
-
-    # rolling
-    'rolling_mean_24',
-
-]
-
-df_model = df_hour[feature_cols].copy()
-
+print("Feature 개수 :", len(FEATURES))
 print(df_model.shape)
 
 #%% 🔥Train / Valid / Test Split (Scaling 전)
@@ -864,7 +840,7 @@ y = []
 
 target_idx = (
     scaled_data.columns
-    .get_loc('kwh_1h')
+    .get_loc(TARGET)
 )
 
 for i in range(
