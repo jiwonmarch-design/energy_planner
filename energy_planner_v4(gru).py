@@ -955,6 +955,8 @@ VALID_MONTHS = [
 
 results = []
 
+fold_predictions = {}
+
 #%% 🚀Walk-Forward Validation
 
 for fold, valid_month in enumerate(
@@ -1153,6 +1155,37 @@ for fold, valid_month in enumerate(
         trues.reshape(-1, 1)
     ).reshape(trues.shape)
 
+    fold_predictions[valid_month] = {
+            'preds': preds_inv.copy(),
+            'trues': trues_inv.copy()
+        } 
+
+    #🔥Peak Metric
+
+    peak_true = trues_inv.max(axis=1)
+    peak_pred = preds_inv.max(axis=1)
+
+    peak_mae = np.mean(
+        np.abs(peak_true - peak_pred)
+    )
+
+    peak_hour_true = np.argmax(
+        trues_inv,
+        axis=1
+    )
+
+    peak_hour_pred = np.argmax(
+        preds_inv,
+        axis=1
+    )
+
+    peak_time_mae = np.mean(
+        np.abs(
+            peak_hour_true -
+            peak_hour_pred
+        )
+    )
+
     #🔥Fold Metric
 
     mae = mean_absolute_error(
@@ -1182,18 +1215,28 @@ for fold, valid_month in enumerate(
     )
 
     results.append({
-
         'fold': fold,
-
         'valid_month': valid_month,
-
         'mae': mae,
-
         'rmse': rmse,
-
-        'mape': mape
-
+        'mape': mape,
+        'peak_mae': peak_mae,
+        'peak_time_mae': peak_time_mae
     })
+
+#%% 💾 Fold Prediction 저장
+np.save(
+    "fold_predictions.npy",
+    fold_predictions,
+    allow_pickle=True
+)
+
+#%% 💾fold prediction 불러오기
+
+fold_predictions = np.load(
+    "fold_predictions.npy",
+    allow_pickle=True
+).item()
 
 #%% 🔥Fold 결과 정리
 
@@ -1205,21 +1248,26 @@ print("\n===== 평균 성능 =====")
 print(f"MAE  : {results_df['mae'].mean():.4f}")
 print(f"RMSE : {results_df['rmse'].mean():.4f}")
 print(f"MAPE : {results_df['mape'].mean():.2f}%")
+print(f"Peak MAE : {results_df['peak_mae'].mean():.4f}")
+print(f"Peak Time Error : {results_df['peak_time_mae'].mean():.2f} h")
 
-#%% 📈성능 결과 MAE 0.8123
 
-#   fold valid_month       mae      rmse       mape
-#0     1     2025-11  0.654628  1.013801  32.149175
-#1     2     2025-12  0.773082  1.275124  38.199142
-#2     3     2026-01  1.305654  2.005148  42.007881
-#3     4     2026-02  0.942012  1.425470  35.233486
-#4     5     2026-03  0.633713  1.037139  22.056594
-#5     6     2026-04  0.564558  0.957271  21.266606
+#%% 📈성능 결과 MAE 0.8288
+#=== GRU Summary ===
+#   fold valid_month       mae      rmse       mape  peak_mae  peak_time_mae
+#0     1     2025-11  0.680905  1.027518  32.045010  0.955584       5.325145
+#1     2     2025-12  0.756180  1.264012  38.132477  0.823520       5.754190
+#2     3     2026-01  1.238420  1.922513  39.420605  2.734989       6.023511
+#3     4     2026-02  0.984726  1.552340  33.860910  1.180817       5.785494
+#4     5     2026-03  0.717522  1.162115  26.303869  0.828859       5.691771
+#5     6     2026-04  0.594848  1.026407  22.399309  0.907111       5.030172
 
 #===== 평균 성능 =====
-#MAE  : 0.8123
-#RMSE : 1.2857
-#MAPE : 31.82%
+#MAE  : 0.8288
+#RMSE : 1.3258
+#MAPE : 32.03%
+#Peak MAE : 1.2385
+#Peak Time Error : 5.60 h
 
 
 #%% 🚀Final Training (전체 데이터 학습)

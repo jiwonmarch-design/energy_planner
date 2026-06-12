@@ -2084,7 +2084,7 @@ for k, v in study.best_params.items():
         f"{k:20s} : {v}"
     )
 
-#%% 🚀Best Params 저장
+#%% 💾Best Params 저장
 # ============================================================
 # 이후 Optuna를 다시 돌리지 않고
 # 최적 파라미터를 재사용하기 위함
@@ -2106,7 +2106,7 @@ with open(
 print("\nBest Parameters 저장 완료")
 print("파일명 : best_xgb_reduced_params.json")    
 
-#%% 🔥Best Params 불러오기
+#%% 💾Best Params 불러오기
 
 import json
 
