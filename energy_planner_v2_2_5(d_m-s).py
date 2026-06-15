@@ -1162,30 +1162,38 @@ print(
 #   100
 #
 # 결과:
-# Best MAE = 0.73959
+# Best MAE = 0.74495
 #
 # Best Parameters
-# n_estimators      = 506
-# learning_rate     = 0.010775
+# n_estimators      = 587
+# learning_rate     = 0.06296
 # max_depth         = 10
-# min_child_weight  = 10
-# subsample         = 0.7278
-# colsample_bytree  = 0.9074
-# gamma             = 0.9758
-# reg_alpha         = 0.07553
-# reg_lambda        = 0.000826
+# min_child_weight  = 8
+# subsample         = 0.6805
+# colsample_bytree  = 0.8836
+# gamma             = 0.000333
+# reg_alpha         = 0.00562
+# reg_lambda        = 0.0000741
 #
 # 해석:
-# - H1 전용 Optuna보다 우수한 결과 달성
-# - Direct Multi-Step 환경에 더욱 적합한
-#   파라미터 조합으로 판단
-# - 강한 규제(gamma, min_child_weight)와
-#   낮은 learning_rate 조합이 선택됨
-# - 향후 Validation 및 Test 단계에서
-#   최종 성능 검증 예정
+# - Direct Multi-Step Forecast 환경에서
+#   H1/H6/H12/H24를 동시에 고려한
+#   파라미터 탐색 수행
+# - 비교적 높은 learning_rate(0.063)가
+#   선택되었으며 학습 속도와 성능 간
+#   균형을 추구한 결과로 해석됨
+# - max_depth=10으로 복잡한 패턴 학습을
+#   허용하였으며 min_child_weight=8을 통해
+#   과적합을 일부 억제
+# - gamma와 정규화 계수(reg_alpha,
+#   reg_lambda)가 매우 낮게 선택되어
+#   규제보다는 데이터 적합에 집중하는
+#   방향의 모델이 구성됨
+# - Validation 및 Test 데이터에서
+#   일반화 성능 검증 필요
 #
 # Version:
-# energy_planner_v2_2_3
+# energy_planner_v2_2_5
 # Multi-Horizon Optuna (100 Trials)
 
 
@@ -1407,20 +1415,21 @@ print(
 # Multi-Horizon Optuna Parameter 적용 결과
 # (H1 / H6 / H12 / H24 MAE 최적화)
 # =====================================
-#   fold       MAE      RMSE       MAPE  Peak_MAE  Peak_Time_Error
-#0     1  0.665503  0.906084  31.313499  0.925516         4.813853
-#1     2  0.499116  0.775638  21.826910  0.722888         4.497214
-#2     3  1.305455  1.860255  58.282840  1.420113         8.406886
-#3     4  1.008611  1.357242  42.202153  1.241439         5.402157
-#4     5  0.736479  1.004087  31.168123  0.881605         4.565881
-#5     6  0.662733  0.941530  30.717806  0.744678         3.769968
+#   fold  Train_MAE       MAE      RMSE       MAPE  Peak_MAE  Peak_Time_Error
+#0     1   0.169390  0.688010  0.926493  34.049361  0.882713         4.965368
+#1     2   0.241608  0.526809  0.789430  23.130029  0.723830         4.532033
+#2     3   0.822897  1.322313  1.625101  61.667942  2.059657         7.374022
+#3     4   0.290358  1.014453  1.346384  42.356556  1.246305         5.052388
+#4     5   0.217828  0.738851  1.006635  31.446692  0.821126         4.880721
+#5     6   0.270450  0.680274  0.948862  31.741430  0.715647         3.827476
 
 #===== CV Mean =====
-#MAE                 0.812983
-#RMSE                1.140806
-#MAPE               35.918555
-#Peak_MAE            0.989373
-#Peak_Time_Error     5.242660
+#Train_MAE           0.335422
+#MAE                 0.828452
+#RMSE                1.107151
+#MAPE               37.398668
+#Peak_MAE            1.074880
+#Peak_Time_Error     5.105335
 #dtype: float64
 
 # %%
