@@ -1543,7 +1543,7 @@ print(
 )
 
 
-#%% 📈성능 결과 MAE = 0.7788
+#%% 📈v4_1_4 성능 결과 MAE = 0.7788
 #=== GRU Summary ===
 #   fold valid_month  train_mae       mae      rmse       mape  peak_mae  \
 #0     1     2025-11   0.613681  0.691850  1.015183  33.833829  0.853310   
