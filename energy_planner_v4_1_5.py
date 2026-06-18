@@ -2,7 +2,7 @@
 # 🎉 energy planner project 🎉
 # =====================================
 #
-# energy_planner_v4_1_3.py
+# energy_planner_v4_1_5.py
 # GRU 기반 전력 사용량 예측 모델
 # XGBoost Direct Multi-Step Forecast와 비교하기 위한
 # Deep Learning Multi-Step Forecast 실험 버전
