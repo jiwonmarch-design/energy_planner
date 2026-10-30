@@ -1,0 +1,30 @@
+# Secret environment files
+.env
+.env.*
+!.env.example
+
+# Local environments and installed dependencies
+.venv/
+node_modules/
+
+# Generated output and caches
+dist/
+__pycache__/
+*.py[cod]
+
+# Runtime ML artifacts and user data
+artifacts/
+uploads/
+*.pth
+*.pt
+*.pkl
+*.joblib
+
+# Local database files
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Logs
+*.log
+logs/

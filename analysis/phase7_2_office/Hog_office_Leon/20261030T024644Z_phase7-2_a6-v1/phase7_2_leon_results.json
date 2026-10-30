@@ -1,0 +1,227 @@
+{
+  "phase": "Phase 7-2",
+  "status": "PASS",
+  "building_id": "Hog_office_Leon",
+  "run_id": "20261030T024644Z_phase7-2_a6-v1",
+  "training_invocations": 1,
+  "source": {
+    "cleaned_electricity_csv": "C:\\Users\\aicam\\Desktop\\energy-planner-datasets\\building-data-genome-project-2\\data\\meters\\cleaned\\electricity_cleaned.csv",
+    "cleaned_electricity_sha256": "b6ffc9b4dfcefe5c753594730a08ae822b0d50fec6815abb8f185591e6c630a3",
+    "metadata_csv": "C:\\Users\\aicam\\Desktop\\energy-planner-datasets\\building-data-genome-project-2\\data\\metadata\\metadata.csv",
+    "metadata_sha256": "992d0b29f24f96ad4332bc4dbb534b7bdd7dd2689aad093f94e93068ecddca02",
+    "unit": "hourly interval kWh",
+    "unit_evidence": "BDG2 notebooks/03_EDA-meter-reading.ipynb and Scientific Data 7, 368 (2020)",
+    "source_timezone": "US/Central",
+    "pipeline_timezone": "Etc/GMT+6",
+    "timezone_mode": "fixed standard time; source grid has no DST duplicate/skip"
+  },
+  "precheck": {
+    "local_start": "2017-07-05T00:00:00",
+    "local_end": "2017-12-31T23:00:00",
+    "valid_hours": 4320,
+    "negative_count": 0,
+    "minimum_kwh": 1.9,
+    "maximum_kwh": 17.6,
+    "mean_kwh": 6.440902777777778,
+    "quality": {
+      "status": "PASS",
+      "reason_codes": [
+        "PASS_QUALITY_THRESHOLDS"
+      ],
+      "start_utc": "2017-07-05T06:00:00+00:00",
+      "end_utc": "2018-01-01T05:00:00+00:00",
+      "elapsed_days": 180.0,
+      "expected_hours": 4320,
+      "observed_hours": 4320,
+      "missing_hours": 0,
+      "missing_rate": 0.0,
+      "max_consecutive_missing_hours": 0,
+      "zero_count": 0,
+      "zero_rate": 0.0,
+      "suspicious_outlier_count": 0,
+      "complete_168_windows": 4153,
+      "complete_168_plus_24_pairs": 4129,
+      "latest_168_complete": true
+    },
+    "split": {
+      "train_start": "2017-07-05T06:00:00+00:00",
+      "train_end": "2017-11-02T06:00:00+00:00",
+      "validation_start": "2017-11-02T06:00:00+00:00",
+      "validation_end": "2017-12-02T06:00:00+00:00",
+      "test_start": "2017-12-02T06:00:00+00:00",
+      "test_end": "2018-01-01T06:00:00+00:00",
+      "validation_days": 30,
+      "test_days": 30,
+      "warning_limited_experiment": false
+    },
+    "samples": {
+      "train_dense": 2689,
+      "validation_dense": 697,
+      "validation_nonoverlap": 30,
+      "test_nonoverlap": 30,
+      "minimum_policy": "PASS"
+    }
+  },
+  "training": {
+    "config": {
+      "input_size": 6,
+      "lookback": 168,
+      "output_size": 24,
+      "hidden_size": 64,
+      "num_layers": 2,
+      "dropout": 0.1,
+      "batch_size": 64,
+      "learning_rate": 0.001,
+      "max_epochs": 50,
+      "patience": 7,
+      "min_delta": 0.0001,
+      "gradient_clip": 1.0,
+      "seed": 42,
+      "device": "cpu"
+    },
+    "best_epoch": 12,
+    "stopped_epoch": 19,
+    "early_stopping": true,
+    "input_shape": [
+      2689,
+      168,
+      6
+    ],
+    "output_shape": [
+      2689,
+      24
+    ]
+  },
+  "validation_metrics": {
+    "gru": {
+      "mae": 1.2253272158883368,
+      "rmse": 1.6805252463095803,
+      "wape": 0.18337121648287993,
+      "mape": 0.19367972527188004,
+      "mape_excluded_count": 0,
+      "peak_mae": 1.7804572012087456,
+      "peak_time_error_hours": 3.566666666666667,
+      "prediction_min": 2.3123140200986105,
+      "prediction_max": 11.083832893958938,
+      "prediction_mean": 6.2746505326084225,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    },
+    "last_24h": {
+      "mae": 1.580972225467364,
+      "rmse": 2.3217779268292857,
+      "wape": 0.23659378201227782,
+      "mape": 0.23703479675366496,
+      "mape_excluded_count": 0,
+      "peak_mae": 2.4600000699361164,
+      "peak_time_error_hours": 2.7333333333333334,
+      "prediction_min": 3.2,
+      "prediction_max": 17.6,
+      "prediction_mean": 6.726805555555554,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    },
+    "last_168h": {
+      "mae": 1.665416662096977,
+      "rmse": 2.28002497967367,
+      "wape": 0.2492309607749788,
+      "mape": 0.27014438148516834,
+      "mape_excluded_count": 0,
+      "peak_mae": 2.613333320617676,
+      "peak_time_error_hours": 4.066666666666666,
+      "prediction_min": 2.2,
+      "prediction_max": 17.6,
+      "prediction_mean": 6.4356944444444455,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    }
+  },
+  "selection": {
+    "selected_model": "gru",
+    "best_baseline": "last_24h",
+    "gru_eligible": true,
+    "reason_codes": [
+      "GRU_VALIDATION_PROMOTION_RULES_MET"
+    ],
+    "gru_mae_improvement": 0.2249533570862651
+  },
+  "test_metrics": {
+    "gru": {
+      "mae": 1.4265045151554911,
+      "rmse": 1.8515693308109715,
+      "wape": 0.18834505397626897,
+      "mape": 0.19490849861919035,
+      "mape_excluded_count": 0,
+      "peak_mae": 2.035606554674989,
+      "peak_time_error_hours": 2.7333333333333334,
+      "prediction_min": 2.7815595892331055,
+      "prediction_max": 11.357582220007572,
+      "prediction_mean": 6.627070867240079,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    },
+    "last_24h": {
+      "mae": 1.3794444472259946,
+      "rmse": 2.1031788073832134,
+      "wape": 0.18213159237124782,
+      "mape": 0.1742436430603869,
+      "mape_excluded_count": 0,
+      "peak_mae": 2.093333365122477,
+      "peak_time_error_hours": 3.3666666666666667,
+      "prediction_min": 3.8,
+      "prediction_max": 17.5,
+      "prediction_mean": 7.605277777777778,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    },
+    "last_168h": {
+      "mae": 1.3130555456214483,
+      "rmse": 2.0301477519444235,
+      "wape": 0.17336609522540072,
+      "mape": 0.18110782061615507,
+      "mape_excluded_count": 0,
+      "peak_mae": 2.0633333269755045,
+      "peak_time_error_hours": 3.3,
+      "prediction_min": 3.5,
+      "prediction_max": 17.5,
+      "prediction_mean": 7.708888888888889,
+      "negative_count": 0,
+      "nonfinite_count": 0
+    }
+  },
+  "resources": {
+    "source_precheck_seconds": 4.252358000027016,
+    "pipeline_data_preparation_seconds": 3.191433100029826,
+    "gru_training_seconds": 89.602262099972,
+    "artifact_save_seconds": 0.11060230014845729,
+    "pipeline_total_seconds": 93.01317300018854,
+    "total_experiment_seconds": 97.4893644999247,
+    "working_set_start_bytes": 293552128,
+    "peak_working_set_bytes": 499781632,
+    "peak_working_set_mib": 476.62890625
+  },
+  "reuse": {
+    "gru_candidate_load_success": true,
+    "gru_candidate_load_seconds": 0.01967870001681149,
+    "gru_candidate_prediction_finite": true,
+    "gru_candidate_prediction_negative_count": 0,
+    "selected_inference_seconds": 0.025672500021755695,
+    "selected_model": "gru",
+    "input_shape": [
+      1,
+      168,
+      6
+    ],
+    "output_shape": [
+      1,
+      24
+    ],
+    "prediction_min_kwh": 3.1776978621544267,
+    "prediction_max_kwh": 10.6940611845788,
+    "retrained": false
+  },
+  "artifact_run_dir": "C:\\Users\\aicam\\Desktop\\energy-planner-mini\\artifacts\\phase7_2_office\\Hog_office_Leon\\20261030T024644Z_phase7-2_a6-v1",
+  "report_dir": "C:\\Users\\aicam\\Desktop\\energy-planner-mini\\analysis\\phase7_2_office\\Hog_office_Leon\\20261030T024644Z_phase7-2_a6-v1",
+  "active_model_changed": false,
+  "test_used_for_reselection": false
+}

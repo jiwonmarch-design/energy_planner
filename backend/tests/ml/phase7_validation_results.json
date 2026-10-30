@@ -1,0 +1,80 @@
+{
+  "phase": "Phase 7 통합 구현 1차",
+  "status": "PASS",
+  "executed_at": "2026-10-30",
+  "environment": {
+    "python": "3.12.10",
+    "torch": "2.12.0+cpu",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3",
+    "scikit_learn": "1.9.0",
+    "joblib": "1.5.3",
+    "device": "cpu",
+    "packages_installed": false
+  },
+  "automatic_tests": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0,
+    "elapsed_seconds": 5.452,
+    "cases": [
+      {"id": 1, "name": "89일 완전 데이터 FAIL", "status": "PASS"},
+      {"id": 2, "name": "90일 WARNING 및 60/15/15 분할", "status": "PASS"},
+      {"id": 3, "name": "180일 PASS 및 120/30/30 분할", "status": "PASS"},
+      {"id": 4, "name": "결측으로 최소 표본 미달 시 FAIL", "status": "PASS"},
+      {"id": 5, "name": "분할별 타깃 경계 준수", "status": "PASS"},
+      {"id": 6, "name": "미래 kWh 변경의 과거 피처 비영향", "status": "PASS"},
+      {"id": 7, "name": "Train 전용 스케일러", "status": "PASS"},
+      {"id": 8, "name": "배치 1/N의 [B,168,6]→[B,24] shape", "status": "PASS"},
+      {"id": 9, "name": "건물별 산출물 격리·저장·재로딩·무재학습 추론", "status": "PASS"},
+      {"id": 10, "name": "동일 seed 체크포인트·예측 재현", "status": "PASS"},
+      {"id": 11, "name": "최신 168시간 결측 시 추론 거부", "status": "PASS"},
+      {"id": 12, "name": "Test 재선택 금지·baseline 동률·WAPE 불가 규칙", "status": "PASS"},
+      {"id": 13, "name": "상수 Train 값 scale=1 및 유한 변환", "status": "PASS"},
+      {"id": 14, "name": "음수 GRU 예측 무보정·승격 제외", "status": "PASS"},
+      {"id": 15, "name": "기존 인턴 모델 경로 주입 거부", "status": "PASS"}
+    ]
+  },
+  "policy_results": {
+    "89_days": {"quality": "FAIL", "training_allowed": false},
+    "90_days": {
+      "quality": "WARNING",
+      "training_requires_explicit_approval": true,
+      "split_days": [60, 15, 15],
+      "train_samples": 1249,
+      "validation_dense_samples": 337,
+      "validation_nonoverlap_windows": 15,
+      "test_nonoverlap_windows": 15
+    },
+    "180_days": {
+      "quality": "PASS",
+      "split_days": [120, 30, 30],
+      "validation_nonoverlap_windows": 30,
+      "test_nonoverlap_windows": 30
+    }
+  },
+  "default_cpu_benchmark": {
+    "synthetic_days": 90,
+    "warning_approved": true,
+    "best_epoch": 33,
+    "stopped_epoch": 40,
+    "pipeline_elapsed_seconds": 83.48423669999465,
+    "reuse_inference_seconds": 0.019915799843147397,
+    "peak_working_set_bytes": 465784832,
+    "working_set_increase_bytes": 122978304,
+    "selected_model": "last_168h",
+    "input_shape": [1, 168, 6],
+    "output_shape": [1, 24],
+    "artifact_reload_success": true,
+    "retrained_during_inference": false,
+    "note": "정확한 168시간 주기를 가진 합성 데이터 결과이며 일반화 성능 근거가 아니다."
+  },
+  "scope": {
+    "office_training_executed": false,
+    "bdg2_modified": false,
+    "legacy_model_modified": false,
+    "docs_modified": false,
+    "git_operation_executed": false,
+    "auto_promotion_executed": false
+  }
+}

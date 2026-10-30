@@ -1,0 +1,172 @@
+from __future__ import annotations
+
+import dataclasses
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+
+from backend.app.ml.artifacts import save_run_artifacts
+from backend.app.ml.baselines import LAST_24H
+from backend.app.ml.contracts import DataContractError, EligibilityError, TrainingConfig
+from backend.app.ml.quality import diagnose_quality, validate_and_normalize_frame
+from backend.app.ml.split import make_split_plan
+from backend.app.web.service import TrainingJobManager, analyze_csv, parse_csv_text
+from backend.tests.ml.synthetic import hourly_frame
+
+
+def csv_for(days: int, *, constant: float | None = None) -> str:
+    return hourly_frame(days, constant=constant).to_csv(index=False)
+
+
+class WebServiceCases(unittest.TestCase):
+    def test_quality_api_payload_for_complete_180_days(self):
+        result = analyze_csv(
+            csv_for(180),
+            building_timezone="Asia/Seoul",
+            source_timezone_mode="explicit_offset",
+        )
+        self.assertEqual(result["contract_status"], "PASS")
+        self.assertEqual(result["quality"]["status"], "PASS")
+        self.assertTrue(result["training_eligible"])
+        self.assertTrue(result["prediction_eligible"])
+
+    def test_invalid_csv_reports_contract_error(self):
+        with self.assertRaises(DataContractError):
+            analyze_csv(
+                "time,value\n2025-01-01,1",
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="iana_civil_time",
+            )
+
+    def test_constant_train_is_not_submitted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            with self.assertRaisesRegex(EligibilityError, "FAIL_TRAIN_ZERO_VARIANCE"):
+                manager.submit(
+                    building_id="constant-building",
+                    csv_text=csv_for(180, constant=0.0002),
+                    building_timezone="Asia/Seoul",
+                    source_timezone_mode="explicit_offset",
+                    start_background=False,
+                )
+            self.assertEqual(list(Path(temporary).rglob("*")), [])
+
+    def test_job_lifecycle_uses_separate_pipeline_call(self):
+        calls = []
+
+        def fake_pipeline(*args, **kwargs):
+            calls.append((args, kwargs))
+            run = Path(kwargs["artifact_root"]) / kwargs["building_id"] / kwargs["run_id"]
+            return SimpleNamespace(run_dir=run, selected_model="last_24h")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=fake_pipeline)
+            job = manager.submit(
+                building_id="building-a",
+                csv_text=csv_for(180),
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            self.assertEqual(job.status, "QUEUED")
+            manager._run(job.job_id, warning_approved=False)
+            completed = manager.get(job.job_id)
+            self.assertEqual(completed.status, "COMPLETED")
+            self.assertEqual(completed.selected_model, "last_24h")
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][1]["source_timezone_mode"], "explicit_offset")
+
+    def test_job_public_payload_does_not_expose_csv(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            job = manager.submit(
+                building_id="building-a",
+                csv_text=csv_for(180),
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            self.assertNotIn("csv_text", job.public())
+            self.assertNotIn("building_timezone", job.public())
+
+    def test_warning_period_requires_and_accepts_explicit_approval(self):
+        without = analyze_csv(
+            csv_for(90),
+            building_timezone="Asia/Seoul",
+            source_timezone_mode="explicit_offset",
+        )
+        self.assertFalse(without["training_eligible"])
+        with_approval = analyze_csv(
+            csv_for(90),
+            building_timezone="Asia/Seoul",
+            source_timezone_mode="explicit_offset",
+            warning_approved=True,
+        )
+        self.assertTrue(with_approval["training_eligible"])
+
+    def test_upload_size_guard(self):
+        with self.assertRaisesRegex(DataContractError, "25MB"):
+            parse_csv_text("x" * (25 * 1024 * 1024 + 1))
+
+    def test_completed_baseline_run_is_reused_for_24_hour_prediction(self):
+        validation_metrics = {
+            "gru": {"mae": 2.0},
+            "last_24h": {"mae": 1.0},
+            "last_168h": {"mae": 1.5},
+        }
+
+        def artifact_pipeline(frame, **kwargs):
+            data = validate_and_normalize_frame(
+                frame,
+                kwargs["building_timezone"],
+                source_timezone_mode=kwargs["source_timezone_mode"],
+            )
+            quality = diagnose_quality(data)
+            plan = make_split_plan(data.index, quality.status)
+            run = save_run_artifacts(
+                kwargs["artifact_root"],
+                building_id=kwargs["building_id"],
+                run_id=kwargs["run_id"],
+                model_kind=LAST_24H,
+                building_timezone=kwargs["building_timezone"],
+                training_config=TrainingConfig(),
+                split_manifest=dataclasses.asdict(plan),
+                evaluation_schedule={},
+                quality_report=quality,
+                validation_metrics=validation_metrics,
+                test_metrics={"last_24h": {"mae": 1.1}},
+                selection={"selected_model": LAST_24H},
+                data_hash="synthetic-web-test",
+                source_timezone_mode=kwargs["source_timezone_mode"],
+                source_timezone_metadata=kwargs["source_timezone_metadata"],
+            )
+            return SimpleNamespace(
+                run_dir=run,
+                selected_model=LAST_24H,
+                validation_metrics=validation_metrics,
+                test_metrics={"last_24h": {"mae": 1.1}},
+            )
+
+        csv_text = csv_for(180)
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=artifact_pipeline)
+            job = manager.submit(
+                building_id="building-a",
+                csv_text=csv_text,
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            manager._run(job.job_id, warning_approved=False)
+            result = manager.predict(job.job_id, csv_text)
+            self.assertEqual(result["model_kind"], LAST_24H)
+            self.assertEqual(tuple(result["output_shape"]), (1, 24))
+            self.assertEqual(len(result["predictions_kwh"]), 24)
+            self.assertEqual(len(result["history_kwh"]), 12)
+            self.assertFalse(result["retrained"])
+            self.assertEqual(manager.get(job.job_id).validation_metrics, validation_metrics)
+
+
+if __name__ == "__main__":
+    unittest.main()
