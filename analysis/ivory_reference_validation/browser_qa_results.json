@@ -1,0 +1,137 @@
+{
+  "generatedAt": "2026-11-03T08:53:48.060Z",
+  "results": [
+    {
+      "name": "layout-1440",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44,
+        "bodyBackground": "rgb(248, 247, 243)",
+        "cardBackground": "rgb(255, 255, 255)",
+        "heroHeight": 350,
+        "waveDots": 1056,
+        "offenders": []
+      }
+    },
+    {
+      "name": "layout-390",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44,
+        "bodyBackground": "rgb(248, 247, 243)",
+        "cardBackground": "rgb(255, 255, 255)",
+        "heroHeight": 562,
+        "waveDots": 1056,
+        "offenders": [
+          {
+            "tag": "BUTTON",
+            "id": "",
+            "className": "integrated-step",
+            "left": 349,
+            "right": 472,
+            "width": 123
+          }
+        ]
+      }
+    },
+    {
+      "name": "layout-320",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44,
+        "bodyBackground": "rgb(248, 247, 243)",
+        "cardBackground": "rgb(255, 255, 255)",
+        "heroHeight": 562,
+        "waveDots": 1056,
+        "offenders": [
+          {
+            "tag": "BUTTON",
+            "id": "",
+            "className": "integrated-step",
+            "left": 325,
+            "right": 440,
+            "width": 115
+          },
+          {
+            "tag": "SPAN",
+            "id": "",
+            "className": "",
+            "left": 336,
+            "right": 353,
+            "width": 17
+          }
+        ]
+      }
+    },
+    {
+      "name": "real-quality-api",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace",
+        "status": "PASS",
+        "trainEnabled": true,
+        "fileDeleteVisible": true,
+        "dashboardEmpty": true,
+        "fakeNoticeVisible": false
+      }
+    },
+    {
+      "name": "sticky-navigation",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "activeStep": "dashboard-page",
+        "modelState": "저장된 모델 없음",
+        "trainingStatus": "학습 준비 완료"
+      }
+    },
+    {
+      "name": "file-delete-reset",
+      "status": "PASS",
+      "details": {
+        "fileInfoHidden": true,
+        "analyzeDisabled": true,
+        "qualityHidden": true
+      }
+    },
+    {
+      "name": "forecast-hover-tooltip",
+      "status": "PASS",
+      "details": {
+        "visible": true,
+        "text": "예측 +15시간 · 13.75 kWh"
+      }
+    },
+    {
+      "name": "usage-hover-tooltip",
+      "status": "PASS",
+      "details": {
+        "visible": true,
+        "text": "06–11시 · 30%"
+      }
+    },
+    {
+      "name": "console-errors",
+      "status": "PASS",
+      "details": []
+    }
+  ]
+}

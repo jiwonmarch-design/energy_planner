@@ -269,7 +269,7 @@ function updateNextAction() {
   const homeCta = $("home-primary-cta");
   const homeLabel = $("home-cta-label");
   let homePath = "/workspace";
-  let homeText = "CSV 업로드 시작";
+  let homeText = "전력 분석 시작";
 
   if (completed) {
     homePath = canPredict ? "/dashboard" : "/workspace";
@@ -818,9 +818,36 @@ function drawDailyUsage(values) {
     const x = 24 + index * (barWidth + gap);
     const y = baseline - barHeight;
     const label = item.date.slice(5);
-    return `<g tabindex="0" role="img" aria-label="${item.date} ${fmt(item.kwh, 1)} kWh"><rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="3" fill="#204ed5"><title>${item.date}: ${fmt(item.kwh, 1)} kWh</title></rect><text x="${x + barWidth / 2}" y="216" text-anchor="middle" fill="#526579" font-size="11">${label}</text></g>`;
+    return `<g data-usage-bar="${index}" tabindex="0" role="img" aria-label="${item.date} ${fmt(item.kwh, 1)} kWh"><rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="3" fill="#2855da"><title>${item.date}: ${fmt(item.kwh, 1)} kWh</title></rect><text x="${x + barWidth / 2}" y="216" text-anchor="middle" fill="#66738a" font-size="11">${label}</text></g>`;
   }).join("");
   svg.innerHTML = `<line x1="18" y1="${baseline}" x2="502" y2="${baseline}" stroke="#bac3cc"/>${bars}`;
+  svg.querySelectorAll("[data-usage-bar]").forEach((bar) => {
+    const item = values[Number(bar.dataset.usageBar)];
+    const show = (event) => showUsageTooltip(event, `${item.date} · ${fmt(item.kwh, 1)} kWh`);
+    bar.addEventListener("pointermove", show);
+    bar.addEventListener("focus", show);
+    bar.addEventListener("click", show);
+  });
+  svg.addEventListener("pointerleave", hideUsageTooltip);
+}
+
+function showUsageTooltip(event, text) {
+  const tooltip = $("usage-tooltip");
+  const panel = tooltip?.parentElement;
+  if (!tooltip || !panel) return;
+  const sourceRect = event.currentTarget?.getBoundingClientRect?.() || panel.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
+  const clientX = Number.isFinite(event.clientX) && event.clientX ? event.clientX : sourceRect.left + sourceRect.width / 2;
+  const clientY = Number.isFinite(event.clientY) && event.clientY ? event.clientY : sourceRect.top;
+  tooltip.textContent = text;
+  tooltip.hidden = false;
+  tooltip.style.left = `${Math.max(8, Math.min(panel.clientWidth - tooltip.offsetWidth - 8, clientX - panelRect.left + 10))}px`;
+  tooltip.style.top = `${Math.max(8, clientY - panelRect.top - tooltip.offsetHeight - 10)}px`;
+}
+
+function hideUsageTooltip() {
+  const tooltip = $("usage-tooltip");
+  if (tooltip) tooltip.hidden = true;
 }
 
 function renderPeriodComposition(values) {
@@ -831,8 +858,30 @@ function renderPeriodComposition(values) {
     cursor += item.share * 100;
     return `${colors[index]} ${start}% ${cursor}%`;
   });
-  $("period-donut").style.background = `conic-gradient(${stops.join(",")})`;
-  $("period-donut").setAttribute("aria-label", values.map((item) => `${item.label} ${fmt(item.share * 100, 1)}%`).join(", "));
+  const donut = $("period-donut");
+  donut.style.background = `conic-gradient(${stops.join(",")})`;
+  donut.setAttribute("aria-label", values.map((item) => `${item.label} ${fmt(item.share * 100, 1)}%`).join(", "));
+  donut.tabIndex = 0;
+  const donutItemAtPointer = (event) => {
+    const rect = donut.getBoundingClientRect();
+    const angle = (Math.atan2(event.clientY - (rect.top + rect.height / 2), event.clientX - (rect.left + rect.width / 2)) * 180 / Math.PI + 450) % 360;
+    let cursorShare = 0;
+    return values.find((item) => {
+      cursorShare += item.share * 360;
+      return angle <= cursorShare;
+    }) || values.at(-1);
+  };
+  donut.onpointermove = (event) => {
+    const item = donutItemAtPointer(event);
+    showUsageTooltip(event, `${item.label} · ${fmt(item.share * 100, 1)}%`);
+  };
+  donut.onclick = donut.onpointermove;
+  donut.onfocus = (event) => {
+    const item = values[0];
+    if (item) showUsageTooltip(event, `${item.label} · ${fmt(item.share * 100, 1)}%`);
+  };
+  donut.onpointerleave = hideUsageTooltip;
+  donut.onblur = hideUsageTooltip;
   const fragment = document.createDocumentFragment();
   values.forEach((item, index) => {
     const row = document.createElement("li");
@@ -842,6 +891,11 @@ function renderPeriodComposition(values) {
     swatch.style.background = colors[index];
     label.textContent = item.label;
     value.textContent = `${fmt(item.share * 100, 1)}%`;
+    row.tabIndex = 0;
+    row.addEventListener("pointerenter", (event) => showUsageTooltip(event, `${item.label} · ${value.textContent}`));
+    row.addEventListener("focus", (event) => showUsageTooltip(event, `${item.label} · ${value.textContent}`));
+    row.addEventListener("pointerleave", hideUsageTooltip);
+    row.addEventListener("blur", hideUsageTooltip);
     row.append(swatch, label, value);
     fragment.append(row);
   });
@@ -878,7 +932,7 @@ async function runPrediction(source) {
   if (source === "workspace") $("workspace-prediction-summary").textContent = "저장된 모델로 24시간 예측을 생성하고 있습니다.";
   try {
     const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
-    drawPredictionChart(result.history_kwh, result.predictions_kwh);
+    drawPredictionChart(result.history_kwh, result.predictions_kwh, result.timestamps);
     $("total-forecast").innerHTML = `${fmt(result.total_kwh)} <small>kWh</small>`;
     $("average-forecast").textContent = `${fmt(result.average_kwh, 2)} kWh`;
     $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh`;
@@ -958,7 +1012,7 @@ async function loadCapabilities() {
   updateNextAction();
 }
 
-function drawPredictionChart(history, forecast) {
+function drawPredictionChart(history, forecast, timestamps = []) {
   const svg = $("forecast-chart");
   const tooltip = $("forecast-tooltip");
   const all = [...history, ...forecast];
@@ -985,7 +1039,7 @@ function drawPredictionChart(history, forecast) {
     const [cx, cy] = pointCoordinates(value, index + history.length);
     return `<circle cx="${cx}" cy="${cy}" r="4" fill="#204ed5" tabindex="0"><title>+${index + 1}시간: ${fmt(value, 2)} kWh</title></circle>`;
   }).join("");
-  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#204ed5" stroke-width="4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>${forecastDots}<text x="${padding}" y="240" fill="#69756e" font-size="11">24시간 전</text><text x="310" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
+  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#2855da" stroke-width="4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>${forecastDots}<line id="forecast-hover-guide" x1="0" x2="0" y1="${padding}" y2="${height - padding}" stroke="#2855da" stroke-width="1.5" stroke-dasharray="5 5" visibility="hidden"/><circle id="forecast-hover-point" cx="0" cy="0" r="6" fill="#fff" stroke="#2855da" stroke-width="3" visibility="hidden"/><text x="${padding}" y="240" fill="#69756e" font-size="11">24시간 전</text><text x="310" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
   svg.setAttribute("aria-label", `과거 24시간 실측과 향후 24시간 예측 그래프. 예측 최저 ${fmt(min, 1)} kWh, 최고 ${fmt(max, 1)} kWh`);
   const showTooltip = (event) => {
     if (!tooltip) return;
@@ -995,8 +1049,24 @@ function drawPredictionChart(history, forecast) {
     const index = Math.max(0, Math.min(all.length - 1, Math.round(((chartX - padding) / (width - 2 * padding)) * (all.length - 1))));
     const isForecast = index >= history.length;
     const relativeIndex = isForecast ? index - history.length + 1 : history.length - index;
-    tooltip.textContent = `${isForecast ? `예측 +${relativeIndex}시간` : `과거 ${relativeIndex}시간 전`} · ${fmt(all[index], 2)} kWh`;
+    let timeLabel = isForecast ? `예측 +${relativeIndex}시간` : `과거 ${relativeIndex}시간 전`;
+    if (timestamps.length && timestamps[0]) {
+      const timestamp = isForecast
+        ? timestamps[index - history.length]
+        : new Date(new Date(timestamps[0]).getTime() - relativeIndex * 3_600_000).toISOString();
+      timeLabel = displayTime(timestamp);
+    }
+    tooltip.textContent = `${timeLabel} · ${fmt(all[index], 2)} kWh`;
     tooltip.hidden = false;
+    const [pointX, pointY] = pointCoordinates(all[index], index);
+    const guide = $("forecast-hover-guide");
+    const activePoint = $("forecast-hover-point");
+    guide.setAttribute("x1", pointX);
+    guide.setAttribute("x2", pointX);
+    guide.setAttribute("visibility", "visible");
+    activePoint.setAttribute("cx", pointX);
+    activePoint.setAttribute("cy", pointY);
+    activePoint.setAttribute("visibility", "visible");
     const wrap = tooltip.parentElement;
     const localX = event.clientX - wrap.getBoundingClientRect().left;
     tooltip.style.left = `${Math.max(8, Math.min(wrap.clientWidth - tooltip.offsetWidth - 8, localX + 10))}px`;
@@ -1004,7 +1074,11 @@ function drawPredictionChart(history, forecast) {
   };
   svg.onpointermove = showTooltip;
   svg.onclick = showTooltip;
-  svg.onpointerleave = () => { if (tooltip) tooltip.hidden = true; };
+  svg.onpointerleave = () => {
+    if (tooltip) tooltip.hidden = true;
+    $("forecast-hover-guide")?.setAttribute("visibility", "hidden");
+    $("forecast-hover-point")?.setAttribute("visibility", "hidden");
+  };
 }
 
 function drawEmptyChart() {
@@ -1174,32 +1248,17 @@ function initLandingReference() {
   legend.addEventListener("pointerleave", () => { activePeriod = -1; drawLandingDonut(); });
   drawLandingDonut();
 
-  const dots = [];
-  for (let row = 0; row < 34; row += 1) {
-    for (let column = 0; column < 49; column += 1) dots.push({ x: column * 19 + 6, y: row * 15 });
+  let waveMarkup = "";
+  for (let column = 0; column < 44; column += 1) {
+    for (let row = 0; row < 24; row += 1) {
+      const x = column * 11.5;
+      const y = row * 13 + 5 + Math.sin(column * 0.2 + row * 0.13) * 12 + Math.cos(column * 0.15) * 12;
+      const radius = 0.5 + 1.65 * (0.5 + 0.5 * Math.sin(column * 0.28 + row * 0.36)) + Math.exp(-Math.pow(y - 150, 2) / 6500);
+      const opacity = 0.27 + 0.62 * column / 44;
+      waveMarkup += `<circle cx="${x}" cy="${y.toFixed(2)}" r="${radius.toFixed(2)}" fill="#5279ed" opacity="${opacity.toFixed(2)}"/>`;
+    }
   }
-  let pointer = { x: 720, y: 220 };
-  let animationFrame = 0;
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const drawLandingWave = () => {
-    wave.innerHTML = dots.map((dot) => {
-      const ridge = Math.sin(dot.x * 0.017 + dot.y * 0.024) * 34 + Math.sin(dot.x * 0.009 - dot.y * 0.029) * 24;
-      const distance = Math.hypot(dot.x - pointer.x, dot.y - pointer.y);
-      const influence = reducedMotion ? 0 : Math.max(0, 1 - distance / 190);
-      const y = dot.y + ridge * 0.56 + influence * Math.sin(distance * 0.05) * 19;
-      const fade = Math.max(0, Math.min(1, (dot.x - 290) / 390));
-      const radius = (0.6 + Math.abs(Math.sin((dot.x + dot.y) * 0.016)) * 2.2 + influence * 1.8) * fade;
-      return radius > 0.18 ? `<circle cx="${dot.x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(2)}" fill="#2150d9" opacity="${(0.12 + fade * 0.42 + influence * 0.2).toFixed(2)}"/>` : "";
-    }).join("");
-  };
-  if (!reducedMotion) {
-    hero.addEventListener("pointermove", (event) => {
-      const rect = hero.getBoundingClientRect();
-      pointer = { x: ((event.clientX - rect.left) / rect.width) * 900, y: ((event.clientY - rect.top) / rect.height) * 480 };
-      if (!animationFrame) animationFrame = requestAnimationFrame(() => { animationFrame = 0; drawLandingWave(); });
-    });
-  }
-  drawLandingWave();
+  wave.innerHTML = waveMarkup;
 }
 
 drawEmptyChart();

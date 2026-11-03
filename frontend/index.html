@@ -28,17 +28,17 @@
   <main id="top">
     <section id="home-page" class="page-view home-page landing-reference" data-page="/">
       <section id="landing-home" class="landing-hero" aria-labelledby="hero-title">
-        <svg id="landing-wave" class="landing-wave" width="900" height="480" viewBox="0 0 900 480" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+        <svg id="landing-wave" class="landing-wave" width="500" height="310" viewBox="0 0 500 310" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
         <div class="landing-hero-body">
           <p class="landing-eyebrow">ELECTRICITY INTELLIGENCE / XGBOOST</p>
           <h1 id="hero-title">전력 사용량을<br>미리 예측하고,<br><span>더 나은 결정을.</span></h1>
-          <p>건물의 시간별 전력 사용량 CSV를 업로드하면 데이터 품질을 진단하고, XGBoost로 향후 24시간을 예측합니다.</p>
+          <p>시간별 전력 데이터를 업로드하면 품질을 진단하고, XGBoost로 향후 24시간 사용량을 예측합니다.</p>
           <div class="landing-button-row">
-            <a id="home-primary-cta" class="landing-button primary" href="/workspace" data-route-link><span id="home-cta-label">분석 시작하기</span><span aria-hidden="true">↗</span></a>
-            <a class="landing-button secondary" href="/dashboard" data-route-link>예측 대시보드 열기 <span aria-hidden="true">→</span></a>
+            <a id="home-primary-cta" class="landing-button primary" href="/workspace" data-route-link><span id="home-cta-label">전력 분석 시작</span><span aria-hidden="true">↗</span></a>
+            <a class="landing-button secondary" href="/dashboard" data-route-link>결과 화면 보기 <span aria-hidden="true">↓</span></a>
           </div>
         </div>
-        <p class="landing-wave-hint">MOVE THE POINTER · INTERACTIVE WAVE</p>
+        <p class="landing-wave-hint" hidden>Wave Halftone</p>
       </section>
 
       <section class="landing-section" aria-labelledby="landing-workflow-title">
@@ -93,7 +93,7 @@
       <div class="integrated-container integrated-steps-inner">
         <button class="integrated-step is-active" type="button" data-integrated-target="data-workspace"><span>01</span>CSV 업로드</button>
         <button class="integrated-step" type="button" data-integrated-target="quality-panel"><span>02</span>품질 진단</button>
-        <button class="integrated-step" type="button" data-integrated-target="training-panel"><span>03</span>XGBoost 학습</button>
+        <button class="integrated-step" type="button" data-integrated-target="training-panel"><span>03</span>모델 학습</button>
         <button class="integrated-step" type="button" data-integrated-target="dashboard-page"><span>04</span>예측 대시보드</button>
       </div>
     </nav>
@@ -166,6 +166,8 @@
       <section class="workflow-panel step-column" data-step-panel="1" tabindex="-1">
         <p class="step-label">1단계 · 데이터 업로드</p>
         <h2 id="upload-title">건물 전력 사용량 CSV 업로드</h2>
+        <div class="ivory-upload-grid">
+        <div class="ivory-upload-card">
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="CSV 파일 선택">
           <input id="csv-file" name="csv_file" type="file" accept=".csv,text/csv" autocomplete="off" hidden>
           <div class="drop-icon">↥</div>
@@ -185,19 +187,23 @@
             <button id="clear-file" class="button text-button" type="button">선택 취소</button>
           </div>
         </div>
+        <button id="analyze" class="button primary ivory-analyze" type="button" disabled>데이터 품질 진단하기</button>
+        </div>
 
+        <div class="ivory-help-card">
         <p class="csv-contract-note"><code>timestamp</code>는 1시간 구간의 시작 시각, <code>kwh</code>는 해당 시간의 소비 에너지량입니다. 누적 검침값이나 순간 전력(kW)은 지원하지 않습니다. 180일 이상을 권장합니다.</p>
         <div class="form-grid single-field">
           <label for="timezone">건물의 시간대 <small id="timezone-help">도시명 또는 IANA 식별자로 검색하세요. 서버 검증을 최종 기준으로 사용합니다.</small><input id="timezone" name="building_timezone" value="Asia/Seoul" placeholder="예: 서울 또는 Asia/Seoul" list="timezone-options" aria-describedby="timezone-help" aria-autocomplete="list" autocomplete="off" required><datalist id="timezone-options"><option value="Asia/Seoul" label="서울 · 대한민국"></option><option value="Asia/Tokyo" label="도쿄 · 일본"></option><option value="America/New_York" label="뉴욕 · 미국"></option><option value="America/Chicago" label="시카고 · 미국"></option><option value="America/Los_Angeles" label="로스앤젤레스 · 미국"></option><option value="Europe/London" label="런던 · 영국"></option><option value="Europe/Paris" label="파리 · 프랑스"></option><option value="Australia/Sydney" label="시드니 · 호주"></option><option value="UTC" label="협정 세계시"></option></datalist></label>
         </div>
         <p class="auto-setting-note">건물 ID는 서버가 자동 생성합니다. timestamp의 UTC 오프셋은 자동 인식하며, 오프셋이 없으면 선택한 건물 시간대를 적용합니다.</p>
+        </div>
+        </div>
       </section>
 
       <section id="quality-panel" class="workflow-panel result-column" data-step-panel="2" tabindex="-1" aria-live="polite" hidden>
         <p class="step-label">2단계 · 데이터 품질 진단</p>
         <div class="step-action-bar">
           <div><h2>데이터 품질과 시간순 분할 확인</h2><p>CSV 규격, 누락·연속성, Train/Validation/Test 구간을 확인합니다.</p></div>
-          <button id="analyze" class="button primary" type="button" disabled>데이터 품질 진단하기</button>
         </div>
         <label id="warning-approval" class="approval" for="warning-approved" hidden><input id="warning-approved" name="warning_approved" type="checkbox"> 데이터 기간이 90~179일로 짧아 예측 성능이 불안정할 수 있음을 이해하고 실험적 학습에 동의합니다.</label>
         <div id="empty-state" class="empty-state" data-panel-state="empty"><span id="quality-empty-title">CSV를 먼저 선택해 주세요.</span><p id="quality-empty-copy">파일을 선택하면 품질 진단 준비 상태를 확인할 수 있습니다.</p><dl id="quality-preview" class="quality-preview" hidden><dt>선택한 파일</dt><dd id="quality-preview-file">확인 전</dd><dt>관측 기간</dt><dd>진단 전</dd><dt>누락·연속성</dt><dd>진단 전</dd><dt>학습 가능 여부</dt><dd>진단 전</dd></dl></div>
@@ -275,6 +281,7 @@
             <section><h4>최근 7일 시간대별 구성비</h4><div class="period-composition"><div id="period-donut" class="period-donut" role="img" aria-label="시간대별 사용량 구성비"></div><ul id="period-composition-list"></ul></div></section>
           </div>
           <div class="monthly-usage"><h4>최근 월별 사용량</h4><div id="monthly-usage-list" class="monthly-usage-list"></div></div>
+          <div id="usage-tooltip" class="integrated-tooltip" role="status" hidden></div>
         </article>
         <article class="panel ai-analysis-panel" aria-labelledby="ai-analysis-title">
           <div class="panel-head">

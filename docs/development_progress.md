@@ -125,3 +125,16 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 합성 180일 CSV의 실제 품질 API PASS 및 파일 삭제 후 상태 무효화 PASS; 신규 모델 학습은 실행하지 않음
 - 전체 Python 회귀 48/48 PASS, JavaScript 문법 검사 PASS
 - 검증 결과와 스크린샷: `analysis/integrated_ui_validation/`
+
+## 2026-11-03 아이보리 확정 HTML 디자인 적용
+
+- `energy_planner_ivory_reference.html`을 최종 디자인 기준으로 적용
+- 전체 배경 `#F8F7F3`, 카드 `#FFFFFF`, 강조색 `#2855DA`, 텍스트·경계 토큰을 시안과 일치시킴
+- 데스크톱 Hero 높이 350px, 44×24 Wave Halftone 점 1,056개와 시안의 배치·크기 적용
+- 업로드 영역을 파일 선택 카드와 시간대·CSV 도움말 카드의 2열 구조로 재배치
+- 품질 진단·XGBoost 학습·예측 대시보드는 실제 API 상태와 빈 상태만 표시하며 가상 KPI는 노출하지 않음
+- 실제 예측 선 그래프에 세로 가이드선·시각·kWh 툴팁, 최근 사용량 막대·도넛에 포인터·키보드 툴팁 추가
+- 새 CSV 선택·삭제 시 기존 품질·학습·예측 상태 무효화 로직과 기존 API 계약 유지
+- 실제 Headless Chrome 1440px·390px·320px 검증 9/9 PASS, 콘솔 오류 0, 수평 페이지 오버플로 없음
+- 전체 Python 회귀 48/48 PASS, JavaScript 문법 검사 PASS
+- 검증 결과와 스크린샷: `analysis/ivory_reference_validation/`
