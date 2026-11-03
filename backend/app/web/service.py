@@ -157,6 +157,12 @@ class TrainingJobManager:
             source_timezone_mode=source_timezone_mode,
         )
         with self._lock:
+            if any(
+                existing.building_id == building_id
+                and existing.status in {"QUEUED", "RUNNING"}
+                for existing in self._jobs.values()
+            ):
+                raise EligibilityError("같은 건물의 학습 작업이 이미 진행 중입니다.")
             self._jobs[job_id] = job
         if start_background:
             threading.Thread(

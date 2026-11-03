@@ -1,0 +1,83 @@
+{
+  "phase": "Phase 8 user validation",
+  "status": "PASS",
+  "health": {
+    "status_code": 200,
+    "payload": {
+      "status": "ok",
+      "service": "energy-planner-local"
+    }
+  },
+  "static": {
+    "page_status": 200,
+    "css_status": 200,
+    "js_status": 200,
+    "mobile_media_query_present": true,
+    "browser_visual_validation": false,
+    "screenshot_created": false
+  },
+  "quality": {
+    "pass": {
+      "status_code": 200,
+      "quality_status": "PASS",
+      "training_eligible": true
+    },
+    "warning": {
+      "status_code": 200,
+      "quality_status": "WARNING",
+      "training_eligible": false
+    },
+    "warning_approved": {
+      "status_code": 200,
+      "training_eligible": true
+    },
+    "duration_fail": {
+      "status_code": 200,
+      "quality_status": "FAIL",
+      "reason_codes": [
+        "FAIL_LESS_THAN_90_DAYS"
+      ],
+      "training_eligible": false,
+      "blockers": [
+        "data is not eligible for a temporal split"
+      ]
+    },
+    "fail": {
+      "status_code": 200,
+      "quality_status": "WARNING",
+      "blockers": [
+        "FAIL_TRAIN_ZERO_VARIANCE"
+      ]
+    },
+    "contract_error": {
+      "status_code": 400,
+      "error_type": "DataContractError",
+      "error": "missing required columns: ['kwh', 'timestamp']"
+    }
+  },
+  "job": {
+    "job_id": "faef3cee62724ad08b0fae38f924bdee",
+    "submission_status_code": 202,
+    "observed_statuses": [
+      "RUNNING",
+      "COMPLETED"
+    ],
+    "final_status": "COMPLETED",
+    "selected_model": "last_168h",
+    "validation_metrics_available": true,
+    "run_dir": "C:\\Users\\aicam\\Desktop\\energy-planner-mini\\artifacts\\web_jobs\\synthetic-phase8\\20261030T060315Z_faef3cee"
+  },
+  "prediction": {
+    "status_code": 200,
+    "model_kind": "last_168h",
+    "output_shape": [
+      1,
+      24
+    ],
+    "prediction_count": 24,
+    "total_kwh": 506.57085553518675,
+    "peak_kwh": 26.0,
+    "peak_timestamp": "2025-06-30T06:00:00+00:00",
+    "retrained": false
+  }
+}

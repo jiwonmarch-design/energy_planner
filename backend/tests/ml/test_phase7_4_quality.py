@@ -19,6 +19,7 @@ from backend.app.ml.contracts import (
     SourceTimezoneMode,
     TrainingConfig,
 )
+from backend.app.ml.features import build_features
 from backend.app.ml.model import GRUForecaster
 from backend.app.ml.quality import (
     diagnose_quality,
@@ -154,9 +155,31 @@ class Phase74QualityCases(unittest.TestCase):
                 source_timezone_metadata="US/Central",
             )
             manifest = load_manifest(run, expected_building_id="bdg2-building")
+            self.assertEqual(manifest["schema_version"], "phase8.1-v1")
             self.assertEqual(manifest["source_timezone_mode"], "bdg2_naive_local_grid_fixed_standard")
             self.assertEqual(manifest["source_timezone_metadata"], "US/Central")
+            self.assertEqual(manifest["feature_timezone"], "Etc/GMT+6")
+            self.assertEqual(manifest["building_timezone"], "Etc/GMT+6")
             self.assertFalse(manifest["dst_applied"])
+
+            # Simulate an immutable pre-feature_timezone manifest. Loading must
+            # supply the compatibility value without changing the file or the
+            # feature calculation.
+            manifest_path = run / "manifest.json"
+            legacy_on_disk = json.loads(manifest_path.read_text(encoding="utf-8"))
+            legacy_on_disk.pop("feature_timezone")
+            legacy_on_disk["schema_version"] = "phase7.4-v1"
+            manifest_path.write_text(
+                json.dumps(legacy_on_disk, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            before_load = manifest_path.read_bytes()
+            legacy_loaded = load_manifest(run, expected_building_id="bdg2-building")
+            self.assertEqual(legacy_loaded["feature_timezone"], "Etc/GMT+6")
+            self.assertEqual(manifest_path.read_bytes(), before_load)
+            pd.testing.assert_frame_equal(
+                build_features(data, manifest["feature_timezone"]),
+                build_features(data, legacy_loaded["feature_timezone"]),
+            )
 
 
 if __name__ == "__main__":

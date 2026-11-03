@@ -46,7 +46,7 @@ def predict_from_run(
         _, config, state_dict, scalers = load_gru_artifacts(
             run_dir, expected_building_id=building_id
         )
-        features = build_features(normalized_data.loc[latest], manifest["building_timezone"])
+        features = build_features(normalized_data.loc[latest], manifest["feature_timezone"])
         x = features.to_numpy(dtype=np.float32)[None, :, :]
         scaled = scalers.transform_x(x)
         model = GRUForecaster(config)

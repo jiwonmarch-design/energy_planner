@@ -109,11 +109,12 @@ def save_run_artifacts(
         files = sorted(path for path in run_dir.iterdir() if path.name != "manifest.json")
         hashes = {path.name: _sha256(path) for path in files}
         manifest = {
-            "schema_version": "phase7.4-v1",
+            "schema_version": "phase8.1-v1",
             "building_id": building_id,
             "run_id": run_id,
             "model_kind": model_kind,
             "building_timezone": building_timezone,
+            "feature_timezone": building_timezone,
             "source_timezone_mode": SourceTimezoneMode(source_timezone_mode).value,
             "source_timezone_metadata": source_timezone_metadata or building_timezone,
             "dst_applied": SourceTimezoneMode(source_timezone_mode)
@@ -164,6 +165,18 @@ def load_manifest(run_dir: str | Path, *, expected_building_id: str | None = Non
         path = run_dir / name
         if not path.is_file() or _sha256(path) != expected_hash:
             raise ArtifactError(f"artifact hash mismatch: {name}")
+    feature_timezone = manifest.get("feature_timezone", manifest.get("building_timezone"))
+    if not isinstance(feature_timezone, str) or not feature_timezone:
+        raise ArtifactError("artifact feature timezone is missing")
+    if (
+        "feature_timezone" in manifest
+        and manifest.get("building_timezone") is not None
+        and manifest["feature_timezone"] != manifest["building_timezone"]
+    ):
+        raise ArtifactError("artifact feature timezone aliases disagree")
+    # Backward compatibility is in-memory only; never rewrite an immutable run.
+    manifest["feature_timezone"] = feature_timezone
+    manifest.setdefault("building_timezone", feature_timezone)
     return manifest
 
 

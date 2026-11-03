@@ -1,0 +1,196 @@
+{
+  "pass": 19,
+  "fail": 0,
+  "results": [
+    {
+      "id": "T01",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace",
+        "dropVisible": true,
+        "cardHidden": true,
+        "analyzeDisabled": true,
+        "qualityTitle": "CSV를 먼저 선택해 주세요.",
+        "overflow": false
+      }
+    },
+    {
+      "id": "T02",
+      "status": "PASS",
+      "details": {
+        "dropHidden": true,
+        "cardVisible": true,
+        "fileName": "energy_planner_test_office_2026-04_to_2026-10.csv",
+        "changeLabel": "파일 변경",
+        "clearLabel": "선택 취소",
+        "analyzeEnabled": true,
+        "panelState": "selected"
+      }
+    },
+    {
+      "id": "T03",
+      "status": "PASS",
+      "details": {
+        "fileName": "qa_replacement.csv",
+        "error": "",
+        "qualityVisible": false
+      }
+    },
+    {
+      "id": "T04",
+      "status": "PASS",
+      "details": {
+        "dropVisible": true,
+        "cardHidden": true,
+        "inputValue": "",
+        "analyzeDisabled": true,
+        "qualityTitle": "CSV를 먼저 선택해 주세요."
+      }
+    },
+    {
+      "id": "T06",
+      "status": "PASS",
+      "details": {
+        "formError": "품질 진단을 완료하지 못했습니다: CSV에 UTC 오프셋이 포함되어 있지 않습니다. ‘시간대 정보가 없는 현지 시각’을 선택하고 다시 진단해 주세요.",
+        "fieldError": "CSV에 UTC 오프셋이 포함되어 있지 않습니다. ‘시간대 정보가 없는 현지 시각’을 선택하고 다시 진단해 주세요.",
+        "fieldInvalid": "true",
+        "focused": "timezone-mode"
+      }
+    },
+    {
+      "id": "T05",
+      "status": "PASS",
+      "details": {
+        "status": "PASS",
+        "fieldErrorHidden": true,
+        "fileState": "품질 진단 완료 · 서버 저장 모델과는 별도 상태",
+        "trainDisabled": false
+      }
+    },
+    {
+      "id": "T07",
+      "status": "PASS",
+      "details": {
+        "status": "PASS",
+        "fieldErrorHidden": true,
+        "fileState": "품질 진단 완료 · 서버 저장 모델과는 별도 상태",
+        "trainDisabled": false
+      }
+    },
+    {
+      "id": "T09-WARNING",
+      "status": "PASS",
+      "details": {
+        "status": "WARNING",
+        "approvalVisible": true,
+        "trainDisabled": true,
+        "eligibility": "학습은 가능하지만 제한 실험 동의와 재진단이 필요합니다."
+      }
+    },
+    {
+      "id": "T09-FAIL",
+      "status": "PASS",
+      "details": {
+        "status": "FAIL",
+        "approvalHidden": true,
+        "trainDisabled": true,
+        "eligibility": "현재 데이터로는 모델을 학습할 수 없습니다."
+      }
+    },
+    {
+      "id": "T08",
+      "status": "PASS",
+      "details": {
+        "cardHidden": true,
+        "qualityHidden": true,
+        "analyzeDisabled": true,
+        "title": "CSV를 먼저 선택해 주세요."
+      }
+    },
+    {
+      "id": "T12",
+      "status": "PASS",
+      "details": {
+        "fetchCount": 0,
+        "viewedStep": "step",
+        "guidance": "먼저 데이터 품질을 진단하세요"
+      }
+    },
+    {
+      "id": "T14",
+      "status": "PASS",
+      "details": {
+        "buildingLabel": 1,
+        "timezoneLabel": 1,
+        "modeLabel": 1,
+        "fileAria": "CSV 파일 선택",
+        "livePanel": "polite"
+      }
+    },
+    {
+      "id": "T13-390",
+      "status": "PASS",
+      "details": {
+        "overflow": false,
+        "fileCardWidth": 308,
+        "viewport": 390,
+        "minButton": 44
+      }
+    },
+    {
+      "id": "T13-320",
+      "status": "PASS",
+      "details": {
+        "overflow": false,
+        "fileCardWidth": 242,
+        "viewport": 320,
+        "minButton": 44
+      }
+    },
+    {
+      "id": "T10-/",
+      "status": "PASS",
+      "details": {
+        "path": "/",
+        "current": "/",
+        "overflow": false
+      }
+    },
+    {
+      "id": "T10-/workspace",
+      "status": "PASS",
+      "details": {
+        "path": "/workspace",
+        "current": "/workspace",
+        "overflow": false
+      }
+    },
+    {
+      "id": "T10-/dashboard",
+      "status": "PASS",
+      "details": {
+        "path": "/dashboard",
+        "current": "/dashboard",
+        "overflow": false
+      }
+    },
+    {
+      "id": "T10-history-refresh",
+      "status": "PASS",
+      "details": {
+        "path": "/workspace",
+        "current": "/workspace"
+      }
+    },
+    {
+      "id": "T11",
+      "status": "PASS",
+      "details": {
+        "emptyActionVisible": true,
+        "returnHidden": true,
+        "predictionHidden": true,
+        "total": "—"
+      }
+    }
+  ]
+}

@@ -796,7 +796,7 @@ CPU thread 수는 배포 환경 성능에 영향을 주므로 이번 문서에�
 | 10 | 동일 입력·환경·seed로 두 번 학습 | 동일 split·평가 일정·checkpoint epoch와 허용 오차 내 예측 |
 | 11 | 최신 168시간 중 한 시각 누락 | 저장 모델이 있어도 추론 거부 |
 | 12 | Test 지표가 Validation 순위와 다름 | 모델 재선택 금지, Test 결과만 보고 |
-| 13 | Train kWh가 상수 | scale 1.0, 경고 기록, NaN·Inf 없음 |
+| 13 | Train kWh가 상수 | `FAIL_TRAIN_ZERO_VARIANCE`로 학습 전 차단 |
 | 14 | GRU에 음수 예측 존재 | 자동 clipping 금지, 승격 후보 제외 |
 | 15 | 기존 인턴 model path 주입 | 신규 run 로딩 정책에서 거부 |
 
@@ -967,7 +967,7 @@ PM 승인 후 다음 작업을 한 묶음으로 진행하는 것을 제안합니
 | `explicit_offset` | ISO 8601 offset 포함 CSV | 각 timestamp의 offset을 기준으로 UTC 변환 |
 | `bdg2_naive_local_grid_fixed_standard` | BDG2 전용 | DST 중복·누락 없는 원본 격자를 `Etc/GMT±N` 고정 offset으로 보존 |
 
-BDG2 모드는 offset-naive 입력과 고정 offset feature timezone만 허용합니다. 일반 IANA 처리와 같은 함수 호출에서 암묵적으로 전환하지 않습니다. manifest에는 원본 메타데이터 timezone과 실제 feature timezone을 함께 기록합니다.
+BDG2 모드는 offset-naive 입력과 고정 offset feature timezone만 허용합니다. 일반 IANA 처리와 같은 함수 호출에서 암묵적으로 전환하지 않습니다. 신규 manifest에는 원본 시간대인 `source_timezone_metadata`와 피처 계산 시간대인 `feature_timezone`을 구분해 기록합니다. 기존 `building_timezone`은 `feature_timezone`의 호환 별칭으로 유지하며, 과거 run에 새 필드가 없으면 loader가 메모리상 `building_timezone`으로 fallback하고 원본 manifest는 수정하지 않습니다.
 
 ### 17.2 Train 0분산 차단
 

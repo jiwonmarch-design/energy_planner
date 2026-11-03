@@ -1,16 +1,715 @@
-const state={csvText:"",fileName:"",analysis:null,job:null,poll:null};
-const $=id=>document.getElementById(id);
-const fileInput=$("csv-file"),drop=$("drop-zone"),error=$("form-error");
-function fmt(n,d=1){return Number(n).toLocaleString("ko-KR",{maximumFractionDigits:d})}
-async function readFile(file){error.textContent="";if(!file||!file.name.toLowerCase().endsWith(".csv"))throw new Error("CSV 파일만 선택할 수 있습니다.");if(file.size>25*1024*1024)throw new Error("CSV는 25MB 이하여야 합니다.");state.csvText=await file.text();state.fileName=file.name;$("file-info").hidden=false;$("file-info").textContent=`${file.name} · ${fmt(file.size/1024)}KB`;$("analyze").disabled=false;}
-$("choose-file").onclick=e=>{e.stopPropagation();fileInput.click()};drop.onclick=()=>fileInput.click();drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" ")fileInput.click()};fileInput.onchange=()=>readFile(fileInput.files[0]).catch(e=>error.textContent=e.message);["dragenter","dragover"].forEach(x=>drop.addEventListener(x,e=>{e.preventDefault();drop.classList.add("dragging")}));["dragleave","drop"].forEach(x=>drop.addEventListener(x,e=>{e.preventDefault();drop.classList.remove("dragging")}));drop.addEventListener("drop",e=>readFile(e.dataTransfer.files[0]).catch(x=>error.textContent=x.message));
-async function api(path,body){const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const value=await response.json();if(!response.ok)throw new Error(value.error||"요청을 처리하지 못했습니다.");return value}
-function requestBody(){return{csv_text:state.csvText,building_id:$("building-id").value.trim(),building_timezone:$("timezone").value.trim(),source_timezone_mode:$("timezone-mode").value,warning_approved:$("warning-approved").checked}}
-function renderQuality(result){state.analysis=result;$("empty-state").hidden=true;$("quality-result").hidden=false;const q=result.quality,badge=$("status-badge");badge.textContent=q.status;badge.className=`status ${q.status.toLowerCase()}`;$("eligibility").textContent=result.training_eligible?"신규 학습 가능":"학습 조건 미충족";const cards=[["관측 기간",`${fmt(q.elapsed_days,0)}일`],["결측률",`${fmt(q.missing_rate*100,2)}%`],["최대 연속 결측",`${fmt(q.max_consecutive_missing_hours,0)}시간`],["168+24 조합",fmt(q.complete_168_plus_24_pairs,0)],["최장 상수 구간",`${fmt(q.longest_constant_run_hours,0)}시간`],["최신 168시간",q.latest_168_complete?"완전":"불완전"]];$("quality-cards").innerHTML=cards.map(([a,b])=>`<div class="metric-card"><span>${a}</span><strong>${b}</strong></div>`).join("");const reasons=[...q.reason_codes,...result.training_blockers];$("reason-list").innerHTML=reasons.map(x=>`<li>${x}</li>`).join("");$("train").disabled=!result.training_eligible;}
-$("analyze").onclick=async()=>{error.textContent="";$("analyze").disabled=true;$("analyze").textContent="분석 중…";try{renderQuality(await api("/api/quality",requestBody()))}catch(e){error.textContent=e.message}finally{$("analyze").disabled=false;$("analyze").textContent="품질 진단 시작"}};
-$("train").onclick=async()=>{error.textContent="";$("train").disabled=true;try{state.job=await api("/api/training-jobs",requestBody());renderJob(state.job);state.poll=setInterval(pollJob,2000)}catch(e){error.textContent=e.message;$("train").disabled=false}};
-function renderJob(job){const chip=$("job-status");chip.textContent=`${job.status} · ${job.progress_message}`;chip.dataset.status=job.status;$("run-prediction").hidden=job.status!=="COMPLETED";if(job.status==="COMPLETED"){const names={gru:"gru",last_24h:"last-24h",last_168h:"last-168h"};Object.entries(names).forEach(([key,id])=>{const metric=job.validation_metrics?.[key];$("metric-"+id).textContent=metric&&Number.isFinite(metric.mae)?`MAE ${fmt(metric.mae,3)} kWh`:"MAE —";$("model-"+id).classList.toggle("selected",job.selected_model===key)});$("model-state").textContent="학습·평가 완료";$("selected-model").textContent=job.selected_model||"—";$("run-id").textContent=job.run_dir?job.run_dir.split(/[\\/]/).at(-1):"—"}}
-async function pollJob(){if(!state.job)return;try{const r=await fetch(`/api/training-jobs/${state.job.job_id}`),j=await r.json();state.job=j;renderJob(j);if(["COMPLETED","FAILED"].includes(j.status)){clearInterval(state.poll);$("train").disabled=false}}catch(e){clearInterval(state.poll);error.textContent=e.message}}
-$("run-prediction").onclick=async()=>{const button=$("run-prediction");button.disabled=true;button.textContent="예측 중…";try{const result=await api(`/api/predictions/${state.job.job_id}`,requestBody());drawPredictionChart(result.history_kwh,result.predictions_kwh);$("total-forecast").innerHTML=`${fmt(result.total_kwh)} <small>kWh</small>`;$("peak-forecast").textContent=`${new Date(result.peak_timestamp).toLocaleString("ko-KR",{hour:"2-digit",minute:"2-digit"})} · ${fmt(result.peak_kwh)}kWh`;$("sample-tag").textContent="저장 모델 결과";$("sample-note").textContent=`run ${result.run_id} · ${result.model_kind} · 재학습 없이 생성`;}catch(e){error.textContent=e.message}finally{button.disabled=false;button.textContent="저장 모델로 예측"}};
-function drawPredictionChart(history,forecast){const svg=$("forecast-chart"),all=[...history,...forecast],w=680,h=210,p=28,max=Math.max(...all),min=Math.min(...all),range=Math.max(max-min,.001),point=(v,i)=>`${p+i*(w-2*p)/(all.length-1)},${h-p-(v-min)*(h-2*p)/range}`;const grid=[0,.25,.5,.75,1].map(t=>`<line x1="${p}" y1="${p+t*(h-2*p)}" x2="${w-p}" y2="${p+t*(h-2*p)}" stroke="#e4e7df"/>`).join("");const hp=history.map(point).join(" "),fp=forecast.map((v,i)=>point(v,i+history.length)).join(" ");svg.innerHTML=`<g transform="translate(10,20)">${grid}<polyline points="${hp}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${fp}" fill="none" stroke="#235c45" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="${p}" y="240" fill="#69756e" font-size="11">12시간 전</text><text x="250" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`}
-function drawChart(){const svg=$("forecast-chart"),hist=[4.2,3.9,3.7,3.8,4.4,5.5,6.7,7.1,6.8,6.3,5.9,5.4],forecast=[5.1,4.8,4.6,4.5,4.7,5.4,6.3,7.2,7.8,7.4,6.5,5.8];const all=[...hist,...forecast],w=680,h=210,p=28,max=Math.max(...all)+1,min=Math.min(...all)-1,point=(v,i)=>`${p+i*(w-2*p)/(all.length-1)},${h-p-(v-min)*(h-2*p)/(max-min)}`;const hline=[0,.25,.5,.75,1].map(t=>`<line x1="${p}" y1="${p+t*(h-2*p)}" x2="${w-p}" y2="${p+t*(h-2*p)}" stroke="#e4e7df"/>`).join("");const hp=hist.map(point).join(" "),fp=forecast.map((v,i)=>point(v,i+hist.length)).join(" ");svg.innerHTML=`<g transform="translate(10,20)">${hline}<polyline points="${hp}" fill="none" stroke="#a3aea7" stroke-width="3"/><line x1="${point(hist.at(-1),hist.length-1).split(',')[0]}" y1="${point(hist.at(-1),hist.length-1).split(',')[1]}" x2="${point(forecast[0],hist.length).split(',')[0]}" y2="${point(forecast[0],hist.length).split(',')[1]}" stroke="#235c45" stroke-dasharray="4 4"/><polyline points="${fp}" fill="none" stroke="#235c45" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="${p}" y="240" fill="#69756e" font-size="11">12시간 전</text><text x="330" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`}drawChart();
+const state = {
+  csvText: "",
+  fileName: "",
+  analysis: null,
+  job: null,
+  poll: null,
+  route: "/",
+  fileToken: "",
+  analysisSignature: "",
+  jobContext: null,
+  predictionComplete: false,
+  warningRequired: false,
+  qualityRequestId: 0,
+  viewedStep: 1,
+  stepStatuses: { 1: "current", 2: "waiting", 3: "waiting" },
+};
+
+const $ = (id) => document.getElementById(id);
+const fileInput = $("csv-file");
+const drop = $("drop-zone");
+const error = $("form-error");
+const routes = new Set(["/", "/workspace", "/dashboard"]);
+const jobSessionKey = "energy-planner.active-job.v1";
+
+function fmt(number, digits = 1) {
+  return Number(number).toLocaleString("ko-KR", { maximumFractionDigits: digits });
+}
+
+function normalizeRoute(pathname) {
+  const normalized = pathname !== "/" ? pathname.replace(/\/$/, "") : pathname;
+  return routes.has(normalized) ? normalized : "/";
+}
+
+function renderRoute(path, { scroll = true } = {}) {
+  state.route = normalizeRoute(path);
+  document.body.dataset.route = state.route === "/" ? "home" : state.route.slice(1);
+  document.querySelectorAll("[data-page]").forEach((page) => {
+    page.hidden = page.dataset.page !== state.route;
+  });
+  document.querySelectorAll("[data-route-link]").forEach((link) => {
+    const active = new URL(link.href, location.origin).pathname === state.route;
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  const titles = {
+    "/": "Energy Planner",
+    "/workspace": "Workspace · Energy Planner",
+    "/dashboard": "Dashboard · Energy Planner",
+  };
+  document.title = titles[state.route];
+  updateNextAction();
+  if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+}
+
+function navigate(path, { replace = false, scroll = true } = {}) {
+  const route = normalizeRoute(path);
+  if (location.pathname !== route) {
+    history[replace ? "replaceState" : "pushState"]({}, "", route);
+  }
+  renderRoute(route, { scroll });
+}
+
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("[data-route-link]");
+  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const url = new URL(link.href, location.origin);
+  if (url.origin !== location.origin) return;
+  event.preventDefault();
+  navigate(url.pathname);
+});
+
+window.addEventListener("popstate", () => renderRoute(location.pathname));
+
+function statusLabel(status) {
+  return {
+    waiting: "대기",
+    current: "현재 단계",
+    "in-progress": "진행 중",
+    complete: "완료",
+    warning: "WARNING",
+    fail: "FAIL",
+  }[status];
+}
+
+function renderWorkspaceSteps() {
+  document.querySelectorAll("[data-workspace-step]").forEach((step) => {
+    const number = Number(step.dataset.workspaceStep);
+    const status = state.stepStatuses[number] || "waiting";
+    step.className = `workflow-step status-${status}${number === state.viewedStep ? " is-viewed" : ""}`;
+    step.dataset.status = status;
+    step.dataset.statusLabel = statusLabel(status);
+    if (number === state.viewedStep) step.setAttribute("aria-current", "step");
+    else step.removeAttribute("aria-current");
+  });
+}
+
+function setWorkspaceState(statuses, viewedStep = state.viewedStep) {
+  state.stepStatuses = { ...state.stepStatuses, ...statuses };
+  state.viewedStep = viewedStep;
+  renderWorkspaceSteps();
+  updateNextAction();
+}
+
+document.querySelectorAll("[data-workspace-step]").forEach((step) => {
+  step.addEventListener("click", (event) => {
+    event.preventDefault();
+    const number = Number(step.dataset.workspaceStep);
+    state.viewedStep = number;
+    renderWorkspaceSteps();
+    let target = number === 1 ? $("data-workspace") : $("quality-panel");
+    if (number === 3 && !$("quality-result").hidden) target = $("training-actions");
+    if (number === 3 && $("quality-result").hidden) {
+      $("workspace-next-title").textContent = "먼저 데이터 품질을 진단하세요";
+      $("workspace-next-copy").textContent = "모델 학습은 품질 진단을 통과한 뒤 사용자가 직접 시작할 수 있습니다.";
+    }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+function currentContext() {
+  return {
+    buildingId: $("building-id").value.trim(),
+    timezone: $("timezone").value.trim(),
+    timezoneMode: $("timezone-mode").value,
+  };
+}
+
+function contextsMatch(left, right) {
+  return Boolean(left && right) && left.buildingId === right.buildingId && left.timezone === right.timezone && left.timezoneMode === right.timezoneMode;
+}
+
+function inputSignature() {
+  return JSON.stringify({
+    ...currentContext(),
+    warningApproved: $("warning-approved").checked,
+    fileToken: state.fileToken,
+  });
+}
+
+function analysisIsCurrent() {
+  return Boolean(state.analysis && state.analysisSignature && state.analysisSignature === inputSignature());
+}
+
+function jobStepStatus() {
+  if (!state.job) return "waiting";
+  if (["QUEUED", "RUNNING"].includes(state.job.status)) return "in-progress";
+  if (state.job.status === "COMPLETED") return "complete";
+  if (state.job.status === "FAILED") return "fail";
+  return "waiting";
+}
+
+function resetQualityPanel(message) {
+  state.analysis = null;
+  state.analysisSignature = "";
+  $("quality-result").hidden = true;
+  $("empty-state").hidden = false;
+  const empty = $("empty-state");
+  empty.dataset.panelState = state.csvText ? "selected" : "empty";
+  $("quality-empty-title").textContent = message;
+  $("quality-empty-copy").textContent = state.csvText
+    ? "변경된 입력으로 파일 형식, 누락된 시간과 학습 가능 여부를 다시 확인하세요."
+    : "왼쪽에서 시간별 전력 사용량 CSV를 선택해 주세요.";
+  $("quality-preview").hidden = !state.csvText;
+  $("quality-preview-file").textContent = state.fileName || "확인 전";
+  $("quality-preview-file").title = state.fileName || "";
+  $("warning-approval").hidden = !state.warningRequired;
+  $("train").disabled = true;
+}
+
+function invalidateAnalysis(message = "입력이 변경되어 재검증이 필요합니다.") {
+  const hadAnalysis = Boolean(state.analysis);
+  state.qualityRequestId += 1;
+  $("quality-panel").removeAttribute("aria-busy");
+  $("analyze").disabled = !state.csvText;
+  $("analyze").textContent = "데이터 품질 진단하기";
+  state.predictionComplete = false;
+  resetQualityPanel(message);
+  const hasFile = Boolean(state.csvText);
+  setWorkspaceState(
+    {
+      1: hasFile ? "complete" : "current",
+      2: hasFile ? "current" : "waiting",
+      3: jobStepStatus(),
+    },
+    hasFile ? 2 : 1,
+  );
+  if (hadAnalysis) error.textContent = "입력 설정이 변경되어 이전 품질 진단 결과를 사용할 수 없습니다. 다시 진단해 주세요.";
+}
+
+function updateNextAction() {
+  const completed = state.job?.status === "COMPLETED";
+  const running = ["QUEUED", "RUNNING"].includes(state.job?.status);
+  const currentAnalysis = analysisIsCurrent();
+  const contextMatches = contextsMatch(state.jobContext, currentContext());
+  const canPredict = completed && Boolean(state.csvText) && currentAnalysis && contextMatches;
+  const homeCta = $("home-primary-cta");
+  const homeLabel = $("home-cta-label");
+  let nextTitle = "CSV 파일을 업로드하세요";
+  let nextCopy = "시간별 전력 사용량 CSV를 선택하고 건물의 시간대를 확인하세요.";
+  let homePath = "/workspace";
+  let homeText = "CSV 업로드 시작";
+
+  if (completed) {
+    nextTitle = canPredict ? "24시간 예측을 실행하세요" : "예측 입력을 다시 확인하세요";
+    nextCopy = canPredict
+      ? "저장된 모델을 사용해 재학습 없이 향후 24시간을 예측할 수 있습니다."
+      : "저장된 모델은 확인했습니다. 예측에 사용할 CSV를 선택하고 품질을 다시 진단해 주세요.";
+    homePath = canPredict ? "/dashboard" : "/workspace";
+    homeText = canPredict ? "24시간 예측 실행" : "예측 입력 준비하기";
+  } else if (running) {
+    nextTitle = "건물별 예측 모델을 학습하고 있습니다";
+    nextCopy = "다른 화면으로 이동해도 서버 학습은 계속됩니다. 예측 화면에서 실제 상태를 확인할 수 있습니다.";
+    homePath = "/dashboard";
+    homeText = "학습 상태 확인";
+  } else if (currentAnalysis && state.analysis.training_eligible) {
+    nextTitle = "건물별 예측 모델을 학습하세요";
+    nextCopy = "데이터가 학습 조건을 충족했습니다. ‘학습 시작’을 눌렀을 때만 학습합니다.";
+    homePath = "/workspace";
+    homeText = "모델 학습 계속하기";
+  } else if (state.csvText) {
+    nextTitle = "데이터 품질 진단";
+    nextCopy = "업로드한 파일의 누락된 시간, 연속성과 학습 가능 여부를 확인하세요.";
+    homePath = "/workspace";
+    homeText = "품질 진단 계속하기";
+  }
+
+  homeCta.href = homePath;
+  homeLabel.textContent = homeText;
+  $("workspace-next-title").textContent = nextTitle;
+  $("workspace-next-copy").textContent = nextCopy;
+
+  $("dashboard-empty-action").hidden = completed;
+  $("dashboard-empty-action").textContent = running ? "데이터 분석에서 학습 상태 확인" : "CSV 업로드하러 가기";
+  $("return-workspace").hidden = !completed;
+  $("open-dashboard").hidden = !completed;
+  $("run-prediction").hidden = !completed;
+  $("run-prediction").disabled = !canPredict;
+  if (completed && !state.predictionComplete) {
+    $("sample-tag").textContent = canPredict ? "예측 실행 전" : "CSV 재검증 필요";
+    $("sample-note").textContent = canPredict
+      ? "저장된 모델이 준비되었습니다. ‘24시간 예측 실행’을 눌러 실제 결과를 생성하세요."
+      : "저장된 모델은 확인했지만 예측 입력이 없습니다. 데이터 분석에서 CSV를 다시 진단해 주세요.";
+  }
+}
+
+async function readFile(file) {
+  error.textContent = "";
+  clearTimeModeError();
+  if (!file || !file.name.toLowerCase().endsWith(".csv")) throw new Error("CSV 파일만 선택할 수 있습니다.");
+  if (file.size > 25 * 1024 * 1024) throw new Error("CSV는 25MB 이하여야 합니다.");
+  state.csvText = await file.text();
+  state.fileName = file.name;
+  state.fileToken = `${file.name}:${file.size}:${file.lastModified}`;
+  state.warningRequired = false;
+  $("warning-approved").checked = false;
+  drop.hidden = true;
+  $("file-info").hidden = false;
+  $("selected-file-name").textContent = file.name;
+  $("selected-file-name").title = file.name;
+  $("selected-file-meta").textContent = `${fmt(file.size / 1024)}KB · 브라우저에서 선택됨`;
+  $("selected-file-state").textContent = "아직 서버에 전송되지 않음 · 품질 진단 전";
+  $("analyze").disabled = false;
+  invalidateAnalysis("선택한 파일의 품질 진단을 실행해 주세요.");
+}
+
+function clearSelectedFile() {
+  state.qualityRequestId += 1;
+  state.csvText = "";
+  state.fileName = "";
+  state.fileToken = "";
+  state.analysis = null;
+  state.analysisSignature = "";
+  state.warningRequired = false;
+  state.predictionComplete = false;
+  fileInput.value = "";
+  drop.hidden = false;
+  $("file-info").hidden = true;
+  $("selected-file-name").textContent = "";
+  $("selected-file-meta").textContent = "";
+  $("selected-file-state").textContent = "";
+  $("warning-approved").checked = false;
+  $("warning-approval").hidden = true;
+  $("analyze").disabled = true;
+  error.textContent = "";
+  clearTimeModeError();
+  resetQualityPanel("CSV를 먼저 선택해 주세요.");
+  setWorkspaceState({ 1: "current", 2: "waiting", 3: jobStepStatus() }, 1);
+}
+
+function validateRequiredInputs() {
+  if (!state.csvText) return "CSV 파일을 선택해 주세요.";
+  if (!$("building-id").value.trim()) return "건물 ID를 입력해 주세요. 이 값은 모델과 결과를 구분하는 데 사용됩니다.";
+  if (!/^[A-Za-z0-9_-]+$/.test($("building-id").value.trim())) return "건물 ID에는 영문, 숫자, 밑줄(_), 하이픈(-)만 사용할 수 있습니다.";
+  if (!$("timezone").value.trim()) return "건물의 시간대를 입력해 주세요. 예: Asia/Seoul";
+  try {
+    new Intl.DateTimeFormat("ko-KR", { timeZone: $("timezone").value.trim() }).format();
+  } catch {
+    return "건물의 시간대가 올바른 IANA 식별자가 아닙니다. 목록에서 선택하거나 Asia/Seoul 형식으로 입력해 주세요.";
+  }
+  return "";
+}
+
+function clearTimeModeError() {
+  const fieldError = $("timezone-mode-error");
+  fieldError.hidden = true;
+  fieldError.textContent = "";
+  $("timezone-mode").removeAttribute("aria-invalid");
+}
+
+function qualityErrorDetails(message) {
+  const mappings = [
+    [/explicit_offset mode requires an offset in every timestamp/i, "CSV에 UTC 오프셋이 포함되어 있지 않습니다. ‘시간대 정보가 없는 현지 시각’을 선택하고 다시 진단해 주세요.", true],
+    [/offset-aware and offset-naive timestamps cannot be mixed/i, "오프셋이 있는 시각과 없는 시각이 섞여 있습니다. CSV의 timestamp 형식을 한 가지 방식으로 통일해 주세요.", true],
+    [/unknown IANA timezone/i, "건물의 시간대를 확인할 수 없습니다. Asia/Seoul 같은 IANA 식별자를 선택해 주세요.", false],
+    [/timestamp cannot be resolved/i, "선택한 시간대에서 해석할 수 없는 시각이 있습니다. DST 중복·누락 시각과 CSV 시간대를 확인해 주세요.", true],
+    [/missing required columns/i, "필수 열이 없습니다. 첫 행에 timestamp와 kwh 열을 포함해 주세요.", false],
+    [/timestamp and kwh cannot be blank/i, "timestamp 또는 kwh에 빈 값이 있습니다. 원본 계측값을 확인해 주세요.", false],
+    [/kwh must contain finite numeric values/i, "kwh에 숫자가 아닌 값, NaN 또는 Inf가 있습니다. 0 이상의 유한한 숫자로 준비해 주세요.", false],
+    [/kwh cannot be negative/i, "kwh에 음수 값이 있습니다. 시간별 소비 에너지량이 0 이상인지 확인해 주세요.", false],
+    [/invalid timestamp|timestamp cannot be NaT/i, "해석할 수 없는 timestamp가 있습니다. ISO 8601 날짜·시각 형식을 확인해 주세요.", false],
+    [/timestamps must be aligned to exact hours/i, "정각이 아닌 timestamp가 있습니다. 분과 초가 00인 1시간 단위 시각으로 준비해 주세요.", false],
+    [/duplicate physical timestamps/i, "같은 실제 시각의 행이 중복되었습니다. 중복 timestamp를 확인해 주세요.", false],
+    [/timestamps must be strictly increasing/i, "timestamp가 시간순으로 정렬되어 있지 않습니다. 오래된 시각부터 오름차순으로 준비해 주세요.", false],
+    [/input cadence violates the one-hour contract|input cadence is not hourly/i, "timestamp 간격이 1시간 규격과 맞지 않습니다. 30분·불규칙 간격이 없는지 확인해 주세요.", false],
+    [/CSV를 읽을 수 없습니다|CSV 내용이 비어 있습니다/i, "CSV를 읽을 수 없습니다. UTF-8 인코딩, 헤더와 파일 내용을 확인해 주세요.", false],
+  ];
+  const matched = mappings.find(([pattern]) => pattern.test(message));
+  return matched ? { message: matched[1], timeMode: matched[2] } : { message: `${message} 파일 형식과 입력 설정을 확인한 뒤 다시 시도하세요.`, timeMode: false };
+}
+
+$("choose-file").onclick = (event) => {
+  event.stopPropagation();
+  fileInput.click();
+};
+$("change-file").onclick = () => fileInput.click();
+$("clear-file").onclick = clearSelectedFile;
+drop.onclick = () => fileInput.click();
+drop.onkeydown = (event) => {
+  if (event.key === "Enter" || event.key === " ") fileInput.click();
+};
+fileInput.onchange = () => {
+  const [file] = fileInput.files;
+  if (!file) return;
+  readFile(file).catch((caught) => (error.textContent = caught.message));
+};
+["dragenter", "dragover"].forEach((name) =>
+  drop.addEventListener(name, (event) => {
+    event.preventDefault();
+    drop.classList.add("dragging");
+  }),
+);
+["dragleave", "drop"].forEach((name) =>
+  drop.addEventListener(name, (event) => {
+    event.preventDefault();
+    drop.classList.remove("dragging");
+  }),
+);
+drop.addEventListener("drop", (event) =>
+  readFile(event.dataTransfer.files[0]).catch((caught) => (error.textContent = caught.message)),
+);
+
+function handleInfluentialInputChange() {
+  state.predictionComplete = false;
+  clearTimeModeError();
+  if (state.analysis || state.analysisSignature) invalidateAnalysis();
+  else {
+    state.qualityRequestId += 1;
+    $("quality-panel").removeAttribute("aria-busy");
+    $("analyze").disabled = !state.csvText;
+    $("analyze").textContent = "데이터 품질 진단하기";
+    if (state.csvText) {
+      resetQualityPanel("입력 설정이 변경되었습니다. 다시 품질 진단해 주세요.");
+      $("selected-file-state").textContent = "입력 설정 변경됨 · 다시 품질 진단 필요";
+    }
+    updateNextAction();
+  }
+}
+
+$("building-id").addEventListener("input", handleInfluentialInputChange);
+$("timezone").addEventListener("input", handleInfluentialInputChange);
+$("timezone-mode").addEventListener("change", handleInfluentialInputChange);
+$("warning-approved").addEventListener("change", handleInfluentialInputChange);
+
+async function api(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error || "요청을 처리하지 못했습니다.");
+  return value;
+}
+
+function requestBody() {
+  return {
+    csv_text: state.csvText,
+    building_id: $("building-id").value.trim(),
+    building_timezone: $("timezone").value.trim(),
+    source_timezone_mode: $("timezone-mode").value,
+    warning_approved: $("warning-approved").checked,
+  };
+}
+
+function renderQuality(result) {
+  state.analysis = result;
+  state.analysisSignature = inputSignature();
+  $("empty-state").hidden = true;
+  $("quality-result").hidden = false;
+  $("quality-panel").removeAttribute("aria-busy");
+  $("selected-file-state").textContent = "품질 진단 완료 · 서버 저장 모델과는 별도 상태";
+  const quality = result.quality;
+  state.warningRequired = quality.status === "WARNING";
+  $("warning-approval").hidden = !state.warningRequired;
+  const badge = $("status-badge");
+  badge.textContent = quality.status;
+  badge.className = `status ${quality.status.toLowerCase()}`;
+  $("eligibility").textContent = result.training_eligible
+    ? "모델 학습을 시작할 수 있습니다."
+    : quality.status === "WARNING"
+      ? "학습은 가능하지만 제한 실험 동의와 재진단이 필요합니다."
+      : "현재 데이터로는 모델을 학습할 수 없습니다.";
+  const cards = [
+    ["관측 기간", `${fmt(quality.elapsed_days, 0)}일`],
+    ["누락된 시간 비율", `${fmt(quality.missing_rate * 100, 2)}%`],
+    ["가장 긴 연속 누락", `${fmt(quality.max_consecutive_missing_hours, 0)}시간`],
+    ["학습 가능한 168+24시간 조합", fmt(quality.complete_168_plus_24_pairs, 0)],
+    ["최장 상수 구간", `${fmt(quality.longest_constant_run_hours, 0)}시간`],
+    ["최신 168시간 입력", quality.latest_168_complete ? "완전" : "불완전"],
+  ];
+  $("quality-cards").innerHTML = cards
+    .map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
+  const reasons = [...quality.reason_codes, ...result.training_blockers];
+  $("reason-list").innerHTML = (reasons.length ? reasons : ["필수 품질 기준을 충족했습니다."])
+    .map((reason) => `<li>${qualityReasonText(reason)}</li>`)
+    .join("");
+  $("train").disabled = !result.training_eligible;
+  $("open-dashboard").hidden = state.job?.status !== "COMPLETED";
+  const qualityStatus = quality.status.toLowerCase();
+  const stepTwoStatus = qualityStatus === "pass" ? "complete" : qualityStatus === "warning" ? "warning" : "fail";
+  setWorkspaceState(
+    { 1: "complete", 2: stepTwoStatus, 3: result.training_eligible ? "current" : jobStepStatus() },
+    result.training_eligible ? 3 : 2,
+  );
+}
+
+function qualityReasonText(code) {
+  const messages = {
+    FAIL_LESS_THAN_90_DAYS: "관측 기간이 90일 미만입니다. 더 긴 기간의 CSV를 업로드해 주세요.",
+    WARNING_90_TO_179_DAYS_APPROVAL_REQUIRED: "관측 기간이 90~179일입니다. 제한 실험에 동의해야 학습할 수 있습니다.",
+    FAIL_MISSING_RATE_OVER_5_PERCENT: "누락된 시간 비율이 5%를 초과합니다. 원본 계측 데이터를 확인해 주세요.",
+    FAIL_MAX_GAP_OVER_24_HOURS: "24시간을 초과하는 연속 누락 구간이 있습니다. 원본 계측 데이터를 확인해 주세요.",
+    WARNING_LONG_CONSTANT_RUN_168H: "같은 사용량이 168시간 이상 이어진 구간이 있습니다. 계량기 상태를 확인해 주세요.",
+    WARNING_DOMINANT_VALUE_OVER_50_PERCENT: "한 사용량 값이 전체 데이터의 절반을 초과합니다. 계량기 비활성 여부를 확인해 주세요.",
+    WARNING_SUSPECTED_METER_STATE_TRANSITION: "계량기 상태가 바뀐 것으로 의심되는 구간이 있습니다.",
+    PASS_QUALITY_THRESHOLDS: "기간, 누락과 연속성에 대한 필수 품질 기준을 충족했습니다.",
+    FAIL_TRAIN_ZERO_VARIANCE: "학습 구간의 사용량 변화가 없어 모델을 학습할 수 없습니다.",
+    "data is not eligible for a temporal split": "시간순 학습·검증·테스트 구간을 만들 수 없습니다. 데이터 기간과 품질 기준을 확인해 주세요.",
+    "90-179 day data requires explicit limited-experiment approval": "90~179일 데이터의 제한 실험 동의가 필요합니다. 아래 동의 항목을 확인한 뒤 다시 진단해 주세요.",
+    "training interval is empty": "학습에 사용할 시간 구간이 없습니다. 더 긴 기간의 CSV를 업로드해 주세요.",
+  };
+  if (messages[code]) return messages[code];
+  if (code.startsWith("FAIL_MINIMUM_")) return "학습 또는 평가에 필요한 연속 표본이 부족합니다. 누락 구간과 데이터 기간을 확인해 주세요.";
+  return code.replaceAll("_", " ");
+}
+
+$("analyze").onclick = async () => {
+  error.textContent = "";
+  clearTimeModeError();
+  const inputError = validateRequiredInputs();
+  if (inputError) {
+    error.textContent = inputError;
+    return;
+  }
+  $("analyze").disabled = true;
+  $("analyze").textContent = "품질 진단 중…";
+  const requestId = ++state.qualityRequestId;
+  const requestSignature = inputSignature();
+  $("empty-state").hidden = false;
+  $("quality-result").hidden = true;
+  $("empty-state").dataset.panelState = "loading";
+  $("quality-empty-title").textContent = "데이터 품질을 진단하고 있습니다.";
+  $("quality-empty-copy").textContent = "파일 형식, 관측 기간, 누락된 시간과 학습 가능 여부를 확인합니다.";
+  $("quality-preview").hidden = false;
+  $("quality-panel").setAttribute("aria-busy", "true");
+  $("selected-file-state").textContent = "품질 진단을 위해 로컬 서버에 전송 중";
+  setWorkspaceState({ 1: "complete", 2: "in-progress", 3: jobStepStatus() }, 2);
+  try {
+    const result = await api("/api/quality", requestBody());
+    if (requestId !== state.qualityRequestId || requestSignature !== inputSignature()) return;
+    renderQuality(result);
+  } catch (caught) {
+    if (requestId !== state.qualityRequestId || requestSignature !== inputSignature()) return;
+    const details = qualityErrorDetails(caught.message);
+    error.textContent = `품질 진단을 완료하지 못했습니다: ${details.message}`;
+    $("empty-state").hidden = false;
+    $("quality-result").hidden = true;
+    $("empty-state").dataset.panelState = "error";
+    $("quality-empty-title").textContent = "품질 진단을 완료하지 못했습니다.";
+    $("quality-empty-copy").textContent = details.message;
+    $("selected-file-state").textContent = "진단 오류 · 파일은 브라우저에서 계속 선택된 상태";
+    if (details.timeMode) {
+      $("timezone-mode-error").hidden = false;
+      $("timezone-mode-error").textContent = details.message;
+      $("timezone-mode").setAttribute("aria-invalid", "true");
+      $("timezone-mode").focus();
+    }
+    setWorkspaceState({ 1: "complete", 2: "fail", 3: jobStepStatus() }, 2);
+  } finally {
+    if (requestId !== state.qualityRequestId) return;
+    $("quality-panel").removeAttribute("aria-busy");
+    $("analyze").disabled = false;
+    $("analyze").textContent = "데이터 품질 진단하기";
+  }
+};
+
+$("train").onclick = async () => {
+  error.textContent = "";
+  if (!analysisIsCurrent() || !state.analysis.training_eligible) {
+    error.textContent = "현재 입력으로 품질 진단을 다시 완료한 뒤 모델 학습을 시작해 주세요.";
+    return;
+  }
+  $("train").disabled = true;
+  setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "in-progress" }, 3);
+  try {
+    state.job = await api("/api/training-jobs", requestBody());
+    state.jobContext = currentContext();
+    sessionStorage.setItem(jobSessionKey, JSON.stringify({ jobId: state.job.job_id, context: state.jobContext }));
+    renderJob(state.job);
+    state.poll = setInterval(pollJob, 2000);
+  } catch (caught) {
+    error.textContent = `모델 학습을 시작하지 못했습니다: ${caught.message} 품질 진단 결과와 제한 실험 동의를 확인해 주세요.`;
+    setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "fail" }, 3);
+    $("train").disabled = false;
+  }
+};
+
+function metricText(metric) {
+  if (!metric || !Number.isFinite(metric.mae)) return "평가 결과 없음";
+  const wape = Number.isFinite(metric.wape) ? `${fmt(metric.wape * 100, 1)}%` : "—";
+  return `MAE ${fmt(metric.mae, 3)} kWh · WAPE ${wape}`;
+}
+
+function renderJob(job) {
+  const chip = $("job-status");
+  chip.textContent = `${jobStatusText(job.status)} · ${job.progress_message}`;
+  chip.dataset.status = job.status;
+  const completed = job.status === "COMPLETED";
+  $("open-dashboard").hidden = !completed;
+  if (["QUEUED", "RUNNING"].includes(job.status)) {
+    $("model-state").textContent = "학습 진행 중";
+    setWorkspaceState({ 1: "complete", 2: "complete", 3: "in-progress" }, 3);
+    updateNextAction();
+    return;
+  }
+  if (job.status === "FAILED") {
+    error.textContent = job.error ? `모델 학습을 완료하지 못했습니다: ${job.error}` : "모델 학습을 완료하지 못했습니다. 입력 데이터와 서버 로그를 확인한 뒤 다시 시도하세요.";
+    $("model-state").textContent = "학습 실패";
+    setWorkspaceState({ 1: "complete", 2: "complete", 3: "fail" }, 3);
+    updateNextAction();
+  }
+  if (!completed) return;
+
+  setWorkspaceState({ 1: "complete", 2: "complete", 3: "complete" }, 3);
+  const names = { gru: "gru", last_24h: "last-24h", last_168h: "last-168h" };
+  Object.entries(names).forEach(([key, id]) => {
+    const metric = job.validation_metrics?.[key];
+    $("metric-" + id).textContent = metricText(metric);
+    $("model-" + id).classList.toggle("selected", job.selected_model === key);
+  });
+  $("model-state").textContent = "모델 준비 완료";
+  $("selected-model").textContent = job.selected_model || "—";
+  $("run-id").textContent = job.run_dir ? job.run_dir.split(/[\\/]/).at(-1) : "—";
+  updateNextAction();
+}
+
+function jobStatusText(status) {
+  return { QUEUED: "학습 대기", RUNNING: "학습 진행 중", COMPLETED: "학습 완료", FAILED: "학습 실패" }[status] || status;
+}
+
+async function pollJob() {
+  if (!state.job) return;
+  try {
+    const response = await fetch(`/api/training-jobs/${state.job.job_id}`);
+    if (!response.ok) throw new Error("서버에서 학습 작업 상태를 확인하지 못했습니다.");
+    const job = await response.json();
+    state.job = job;
+    renderJob(job);
+    if (["COMPLETED", "FAILED"].includes(job.status)) {
+      clearInterval(state.poll);
+      state.poll = null;
+      $("train").disabled = false;
+    }
+  } catch (caught) {
+    clearInterval(state.poll);
+    state.poll = null;
+    error.textContent = caught.message;
+  }
+}
+
+$("open-dashboard").onclick = () => navigate("/dashboard");
+$("dashboard-empty-action").onclick = () => navigate("/workspace");
+$("return-workspace").onclick = () => navigate("/workspace");
+
+async function recoverJob() {
+  let saved;
+  try {
+    saved = JSON.parse(sessionStorage.getItem(jobSessionKey) || "null");
+  } catch {
+    sessionStorage.removeItem(jobSessionKey);
+    return;
+  }
+  if (!saved?.jobId) return;
+  state.jobContext = saved.context || null;
+  if (state.jobContext) {
+    $("building-id").value = state.jobContext.buildingId || $("building-id").value;
+    $("timezone").value = state.jobContext.timezone || $("timezone").value;
+    $("timezone-mode").value = state.jobContext.timezoneMode || $("timezone-mode").value;
+  }
+  try {
+    const response = await fetch(`/api/training-jobs/${saved.jobId}`);
+    if (!response.ok) throw new Error("저장된 학습 작업을 현재 서버에서 찾을 수 없습니다.");
+    state.job = await response.json();
+    renderJob(state.job);
+    if (["QUEUED", "RUNNING"].includes(state.job.status) && !state.poll) {
+      state.poll = setInterval(pollJob, 2000);
+    }
+  } catch (caught) {
+    sessionStorage.removeItem(jobSessionKey);
+    state.job = null;
+    state.jobContext = null;
+    $("job-status").textContent = "진행 중인 모델 학습이 없습니다.";
+    $("job-status").removeAttribute("data-status");
+    updateNextAction();
+    if (state.route === "/dashboard") {
+      $("dashboard-error").hidden = false;
+      $("dashboard-error").textContent = `${caught.message} 이 로컬 버전은 서버가 재시작되면 이전 학습 상태를 자동으로 복원할 수 없습니다. 데이터 분석에서 상태를 다시 확인해 주세요.`;
+    }
+  }
+}
+
+function displayTime(value) {
+  return new Date(value).toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+$("run-prediction").onclick = async () => {
+  const button = $("run-prediction");
+  $("dashboard-error").hidden = true;
+  $("dashboard-error").textContent = "";
+  button.disabled = true;
+  button.textContent = "예측 중…";
+  try {
+    const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
+    drawPredictionChart(result.history_kwh, result.predictions_kwh);
+    $("total-forecast").innerHTML = `${fmt(result.total_kwh)} <small>kWh</small>`;
+    $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh`;
+    $("peak-time").textContent = displayTime(result.peak_timestamp);
+    $("forecast-reference").textContent = `예측 시작 기준: ${displayTime(result.forecast_origin)}`;
+    $("forecast-timezone").textContent = `시간대: ${$("timezone").value.trim()}`;
+    $("sample-tag").textContent = "실제 예측 결과";
+    $("sample-note").textContent = `학습 기록 ${result.run_id} · ${result.model_kind} · 저장된 모델로 생성한 실제 예측`;
+    state.predictionComplete = true;
+    updateNextAction();
+  } catch (caught) {
+    $("dashboard-error").hidden = false;
+    $("dashboard-error").textContent = `예측에 실패했습니다: ${caught.message} 입력 CSV와 시간대를 확인한 뒤 다시 시도하세요.`;
+  } finally {
+    button.disabled = false;
+    button.textContent = "24시간 예측 실행";
+  }
+};
+
+function drawPredictionChart(history, forecast) {
+  const svg = $("forecast-chart");
+  const all = [...history, ...forecast];
+  const width = 680;
+  const height = 210;
+  const padding = 28;
+  const max = Math.max(...all);
+  const min = Math.min(...all);
+  const range = Math.max(max - min, 0.001);
+  const point = (value, index) =>
+    `${padding + (index * (width - 2 * padding)) / (all.length - 1)},${height - padding - ((value - min) * (height - 2 * padding)) / range}`;
+  const grid = [0, 0.25, 0.5, 0.75, 1]
+    .map(
+      (tick) =>
+        `<line x1="${padding}" y1="${padding + tick * (height - 2 * padding)}" x2="${width - padding}" y2="${padding + tick * (height - 2 * padding)}" stroke="#e4e7df"/>`,
+    )
+    .join("");
+  const historyPoints = history.map(point).join(" ");
+  const forecastPoints = forecast.map((value, index) => point(value, index + history.length)).join(" ");
+  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#235c45" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="${padding}" y="240" fill="#69756e" font-size="11">12시간 전</text><text x="250" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
+}
+
+function drawEmptyChart() {
+  const svg = $("forecast-chart");
+  const grid = [54, 94, 134, 174, 214]
+    .map((y) => `<line x1="42" y1="${y}" x2="678" y2="${y}" stroke="#e4e7df"/>`)
+    .join("");
+  svg.innerHTML = `${grid}<text class="empty-chart-label" x="360" y="126">아직 실행된 예측이 없습니다.</text><text class="empty-chart-help" x="360" y="150">저장된 모델이 없다면 CSV를 업로드하고 모델을 먼저 준비해 주세요.</text>`;
+}
+
+drawEmptyChart();
+renderWorkspaceSteps();
+const initialRoute = normalizeRoute(location.pathname);
+if (initialRoute !== location.pathname) history.replaceState({}, "", initialRoute);
+renderRoute(initialRoute, { scroll: false });
+recoverJob();

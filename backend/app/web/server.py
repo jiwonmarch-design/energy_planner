@@ -17,6 +17,18 @@ from backend.app.web.service import TrainingJobManager, analyze_csv
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 FRONTEND_ROOT = PROJECT_ROOT / "frontend"
 MANAGER = TrainingJobManager(PROJECT_ROOT / "artifacts" / "web_jobs")
+SPA_ROUTES = {"/", "/workspace", "/dashboard"}
+
+
+def resolve_frontend_target(path: str) -> Path | None:
+    """Resolve static assets and known History API routes without a broad fallback."""
+
+    relative = "index.html" if path in SPA_ROUTES else path.lstrip("/")
+    target = (FRONTEND_ROOT / relative).resolve()
+    frontend_root = FRONTEND_ROOT.resolve()
+    if frontend_root not in target.parents and target != frontend_root:
+        return None
+    return target if target.is_file() else None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -49,12 +61,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._json(HTTPStatus.OK, {"status": "ok", "service": "energy-planner-local"})
             return
-        relative = "index.html" if path == "/" else path.lstrip("/")
-        target = (FRONTEND_ROOT / relative).resolve()
-        if FRONTEND_ROOT.resolve() not in target.parents and target != FRONTEND_ROOT.resolve():
-            self.send_error(HTTPStatus.NOT_FOUND)
-            return
-        if not target.is_file():
+        target = resolve_frontend_target(path)
+        if target is None:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         body = target.read_bytes()

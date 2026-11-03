@@ -1,0 +1,453 @@
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.topbar .brand,
+.topbar .prototype {
+  margin: 0;
+  transform: none;
+}
+
+.topbar .brand {
+  justify-self: start;
+}
+
+.topbar .prototype {
+  justify-self: end;
+}
+
+.primary-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  height: 100%;
+}
+
+.primary-nav a {
+  position: relative;
+  display: grid;
+  align-items: center;
+  height: 100%;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.primary-nav a::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: var(--blue);
+  transform: scaleX(0);
+  transition: transform 160ms ease;
+}
+
+.primary-nav a:hover,
+.primary-nav a:focus-visible,
+.primary-nav a[aria-current="page"] {
+  color: var(--ink);
+  outline: none;
+}
+
+.primary-nav a:hover::after,
+.primary-nav a:focus-visible::after,
+.primary-nav a[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+.page-view[hidden] {
+  display: none !important;
+}
+
+.app-page {
+  padding-top: 1px;
+  padding-bottom: 72px;
+}
+
+.page-intro {
+  width: min(1200px, 100%);
+  margin: 72px auto 0;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-kicker {
+  margin: 0 0 16px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.page-intro h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.08;
+  letter-spacing: -0.055em;
+}
+
+.page-intro > p:last-child,
+.section-copy {
+  max-width: 720px;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+#workspace-page .workflow-steps {
+  margin-top: 18px;
+}
+
+.journey-guidance {
+  width: min(1200px, 100%);
+  margin: 24px auto 0;
+  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 22px;
+  align-items: center;
+  border-left: 3px solid var(--blue);
+  background: var(--blue-soft);
+}
+
+.journey-guidance > span {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.journey-guidance strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.journey-guidance p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.workflow-step::after {
+  content: attr(data-status-label);
+  display: block;
+  width: fit-content;
+  margin-top: 9px;
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.workflow-step.is-viewed {
+  box-shadow: inset 0 -3px var(--ink);
+}
+
+.workflow-step.status-current {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.workflow-step.status-in-progress {
+  background: var(--blue);
+  color: white;
+}
+
+.workflow-step.status-in-progress span,
+.workflow-step.status-in-progress small {
+  color: white;
+}
+
+.workflow-step.status-complete {
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+}
+
+.workflow-step.status-warning {
+  background: #fff3dc;
+  color: #8b5317;
+}
+
+.workflow-step.status-fail {
+  background: #f9e3e1;
+  color: #8e302c;
+}
+
+.actions {
+  flex-wrap: wrap;
+}
+
+.actions > span {
+  flex: 1 1 220px;
+  line-height: 1.55;
+}
+
+#dashboard-page .dashboard {
+  padding-top: 72px;
+  padding-bottom: 24px;
+}
+
+.section-heading > div:first-child {
+  min-width: 0;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-error {
+  width: min(1200px, 100%);
+  margin: 18px auto 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--red);
+  background: #f9e3e1;
+  color: var(--red);
+}
+
+.summary-total {
+  margin-top: 24px;
+}
+
+.summary-total > small {
+  display: block;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.summary-total > strong {
+  display: block;
+  margin: 10px 0 0;
+  color: white;
+  font-size: clamp(42px, 5vw, 58px);
+  line-height: 1.05;
+}
+
+.summary-total > strong small {
+  font-size: 16px;
+}
+
+.summary-details {
+  display: grid;
+  gap: 0;
+  margin-top: 26px;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.summary-details > div {
+  display: grid;
+  gap: 7px;
+  padding: 17px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.summary-details span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+}
+
+.summary-details b {
+  font-size: 16px;
+}
+
+.forecast-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: -8px 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.forecast-meta span {
+  padding-right: 18px;
+  border-right: 1px solid var(--line);
+}
+
+.forecast-meta span:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.chart-panel .empty-chart-label {
+  fill: var(--muted);
+  font-size: 32px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.chart-panel .empty-chart-help {
+  fill: var(--muted);
+  font-size: 20px;
+  text-anchor: middle;
+}
+
+.model-row {
+  grid-template-columns: minmax(100px, 1fr) auto;
+}
+
+.model-row b {
+  text-align: right;
+}
+
+.model-row > span small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.job-chip {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .topbar-inner {
+    grid-template-columns: 1fr auto;
+  }
+
+  .topbar .prototype {
+    display: none;
+  }
+
+  .primary-nav {
+    justify-self: end;
+    gap: 16px;
+  }
+
+  .primary-nav a {
+    font-size: 11px;
+  }
+
+  .app-page {
+    padding-bottom: 42px;
+  }
+
+  .page-intro {
+    margin-top: 44px;
+    padding-bottom: 26px;
+  }
+
+  .page-intro h1 {
+    font-size: 42px;
+  }
+
+  #dashboard-page .dashboard {
+    padding-top: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar .brand {
+    font-size: 16px;
+  }
+
+  .primary-nav {
+    gap: 10px;
+  }
+
+  .primary-nav a {
+    font-size: 9px;
+  }
+
+  .page-intro {
+    margin-top: 38px;
+  }
+
+  .page-intro h1 {
+    font-size: 36px;
+  }
+
+  .page-intro > p:last-child,
+  .section-copy {
+    font-size: 13px;
+  }
+
+  #workspace-page .workflow-steps {
+    margin-top: 22px;
+  }
+
+  .journey-guidance {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .actions > .button {
+    width: 100%;
+  }
+
+  #dashboard-page .dashboard {
+    padding-top: 42px;
+  }
+
+  .summary-total > strong {
+    font-size: 46px;
+  }
+
+  .forecast-meta {
+    display: grid;
+    gap: 5px;
+  }
+
+  .forecast-meta span {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .model-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .model-row b {
+    text-align: left;
+    color: var(--muted);
+  }
+}
+
+@media (max-width: 350px) {
+  .topbar .brand {
+    font-size: 15px;
+  }
+
+  .primary-nav {
+    gap: 8px;
+  }
+
+  .primary-nav a {
+    font-size: 8px;
+  }
+}

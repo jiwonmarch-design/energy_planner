@@ -1,0 +1,360 @@
+:root {
+  --hero-paper: #f4f2ea;
+  --hero-ink: #17212c;
+  --hero-cobalt: #204ed5;
+  --hero-muted: #526579;
+  --hero-divider: #bac3cc;
+}
+
+body {
+  background: var(--hero-paper);
+}
+
+.topbar {
+  height: 99px;
+  padding: 0;
+  border: 0;
+  background: var(--hero-paper);
+  position: relative;
+  backdrop-filter: none;
+}
+
+.topbar-inner {
+  width: min(1240px, calc(100% - 40px));
+  height: 99px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--hero-divider);
+  position: relative;
+}
+
+.topbar .brand {
+  margin-top: 39px;
+  color: var(--hero-ink);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 40px;
+  letter-spacing: -1px;
+}
+
+.topbar .prototype {
+  margin: 0 165px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--hero-muted);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 40px;
+  letter-spacing: 0;
+  text-transform: none;
+  transform: translateY(43px);
+}
+
+main {
+  width: min(1240px, calc(100% - 40px));
+}
+
+.hero {
+  min-height: 781px;
+  height: 781px;
+  padding: 0;
+  display: block;
+  position: relative;
+  color: var(--hero-ink);
+}
+
+.hero-copy-block {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.hero-eyebrow {
+  position: absolute;
+  top: 98px;
+  left: 1px;
+  height: 40px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: var(--hero-cobalt);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 40px;
+  letter-spacing: 0;
+}
+
+.hero-category-rule {
+  width: 48px;
+  height: 3px;
+  flex: 0 0 auto;
+  background: var(--hero-cobalt);
+}
+
+.hero-label-mobile {
+  display: none;
+}
+
+.hero h1 {
+  position: absolute;
+  top: 191px;
+  left: 0;
+  margin: 0;
+  color: var(--hero-ink);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 73px;
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: -3px;
+}
+
+.hero h1 span {
+  display: block;
+  white-space: nowrap;
+}
+
+.hero h1 span:last-child {
+  color: var(--hero-cobalt);
+}
+
+.hero-copy {
+  position: absolute;
+  top: 432px;
+  left: 5px;
+  margin: 0;
+  color: var(--hero-muted);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: -0.35px;
+}
+
+.hero-copy-mobile {
+  display: none;
+}
+
+.hero-cta {
+  position: absolute;
+  top: 583px;
+  left: 3px;
+  width: 289px;
+  min-height: 64px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 5px;
+  background: var(--hero-cobalt);
+  color: #fff;
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.hero-cta:hover {
+  filter: brightness(0.94);
+  transform: translateY(-1px);
+}
+
+.hero-cta:focus-visible {
+  outline: 3px solid var(--hero-ink);
+  outline-offset: 3px;
+}
+
+.hero-cta span {
+  font-size: 18px;
+}
+
+.hero-micro {
+  position: absolute;
+  top: 685px;
+  left: 3px;
+  margin: 0;
+  color: var(--hero-muted);
+  font-family: Inter, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 40px;
+  letter-spacing: 0.35px;
+  white-space: nowrap;
+}
+
+.hero-contour {
+  position: absolute;
+  top: 116px;
+  right: -60px;
+  width: 585px;
+  height: 435px;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-contour img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-contour-mobile {
+  display: none !important;
+}
+
+.hero-legacy-layer[hidden] {
+  display: none !important;
+}
+
+.workspace,
+.dashboard {
+  width: min(1180px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    height: 69px;
+  }
+
+  .topbar-inner {
+    width: calc(100% - 40px);
+    height: 69px;
+  }
+
+  .topbar .brand {
+    margin-top: 19px;
+    font-size: 18px;
+    line-height: 40px;
+    letter-spacing: -0.7px;
+  }
+
+  .topbar .prototype {
+    display: none;
+  }
+
+  main {
+    width: calc(100% - 40px);
+  }
+
+  .hero {
+    min-height: 775px;
+    height: 775px;
+  }
+
+  .hero-eyebrow {
+    top: 39px;
+    left: 2px;
+    height: 42px;
+    display: block;
+    font-size: 11px;
+    line-height: 20px;
+  }
+
+  .hero-category-rule {
+    width: 33px;
+    height: 3px;
+    display: block;
+    margin-top: 8px;
+  }
+
+  .hero-label-desktop {
+    display: none;
+  }
+
+  .hero-label-mobile {
+    display: inline;
+  }
+
+  .hero h1 {
+    top: 114px;
+    left: 0;
+    font-size: 36px;
+    line-height: 1.58;
+    letter-spacing: -1.8px;
+  }
+
+  .hero-copy-desktop {
+    display: none;
+  }
+
+  .hero-copy-mobile {
+    top: 254px;
+    left: 2px;
+    display: block;
+    font-size: 15px;
+    line-height: 1.72;
+    letter-spacing: -0.2px;
+  }
+
+  .hero-contour {
+    top: 337px;
+    right: auto;
+    left: 50%;
+    width: min(366px, 100vw);
+    height: auto;
+    aspect-ratio: 366 / 226;
+    transform: translateX(-50%);
+  }
+
+  .hero-contour-desktop {
+    display: none !important;
+  }
+
+  .hero-contour-mobile {
+    display: block !important;
+  }
+
+  .hero-cta {
+    top: 605px;
+    left: 0;
+    width: 100%;
+    min-height: 55px;
+    padding: 0 18px;
+    font-size: 17px;
+  }
+
+  .hero-micro {
+    top: 695px;
+    left: 2px;
+    font-size: 10px;
+    line-height: 40px;
+    letter-spacing: 0;
+  }
+}
+
+@media (max-width: 350px) {
+  .hero h1 {
+    font-size: 33px;
+    letter-spacing: -1.6px;
+  }
+
+  .hero-copy-mobile {
+    font-size: 14px;
+  }
+
+  .hero-cta {
+    font-size: 16px;
+  }
+
+  .hero-micro {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cta {
+    transition: none;
+  }
+}

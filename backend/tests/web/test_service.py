@@ -39,6 +39,43 @@ class WebServiceCases(unittest.TestCase):
                 source_timezone_mode="iana_civil_time",
             )
 
+    def test_invalid_timestamp_and_negative_kwh_are_rejected(self):
+        with self.assertRaisesRegex(DataContractError, "invalid timestamp"):
+            analyze_csv(
+                "timestamp,kwh\nnot-a-date,1",
+                building_timezone="UTC",
+                source_timezone_mode="iana_civil_time",
+            )
+        with self.assertRaisesRegex(DataContractError, "cannot be negative"):
+            analyze_csv(
+                "timestamp,kwh\n2025-01-01T00:00:00Z,-1",
+                building_timezone="UTC",
+                source_timezone_mode="explicit_offset",
+            )
+
+    def test_latest_168_hour_gap_disables_prediction(self):
+        frame = hourly_frame(180).drop(index=len(hourly_frame(180)) - 50)
+        result = analyze_csv(
+            frame.to_csv(index=False),
+            building_timezone="UTC",
+            source_timezone_mode="explicit_offset",
+        )
+        self.assertFalse(result["prediction_eligible"])
+        self.assertEqual(result["quality"]["missing_hours"], 1)
+
+    def test_long_constant_run_is_warning_not_silently_changed(self):
+        frame = hourly_frame(180)
+        frame.loc[500:700, "kwh"] = 7.5
+        result = analyze_csv(
+            frame.to_csv(index=False),
+            building_timezone="UTC",
+            source_timezone_mode="explicit_offset",
+            warning_approved=True,
+        )
+        self.assertEqual(result["quality"]["status"], "WARNING")
+        self.assertIn("WARNING_LONG_CONSTANT_RUN_168H", result["quality"]["reason_codes"])
+        self.assertTrue(result["training_eligible"])
+
     def test_constant_train_is_not_submitted(self):
         with tempfile.TemporaryDirectory() as temporary:
             manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
@@ -76,6 +113,47 @@ class WebServiceCases(unittest.TestCase):
             self.assertEqual(completed.selected_model, "last_24h")
             self.assertEqual(len(calls), 1)
             self.assertEqual(calls[0][1]["source_timezone_mode"], "explicit_offset")
+
+    def test_job_failure_is_exposed_without_automatic_retry(self):
+        calls = []
+
+        def failing_pipeline(*args, **kwargs):
+            calls.append((args, kwargs))
+            raise RuntimeError("synthetic training failure")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=failing_pipeline)
+            job = manager.submit(
+                building_id="building-failure",
+                csv_text=csv_for(180),
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            manager._run(job.job_id, warning_approved=False)
+            failed = manager.get(job.job_id)
+            self.assertEqual(failed.status, "FAILED")
+            self.assertIn("synthetic training failure", failed.error)
+            self.assertEqual(len(calls), 1)
+
+    def test_duplicate_active_training_for_same_building_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            manager.submit(
+                building_id="building-duplicate",
+                csv_text=csv_for(180),
+                building_timezone="UTC",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            with self.assertRaisesRegex(EligibilityError, "이미 진행 중"):
+                manager.submit(
+                    building_id="building-duplicate",
+                    csv_text=csv_for(180),
+                    building_timezone="UTC",
+                    source_timezone_mode="explicit_offset",
+                    start_background=False,
+                )
 
     def test_job_public_payload_does_not_expose_csv(self):
         with tempfile.TemporaryDirectory() as temporary:

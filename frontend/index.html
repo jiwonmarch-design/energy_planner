@@ -4,97 +4,162 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Energy Planner</title>
-  <meta name="description" content="건물 전력 데이터 품질 진단과 24시간 수요 예측을 위한 로컬 MVP">
+  <meta name="description" content="건물 전력 사용량 데이터 품질 진단과 향후 24시간 예측을 위한 로컬 MVP">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/landing-hero.css">
+  <link rel="stylesheet" href="/editorial-workspace.css">
+  <link rel="stylesheet" href="/app-shell.css">
   <style>.approval{display:flex;align-items:center;gap:8px;margin:-8px 0 20px;color:var(--muted);font-size:12px}.approval input{width:auto;margin:0;accent-color:var(--green)}</style>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#top" aria-label="Energy Planner 홈">
-      <span class="brand-mark">EP</span>
-      <span>Energy Planner</span>
-    </a>
-    <span class="prototype">LOCAL MVP · 자동 승격 없음</span>
+    <div class="topbar-inner">
+      <a class="brand" href="/" data-route-link aria-label="Energy Planner 홈">energy planner.</a>
+      <nav class="primary-nav" aria-label="주요 화면">
+        <a href="/" data-route-link>Home</a>
+        <a href="/workspace" data-route-link>Workspace</a>
+        <a href="/dashboard" data-route-link>Dashboard</a>
+      </nav>
+      <span class="prototype">건물 전력 사용량 분석 · 24시간 예측</span>
+    </div>
   </header>
 
   <main id="top">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">BUILDING-SPECIFIC FORECASTING</p>
-        <h1>전력 데이터를 확인하고<br>다음 24시간을 준비하세요.</h1>
-        <p class="hero-copy">건물별 CSV를 검증한 뒤 전용 GRU와 단순 기준 모델을 공정하게 비교합니다. 예측 요청은 저장된 모델만 사용하며 자동 재학습하지 않습니다.</p>
+    <section id="home-page" class="page-view home-page" data-page="/">
+      <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy-block">
+        <p class="hero-eyebrow">
+          <span class="hero-category-rule" aria-hidden="true"></span>
+          <span class="hero-label hero-label-desktop">AI 전력 사용량 예측 / ENERGY INTELLIGENCE</span>
+          <span class="hero-label hero-label-mobile">AI 전력 사용량 예측 / 24H</span>
+        </p>
+        <h1 id="hero-title"><span>데이터를 읽고,</span><span>내일을 그리다.</span></h1>
+        <p class="hero-copy hero-copy-desktop">건물의 시간별 전력 사용 데이터를 분석해<br>다음 24시간의 사용량을 예측합니다.</p>
+        <p class="hero-copy hero-copy-mobile">건물의 시간별 전력 사용 데이터를 분석해<br>다음 24시간의 사용량을 예측합니다.</p>
+        <a id="home-primary-cta" class="hero-cta" href="/workspace" data-route-link><span id="home-cta-label">CSV 업로드 시작</span> <span aria-hidden="true">↗</span></a>
+        <p class="hero-micro">DATA&nbsp;&nbsp;→&nbsp;&nbsp;PATTERN&nbsp;&nbsp;→&nbsp;&nbsp;FORECAST</p>
       </div>
-      <div class="hero-metric" aria-label="예측 규격">
-        <span>INPUT</span><strong>168h</strong><i></i><span>FORECAST</span><strong>24h</strong>
+
+      <div class="hero-contour" aria-hidden="true">
+        <img class="hero-contour-desktop" src="/assets/landing-contour-desktop.svg" alt="">
+        <img class="hero-contour-mobile" src="/assets/landing-contour-mobile.svg" alt="">
       </div>
+
+      <!-- Previous hero visual retained as a hidden rollback layer. -->
+      <div class="hero-legacy-layer" hidden aria-hidden="true">
+        <div class="hero-metric">
+          <span>INPUT</span><strong>168h</strong><i></i><span>FORECAST</span><strong>24h</strong>
+        </div>
+      </div>
+      </section>
     </section>
 
-    <section class="workspace" aria-labelledby="upload-title">
+    <section id="workspace-page" class="page-view app-page" data-page="/workspace" hidden>
+      <header class="page-intro">
+        <p class="page-kicker">DATA ANALYSIS / BUILDING MODEL</p>
+        <h1>건물 전력 데이터 분석</h1>
+        <p>CSV를 업로드하고 품질을 확인한 뒤, 학습 가능한 데이터로 건물별 예측 모델을 만듭니다.</p>
+      </header>
+
+      <aside class="journey-guidance" aria-live="polite">
+        <span>다음 할 일</span>
+        <div><strong id="workspace-next-title">CSV 파일을 업로드하세요</strong><p id="workspace-next-copy">시간별 전력 사용량 CSV를 선택하고 건물의 시간대를 확인하세요.</p></div>
+      </aside>
+
+      <nav class="workflow-steps" aria-label="분석 작업 진행 단계">
+        <a class="workflow-step is-viewed status-current" data-workspace-step="1" data-status="current" data-status-label="현재 단계" href="#data-workspace" aria-current="step"><span>01</span><strong>CSV 업로드</strong><small>전력 사용량 파일과 시간대 확인</small></a>
+        <a class="workflow-step status-waiting" data-workspace-step="2" data-status="waiting" data-status-label="대기" href="#quality-panel"><span>02</span><strong>품질 진단</strong><small>누락된 시간·연속성·학습 가능 여부</small></a>
+        <a class="workflow-step status-waiting" data-workspace-step="3" data-status="waiting" data-status-label="대기" href="#training-actions"><span>03</span><strong>모델 학습</strong><small>학습 시작과 진행 상태 확인</small></a>
+      </nav>
+
+      <section id="data-workspace" class="workspace" aria-labelledby="upload-title">
       <div class="step-column">
-        <p class="step-label">01 · 데이터 입력</p>
-        <h2 id="upload-title">건물 CSV 업로드</h2>
+        <p class="step-label">1단계 · 데이터 업로드</p>
+        <h2 id="upload-title">건물 전력 사용량 CSV 업로드</h2>
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="CSV 파일 선택">
           <input id="csv-file" type="file" accept=".csv,text/csv" hidden>
           <div class="drop-icon">↥</div>
-          <strong>CSV를 끌어놓거나 선택하세요</strong>
-          <span>UTF-8 · timestamp, kwh · 최대 25MB</span>
-          <button id="choose-file" class="button secondary" type="button">파일 선택</button>
+          <strong>시간별 전력 사용량 CSV를 여기에 놓거나 파일을 선택하세요.</strong>
+          <span>CSV(UTF-8) · 필수 열: timestamp, kwh · 최대 25MB · 최소 90일</span>
+          <button id="choose-file" class="button secondary" type="button">CSV 파일 선택</button>
         </div>
-        <div id="file-info" class="file-info" hidden></div>
+        <div id="file-info" class="file-info selected-file-card" hidden aria-live="polite">
+          <div class="selected-file-copy">
+            <span>선택한 파일</span>
+            <strong id="selected-file-name"></strong>
+            <small id="selected-file-meta"></small>
+            <p id="selected-file-state">브라우저에서 선택됨 · 아직 품질 진단 전</p>
+          </div>
+          <div class="selected-file-actions">
+            <button id="change-file" class="button secondary" type="button">파일 변경</button>
+            <button id="clear-file" class="button text-button" type="button">선택 취소</button>
+          </div>
+        </div>
 
+        <p class="csv-contract-note"><code>timestamp</code>는 1시간 구간의 시작 시각, <code>kwh</code>는 해당 시간의 소비 에너지량입니다. 누적 검침값이나 순간 전력(kW)은 지원하지 않습니다. 180일 이상을 권장합니다.</p>
         <div class="form-grid">
-          <label>건물 ID<input id="building-id" value="my-building" maxlength="80"></label>
-          <label>IANA 시간대<input id="timezone" value="Asia/Seoul" placeholder="Asia/Seoul"></label>
-          <label>시각 해석<select id="timezone-mode"><option value="iana_civil_time">IANA 현지시각</option><option value="explicit_offset">CSV offset 사용</option></select></label>
+          <label for="building-id">건물 ID <small>이 건물의 모델과 결과를 구분하는 식별자</small><input id="building-id" placeholder="예: office-main" maxlength="80" required></label>
+          <label for="timezone">건물의 시간대 <small id="timezone-help">도시명 또는 IANA 식별자로 검색하세요. 서버 검증을 최종 기준으로 사용합니다.</small><input id="timezone" value="Asia/Seoul" placeholder="예: 서울 또는 Asia/Seoul" list="timezone-options" aria-describedby="timezone-help" aria-autocomplete="list" autocomplete="off" required><datalist id="timezone-options"><option value="Asia/Seoul" label="서울 · 대한민국"></option><option value="Asia/Tokyo" label="도쿄 · 일본"></option><option value="America/New_York" label="뉴욕 · 미국"></option><option value="America/Chicago" label="시카고 · 미국"></option><option value="America/Los_Angeles" label="로스앤젤레스 · 미국"></option><option value="Europe/London" label="런던 · 영국"></option><option value="Europe/Paris" label="파리 · 프랑스"></option><option value="Australia/Sydney" label="시드니 · 호주"></option><option value="UTC" label="협정 세계시"></option></datalist></label>
+          <label for="timezone-mode">CSV의 시간 표기 방식 <small>타임스탬프에 오프셋이 있는지 확인하세요.</small><select id="timezone-mode" aria-describedby="timezone-mode-error"><option value="iana_civil_time">시간대 정보가 없는 현지 시각</option><option value="explicit_offset">CSV에 포함된 UTC 오프셋 사용</option></select><span id="timezone-mode-error" class="field-error" role="alert" hidden></span></label>
         </div>
-        <label class="approval"><input id="warning-approved" type="checkbox"> 90~179일 WARNING 데이터를 제한 실험으로 명시 승인</label>
-        <button id="analyze" class="button primary" type="button" disabled>품질 진단 시작</button>
+        <label id="warning-approval" class="approval" for="warning-approved" hidden><input id="warning-approved" type="checkbox"> 데이터 기간이 90~179일로 짧아 예측 성능이 불안정할 수 있음을 이해하고 실험적 학습에 동의합니다.</label>
+        <button id="analyze" class="button primary" type="button" disabled>데이터 품질 진단하기</button>
         <p id="form-error" class="error" role="alert"></p>
       </div>
 
-      <div class="result-column" aria-live="polite">
-        <p class="step-label">02 · 품질 판정</p>
-        <div id="empty-state" class="empty-state"><span>아직 분석한 데이터가 없습니다.</span><p>CSV를 선택하면 형식, 결측, 연속성, 학습 자격을 확인합니다.</p></div>
+      <div id="quality-panel" class="result-column" aria-live="polite">
+        <p class="step-label">2단계 · 데이터 품질 진단</p>
+        <div id="empty-state" class="empty-state" data-panel-state="empty"><span id="quality-empty-title">CSV를 먼저 선택해 주세요.</span><p id="quality-empty-copy">파일을 선택하면 품질 진단 준비 상태를 확인할 수 있습니다.</p><dl id="quality-preview" class="quality-preview" hidden><dt>선택한 파일</dt><dd id="quality-preview-file">확인 전</dd><dt>관측 기간</dt><dd>진단 전</dd><dt>누락·연속성</dt><dd>진단 전</dd><dt>학습 가능 여부</dt><dd>진단 전</dd></dl></div>
         <div id="quality-result" hidden>
           <div class="status-row"><span id="status-badge" class="status">—</span><span id="eligibility"></span></div>
           <div id="quality-cards" class="metric-grid"></div>
-          <div class="notice"><strong>판정 사유</strong><ul id="reason-list"></ul></div>
-          <div class="actions">
-            <button id="train" class="button primary" type="button">건물 전용 모델 학습</button>
-            <span>학습은 별도 요청이며 예측 시 자동 실행되지 않습니다.</span>
+          <div class="notice"><strong>진단 결과와 확인 사항</strong><ul id="reason-list"></ul></div>
+          <div id="training-actions" class="actions">
+            <button id="train" class="button primary" type="button">건물별 예측 모델 학습 시작</button>
+            <button id="open-dashboard" class="button secondary" type="button" hidden>예측 화면으로 이동</button>
+            <span>모델 학습은 ‘학습 시작’을 눌렀을 때만 진행됩니다. 예측 시에는 기존 모델을 사용합니다.</span>
           </div>
         </div>
       </div>
+      </section>
     </section>
 
-    <section class="dashboard" aria-labelledby="dashboard-title">
-      <div class="section-heading"><div><p class="step-label">03 · 모델과 예측</p><h2 id="dashboard-title">운영 대시보드</h2></div><div><button id="run-prediction" class="button primary" type="button" hidden>저장 모델로 예측</button> <span id="job-status" class="job-chip">학습 작업 없음</span></div></div>
-      <div class="dashboard-grid">
-        <article class="panel chart-panel">
-          <div class="panel-head"><div><span>향후 사용량</span><h3>24시간 예측</h3></div><span id="sample-tag" class="sample-tag">예시 데이터</span></div>
-          <svg id="forecast-chart" viewBox="0 0 720 270" role="img" aria-label="24시간 예시 전력 예측 그래프"></svg>
-          <div class="chart-legend"><span><i class="actual"></i>실측 이력</span><span><i class="forecast"></i>예측</span></div>
-        </article>
+    <section id="dashboard-page" class="page-view app-page" data-page="/dashboard" hidden>
+      <section class="dashboard" aria-labelledby="dashboard-title">
+        <div class="section-heading"><div><p class="step-label">FORECAST / 24H</p><h2 id="dashboard-title">24시간 전력 사용량 예측</h2><p class="section-copy">검증 결과를 바탕으로 선택한 모델의 24시간 예측과 성능을 확인하세요.</p></div><div class="dashboard-actions"><button id="dashboard-empty-action" class="button primary" type="button">CSV 업로드하러 가기</button><button id="return-workspace" class="button secondary" type="button" hidden>데이터 분석으로 돌아가기</button><button id="run-prediction" class="button primary" type="button" hidden>24시간 예측 실행</button><span id="job-status" class="job-chip">진행 중인 모델 학습이 없습니다.</span></div></div>
+        <p id="dashboard-error" class="error dashboard-error" role="alert" hidden></p>
+        <div class="dashboard-grid">
         <article class="panel summary-panel">
-          <span>예상 총사용량</span><strong id="total-forecast">128.4 <small>kWh</small></strong>
-          <div class="peak"><span>예상 피크</span><b id="peak-forecast">18:00 · 7.8kWh</b></div>
-          <p id="sample-note" class="sample-note">현재 값은 화면 검증용 예시입니다. 완료된 모델로 예측하면 실제 결과로 교체됩니다.</p>
+          <span>예측 요약</span>
+          <div class="summary-total"><small>향후 24시간 예상 총사용량</small><strong id="total-forecast">—</strong></div>
+          <div class="summary-details">
+            <div><span>예상 최대 시간당 사용량</span><b id="peak-forecast">예측 실행 전</b></div>
+            <div><span>예상 피크 시간대</span><b id="peak-time">예측 실행 전</b></div>
+          </div>
+          <p id="sample-note" class="sample-note">아직 사용할 수 있는 모델이 없습니다. 데이터 분석에서 CSV를 업로드하고 모델을 준비해 주세요.</p>
+        </article>
+        <article class="panel chart-panel" aria-describedby="sample-note">
+          <div class="panel-head"><div><span>1시간 구간별 전력 사용량 (kWh)</span><h3>향후 24시간 전력 사용량</h3></div><span id="sample-tag" class="sample-tag">예측 결과 없음</span></div>
+          <div class="forecast-meta"><span id="forecast-reference">예측 시작 기준: 미설정</span><span id="forecast-timezone">시간대: 미설정</span></div>
+          <svg id="forecast-chart" viewBox="0 0 720 270" role="img" aria-label="24시간 전력 예측 그래프"></svg>
+          <div class="chart-legend"><span><i class="actual"></i>과거 실측</span><span><i class="forecast"></i>미래 예측</span></div>
         </article>
         <article class="panel model-panel">
-          <div class="panel-head"><div><span>Validation 기준</span><h3>모델 비교</h3></div></div>
-          <div id="model-gru" class="model-row"><span>GRU</span><b id="metric-gru">MAE —</b></div>
-          <div id="model-last-24h" class="model-row"><span>Last-24h</span><b id="metric-last-24h">MAE —</b></div>
-          <div id="model-last-168h" class="model-row"><span>Last-168h</span><b id="metric-last-168h">MAE —</b></div>
-          <p>Test는 후보 선택이 끝난 뒤 한 번만 평가합니다.</p>
+          <div class="panel-head"><div><span>검증 데이터 기준 · MAE(kWh) / WAPE(%)</span><h3>모델 성능 비교</h3></div></div>
+          <div id="model-gru" class="model-row"><span>GRU 예측 모델</span><b id="metric-gru">평가 결과 없음</b></div>
+          <div id="model-last-24h" class="model-row"><span>전날 동일 시각 기준 <small>Last-24h</small></span><b id="metric-last-24h">평가 결과 없음</b></div>
+          <div id="model-last-168h" class="model-row"><span>지난주 동일 시각 기준 <small>Last-168h</small></span><b id="metric-last-168h">평가 결과 없음</b></div>
+          <p>모델은 검증 데이터로 선택하고, 테스트 데이터는 최종 성능 확인에만 사용합니다.</p>
         </article>
         <article class="panel version-panel">
-          <div class="panel-head"><div><span>저장 모델</span><h3>버전 정보</h3></div></div>
-          <dl><dt>상태</dt><dd id="model-state">등록된 모델 없음</dd><dt>선택 모델</dt><dd id="selected-model">—</dd><dt>run ID</dt><dd id="run-id">—</dd><dt>피처</dt><dd>6개 · A안</dd><dt>입출력</dt><dd>168 → 24</dd><dt>재학습</dt><dd>자동 실행 안 함</dd></dl>
+          <div class="panel-head"><div><span>현재 사용 모델</span><h3>모델 상세 정보</h3></div></div>
+          <dl><dt>상태</dt><dd id="model-state">저장된 모델 없음</dd><dt>사용할 예측 모델</dt><dd id="selected-model">—</dd><dt>학습 기록 ID</dt><dd id="run-id">—</dd><dt>모델 입력 정보</dt><dd>전력 사용량·시간·요일 등 6개 입력 특성</dd><dt>예측에 사용하는 기간</dt><dd>과거 168시간 → 미래 24시간</dd><dt>자동 재학습</dt><dd>예측 시 재학습하지 않음</dd></dl>
         </article>
-      </div>
+        </div>
+      </section>
     </section>
   </main>
-  <footer>Energy Planner · 로컬 검증용 MVP · 원본 CSV는 브라우저에서 선택한 뒤 로컬 서버에만 전달됩니다.</footer>
+  <footer>Energy Planner · 로컬 테스트 버전 · 선택한 CSV는 이 기기에서 실행 중인 서버로 전송됩니다.</footer>
   <script src="/app.js" defer></script>
 </body>
 </html>
