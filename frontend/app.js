@@ -93,6 +93,23 @@ function renderWorkspaceSteps() {
     if (number === state.viewedStep) step.setAttribute("aria-current", "step");
     else step.removeAttribute("aria-current");
   });
+  document.querySelectorAll("[data-step-panel]").forEach((panel) => {
+    panel.hidden = Number(panel.dataset.stepPanel) !== state.viewedStep;
+  });
+  $("wizard-previous").disabled = state.viewedStep === 1;
+  $("wizard-next").disabled = state.viewedStep === 3;
+  $("wizard-next").textContent = state.viewedStep === 2 ? "XGBoost 학습 단계" : "다음 단계";
+  $("wizard-position").textContent = `${state.viewedStep} / 3`;
+}
+
+function switchWorkspaceStep(number, { scroll = true } = {}) {
+  state.viewedStep = Math.min(3, Math.max(1, number));
+  renderWorkspaceSteps();
+  if (scroll && state.route === "/workspace") {
+    const panel = document.querySelector(`[data-step-panel="${state.viewedStep}"]`);
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.focus({ preventScroll: true });
+  }
 }
 
 function setWorkspaceState(statuses, viewedStep = state.viewedStep) {
@@ -106,13 +123,12 @@ document.querySelectorAll("[data-workspace-step]").forEach((step) => {
   step.addEventListener("click", (event) => {
     event.preventDefault();
     const number = Number(step.dataset.workspaceStep);
-    state.viewedStep = number;
-    renderWorkspaceSteps();
-    let target = number === 1 ? $("data-workspace") : $("quality-panel");
-    if (number === 3) target = $("training-panel");
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    switchWorkspaceStep(number);
   });
 });
+
+$("wizard-previous").addEventListener("click", () => switchWorkspaceStep(state.viewedStep - 1));
+$("wizard-next").addEventListener("click", () => switchWorkspaceStep(state.viewedStep + 1));
 
 function currentContext() {
   return {
@@ -161,12 +177,16 @@ function resetTrainingView(message = "STEP 02 품질 진단을 통과하면 학�
   $("workspace-job-status").textContent = "학습 대기";
   $("workspace-job-status").removeAttribute("data-status");
   $("train").disabled = true;
+  $("workspace-run-prediction").hidden = true;
+  $("workspace-prediction-summary").textContent = "24시간 예측 실행 전입니다.";
 }
 
 function resetQualityPanel(message) {
   state.analysis = null;
   state.analysisSignature = "";
   $("quality-result").hidden = true;
+  $("quality-split-results").hidden = true;
+  $("quality-split-results").innerHTML = "";
   $("empty-state").hidden = false;
   const empty = $("empty-state");
   empty.dataset.panelState = state.csvText ? "selected" : "empty";
@@ -235,6 +255,8 @@ function updateNextAction() {
   $("open-dashboard").hidden = !completed;
   $("run-prediction").hidden = !completed;
   $("run-prediction").disabled = !canPredict;
+  $("workspace-run-prediction").hidden = !completed;
+  $("workspace-run-prediction").disabled = !canPredict;
   if (completed && !state.predictionComplete) {
     $("sample-tag").textContent = canPredict ? "예측 실행 전" : "CSV 재검증 필요";
     $("sample-note").textContent = canPredict
@@ -448,6 +470,21 @@ function renderQuality(result) {
   $("reason-list").innerHTML = (reasons.length ? reasons : ["필수 품질 기준을 충족했습니다."])
     .map((reason) => `<li>${qualityReasonText(reason)}</li>`)
     .join("");
+  const split = result.split;
+  const splitResults = $("quality-split-results");
+  if (split) {
+    splitResults.hidden = false;
+    splitResults.innerHTML = `
+      <h3>Train / Validation / Test 시간순 분할</h3>
+      <div class="split-grid">
+        <div><span>Train</span><strong>${split.train_start.slice(0, 10)} → ${split.train_end.slice(0, 10)}</strong></div>
+        <div><span>Validation</span><strong>${split.validation_start.slice(0, 10)} → ${split.validation_end.slice(0, 10)}</strong><small>${split.validation_days}일</small></div>
+        <div><span>Test</span><strong>${split.test_start.slice(0, 10)} → ${split.test_end.slice(0, 10)}</strong><small>${split.test_days}일</small></div>
+      </div>`;
+  } else {
+    splitResults.hidden = true;
+    splitResults.innerHTML = "";
+  }
   $("train").disabled = !result.training_eligible;
   $("training-placeholder").hidden = false;
   $("training-placeholder").textContent = result.training_eligible
@@ -460,7 +497,7 @@ function renderQuality(result) {
   const stepTwoStatus = qualityStatus === "pass" ? "complete" : qualityStatus === "warning" ? "warning" : "fail";
   setWorkspaceState(
     { 1: "complete", 2: stepTwoStatus, 3: result.training_eligible ? "current" : jobStepStatus() },
-    result.training_eligible ? 3 : 2,
+    2,
   );
 }
 
@@ -696,12 +733,18 @@ function displayTime(value) {
   });
 }
 
-$("run-prediction").onclick = async () => {
-  const button = $("run-prediction");
+async function runPrediction(source) {
+  const dashboardButton = $("run-prediction");
+  const workspaceButton = $("workspace-run-prediction");
+  const sourceButton = source === "workspace" ? workspaceButton : dashboardButton;
+  const sourceError = source === "workspace" ? error : $("dashboard-error");
   $("dashboard-error").hidden = true;
   $("dashboard-error").textContent = "";
-  button.disabled = true;
-  button.textContent = "예측 중…";
+  if (source === "workspace") error.textContent = "";
+  dashboardButton.disabled = true;
+  workspaceButton.disabled = true;
+  sourceButton.textContent = "예측 중…";
+  if (source === "workspace") $("workspace-prediction-summary").textContent = "저장된 모델로 24시간 예측을 생성하고 있습니다.";
   try {
     const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
     drawPredictionChart(result.history_kwh, result.predictions_kwh);
@@ -712,16 +755,23 @@ $("run-prediction").onclick = async () => {
     $("forecast-timezone").textContent = `시간대: ${$("timezone").value.trim()}`;
     $("sample-tag").textContent = "실제 예측 결과";
     $("sample-note").textContent = `학습 기록 ${result.run_id} · ${result.model_kind} · 저장된 모델로 생성한 실제 예측`;
+    $("workspace-prediction-summary").textContent = `예측 완료 · 총 ${fmt(result.total_kwh)} kWh · 최대 ${fmt(result.peak_kwh)} kWh · 피크 ${displayTime(result.peak_timestamp)}`;
     state.predictionComplete = true;
     updateNextAction();
   } catch (caught) {
-    $("dashboard-error").hidden = false;
-    $("dashboard-error").textContent = `예측에 실패했습니다: ${caught.message} 입력 CSV와 시간대를 확인한 뒤 다시 시도하세요.`;
+    const message = `예측에 실패했습니다: ${caught.message} 입력 CSV와 시간대를 확인한 뒤 다시 시도하세요.`;
+    sourceError.hidden = false;
+    sourceError.textContent = message;
+    if (source === "workspace") $("workspace-prediction-summary").textContent = "예측을 완료하지 못했습니다. 오류 안내를 확인한 뒤 다시 시도하세요.";
   } finally {
-    button.disabled = false;
-    button.textContent = "24시간 예측 실행";
+    dashboardButton.textContent = "24시간 예측 실행";
+    workspaceButton.textContent = "24시간 예측 실행";
+    updateNextAction();
   }
-};
+}
+
+$("run-prediction").onclick = () => runPrediction("dashboard");
+$("workspace-run-prediction").onclick = () => runPrediction("workspace");
 
 function drawPredictionChart(history, forecast) {
   const svg = $("forecast-chart");

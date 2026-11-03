@@ -1,0 +1,110 @@
+[
+  {
+    "id": "W01-initial",
+    "status": "PASS",
+    "details": {
+      "route": "/workspace",
+      "position": "1 / 3",
+      "visiblePanels": [
+        "1"
+      ],
+      "previousDisabled": true,
+      "overflow": false
+    }
+  },
+  {
+    "id": "W02-manual-step",
+    "status": "PASS",
+    "details": {
+      "position": "2 / 3",
+      "visiblePanels": [
+        "2"
+      ],
+      "focused": "quality-panel",
+      "analyzeDisabled": true
+    }
+  },
+  {
+    "id": "W03-locked-action",
+    "status": "PASS",
+    "details": {
+      "position": "3 / 3",
+      "visiblePanels": [
+        "3"
+      ],
+      "nextDisabled": true,
+      "trainDisabled": true
+    }
+  },
+  {
+    "id": "W04-file-to-quality",
+    "status": "PASS",
+    "details": {
+      "position": "2 / 3",
+      "visiblePanels": [
+        "2"
+      ],
+      "analyzeEnabled": true,
+      "file": "qa_complete_180_days.csv"
+    }
+  },
+  {
+    "id": "W05-quality-result",
+    "status": "PASS",
+    "details": {
+      "status": "PASS",
+      "splitVisible": true,
+      "splitCards": 3,
+      "position": "2 / 3",
+      "trainEnabled": true,
+      "stepThreeStatus": "current"
+    }
+  },
+  {
+    "id": "W06-training-ready",
+    "status": "PASS",
+    "details": {
+      "visiblePanels": [
+        "3"
+      ],
+      "trainEnabled": true,
+      "predictionHidden": true,
+      "summary": "24시간 예측 실행 전입니다."
+    }
+  },
+  {
+    "id": "W07-responsive-390",
+    "status": "PASS",
+    "details": {
+      "width": 390,
+      "overflow": false,
+      "buttonHeights": [
+        44,
+        44
+      ],
+      "panelWidth": 350,
+      "viewportWidth": 390
+    }
+  },
+  {
+    "id": "W07-responsive-320",
+    "status": "PASS",
+    "details": {
+      "width": 320,
+      "overflow": false,
+      "buttonHeights": [
+        44,
+        44
+      ],
+      "panelWidth": 280,
+      "viewportWidth": 320
+    }
+  },
+  {
+    "id": "W08-reduced-motion",
+    "status": "PASS",
+    "details": {
+      "animationName": "none"
+    }
+  }
+]

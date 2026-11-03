@@ -23,6 +23,7 @@
 - 신규 학습 모델을 GRU에서 XGBoost로 전환: 168×6 입력 flatten, 24개 horizon 회귀기, 신규 artifact·추론·UI·문서 계약 반영
 - 기존 GRU run은 수정하지 않고 읽기 전용 추론 호환 경로로 분리
 - Workspace 최종 정리: 세로형 3단계 흐름, 서버 자동 건물 ID·시간대 모드 판별, XGBoost 불확정형 진행 표시·재시도·상태 복원·모델 비교 반영
+- Workspace 단계형 UI 마무리: 단일 패널 전환, 이전·다음 탐색, 시간순 분할 결과, Workspace 예측 연결, 키보드 포커스와 모션 감소 대응
 
 ## 테스트 결과
 
@@ -44,7 +45,8 @@
 - XGBoost 전환 Python compileall·JavaScript 문법 검사: PASS
 - 기존 Leon GRU run 읽기 전용 재로딩·24시간 추론 호환: PASS(원본 run 수정 없음)
 - Workspace/API 변경 회귀 테스트: 41 PASS, 1 SKIP(`xgboost` 미설치)
-- Workspace 실제 브라우저 시각 검증: 미검증(브라우저 URL 안전 확인 실패로 자동 제어 중단)
+- Workspace 실제 Chrome 검증: 9/9 PASS(1440px·390px·320px, 단계 전환·180일 CSV 진단·분할 표시·반응형·모션 감소)
+- 최신 전체 회귀: 41 PASS, 1 SKIP(`xgboost` 미설치), Python compileall·JavaScript 문법 검사 PASS
 
 ## 발견 및 해결
 

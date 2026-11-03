@@ -66,9 +66,10 @@
         <a class="workflow-step status-waiting" data-workspace-step="2" data-status="waiting" data-status-label="대기" href="#quality-panel"><span>02</span><strong>품질 진단</strong><small>누락된 시간·연속성·학습 가능 여부</small></a>
         <a class="workflow-step status-waiting" data-workspace-step="3" data-status="waiting" data-status-label="대기" href="#training-panel"><span>03</span><strong>XGBoost 모델 학습</strong><small>학습·평가와 선택 모델 확인</small></a>
       </nav>
+      <p id="form-error" class="error workspace-error" role="alert"></p>
 
       <section id="data-workspace" class="workspace workspace-flow" aria-labelledby="upload-title">
-      <section class="workflow-panel step-column" data-step-panel="1">
+      <section class="workflow-panel step-column" data-step-panel="1" tabindex="-1">
         <p class="step-label">1단계 · 데이터 업로드</p>
         <h2 id="upload-title">건물 전력 사용량 CSV 업로드</h2>
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="CSV 파일 선택">
@@ -96,22 +97,25 @@
           <label for="timezone">건물의 시간대 <small id="timezone-help">도시명 또는 IANA 식별자로 검색하세요. 서버 검증을 최종 기준으로 사용합니다.</small><input id="timezone" value="Asia/Seoul" placeholder="예: 서울 또는 Asia/Seoul" list="timezone-options" aria-describedby="timezone-help" aria-autocomplete="list" autocomplete="off" required><datalist id="timezone-options"><option value="Asia/Seoul" label="서울 · 대한민국"></option><option value="Asia/Tokyo" label="도쿄 · 일본"></option><option value="America/New_York" label="뉴욕 · 미국"></option><option value="America/Chicago" label="시카고 · 미국"></option><option value="America/Los_Angeles" label="로스앤젤레스 · 미국"></option><option value="Europe/London" label="런던 · 영국"></option><option value="Europe/Paris" label="파리 · 프랑스"></option><option value="Australia/Sydney" label="시드니 · 호주"></option><option value="UTC" label="협정 세계시"></option></datalist></label>
         </div>
         <p class="auto-setting-note">건물 ID는 서버가 자동 생성합니다. timestamp의 UTC 오프셋은 자동 인식하며, 오프셋이 없으면 선택한 건물 시간대를 적용합니다.</p>
-        <label id="warning-approval" class="approval" for="warning-approved" hidden><input id="warning-approved" type="checkbox"> 데이터 기간이 90~179일로 짧아 예측 성능이 불안정할 수 있음을 이해하고 실험적 학습에 동의합니다.</label>
-        <button id="analyze" class="button primary" type="button" disabled>데이터 품질 진단하기</button>
-        <p id="form-error" class="error" role="alert"></p>
       </section>
 
-      <section id="quality-panel" class="workflow-panel result-column" data-step-panel="2" aria-live="polite">
+      <section id="quality-panel" class="workflow-panel result-column" data-step-panel="2" tabindex="-1" aria-live="polite" hidden>
         <p class="step-label">2단계 · 데이터 품질 진단</p>
+        <div class="step-action-bar">
+          <div><h2>데이터 품질과 시간순 분할 확인</h2><p>CSV 규격, 누락·연속성, Train/Validation/Test 구간을 확인합니다.</p></div>
+          <button id="analyze" class="button primary" type="button" disabled>데이터 품질 진단하기</button>
+        </div>
+        <label id="warning-approval" class="approval" for="warning-approved" hidden><input id="warning-approved" type="checkbox"> 데이터 기간이 90~179일로 짧아 예측 성능이 불안정할 수 있음을 이해하고 실험적 학습에 동의합니다.</label>
         <div id="empty-state" class="empty-state" data-panel-state="empty"><span id="quality-empty-title">CSV를 먼저 선택해 주세요.</span><p id="quality-empty-copy">파일을 선택하면 품질 진단 준비 상태를 확인할 수 있습니다.</p><dl id="quality-preview" class="quality-preview" hidden><dt>선택한 파일</dt><dd id="quality-preview-file">확인 전</dd><dt>관측 기간</dt><dd>진단 전</dd><dt>누락·연속성</dt><dd>진단 전</dd><dt>학습 가능 여부</dt><dd>진단 전</dd></dl></div>
         <div id="quality-result" hidden>
           <div class="status-row"><span id="status-badge" class="status">—</span><span id="eligibility"></span></div>
           <div id="quality-cards" class="metric-grid"></div>
           <div class="notice"><strong>진단 결과와 확인 사항</strong><ul id="reason-list"></ul></div>
+          <div id="quality-split-results" class="split-results" hidden></div>
         </div>
       </section>
 
-      <section id="training-panel" class="workflow-panel training-panel" data-step-panel="3" aria-live="polite">
+      <section id="training-panel" class="workflow-panel training-panel" data-step-panel="3" tabindex="-1" aria-live="polite" hidden>
         <p class="step-label">3단계 · XGBoost 모델 학습</p>
         <div class="training-heading">
           <div><h2>XGBoost 학습 및 평가</h2><p>품질 진단을 통과한 데이터만 학습할 수 있습니다. 중복 실행과 예측 시 자동 재학습은 차단됩니다.</p></div>
@@ -125,6 +129,7 @@
         <div id="training-actions" class="actions training-actions">
           <button id="train" class="button primary" type="button" disabled>XGBoost 모델 학습 시작</button>
           <button id="retry-training" class="button secondary" type="button" hidden>학습 재시도</button>
+          <button id="workspace-run-prediction" class="button primary" type="button" hidden>24시간 예측 실행</button>
           <button id="open-dashboard" class="button secondary" type="button" hidden>Dashboard에서 예측하기</button>
         </div>
         <div id="workspace-model-results" class="workspace-model-results" hidden>
@@ -133,8 +138,14 @@
           <div id="workspace-model-last-24h" class="model-row"><span>Last-24h</span><b id="workspace-metric-last-24h">평가 결과 없음</b></div>
           <div id="workspace-model-last-168h" class="model-row"><span>Last-168h</span><b id="workspace-metric-last-168h">평가 결과 없음</b></div>
           <p id="test-evaluation-note">Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.</p>
+          <p id="workspace-prediction-summary" class="workspace-prediction-summary">24시간 예측 실행 전입니다.</p>
         </div>
       </section>
+      <nav class="wizard-navigation" aria-label="단계 이동">
+        <button id="wizard-previous" class="button secondary" type="button">이전 단계</button>
+        <span id="wizard-position" aria-live="polite">1 / 3</span>
+        <button id="wizard-next" class="button primary" type="button">다음 단계</button>
+      </nav>
       </section>
     </section>
 
