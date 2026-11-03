@@ -59,16 +59,15 @@
 
 ## 현재 진행 중
 
-- XGBoost 의존성 설치 승인과 실제 합성 학습 검증 대기
-- Phase 8 운영 보안·job 영속화 후속 설계와 실제 브라우저 QA 준비
+- 통합 구현과 로컬 실제 브라우저 검증 완료, PM 검토 대기
+- 실제 OpenAI API 호출은 사용자 키가 없어 미검증 상태
 
 ## 남은 작업
 
-- job 영속화·재시작 복구
 - 인증과 사용자별 artifact 격리
-- 서버 재시작·전체 새로고침 후 진행 중 job 재연결
+- 영속 실행 queue와 중단 작업 재개(현재는 FAILED 복구)
 - Danica run의 운영 승격 여부는 PM 검토 후 별도 결정
-- 승인된 환경에 `backend/requirements.txt`를 설치한 뒤 XGBoost 결정성·end-to-end 합성 학습 검증
+- 실제 OpenAI API 성공·거부·rate limit 통합 검증
 
 ## 사용자 승인 필요
 
@@ -76,8 +75,53 @@
 - 품질 임계값의 장기 운영 정책 확정
 - 모델 승격·롤백·보존 기간
 - Danica 기존 시간대 manifest 형식 승인 또는 별도 교정 실험 여부
-- XGBoost 패키지 설치 승인
+- 유효한 OpenAI API 키를 사용한 제한적 실제 호출 검증 승인
 
 ## 다음 세션 시작 위치
 
-승인된 환경에 XGBoost 의존성을 설치한 뒤 실제 학습·저장·재로딩·예측 회귀를 검증한다. 이후 PRD·SPEC·PLAN을 기준으로 Phase 8 job 영속화·사용자 격리·보안 설계를 이어서 구현한다. 추가 Office 학습과 운영 승격은 수행하지 않는다.
+PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해석을 제한적으로 검증하거나, 인증·사용자별 artifact 격리 설계를 우선 진행한다. 추가 Office 학습과 운영 승격은 수행하지 않는다.
+
+## 2026-11-03 통합 개발 완료 기록
+
+- 승인된 가상환경에 `xgboost 3.4.1` 설치 후 기본 설정 500 estimators·24 horizon 실제 합성 학습 완료
+- XGBoost candidate 저장·24개 모델 재로딩·`[1,24]` 추론과 선택 baseline 재사용 추론 PASS
+- 완료 job 메타데이터 영속화, 서버 재시작 복구와 원본 CSV 미저장 구현
+- 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구
+- 선택형 OpenAI 해석 API 구현: 최소 집계 전송, strict JSON schema, 키 비노출, timeout·호출 제한
+- Wave Halftone 랜딩, Guide, 최근 사용량 분석과 24행 예측표를 포함한 Dashboard 구현
+- 실제 Chrome 통합 흐름 1회 실행: 품질 PASS → XGBoost 학습 → 저장 run 예측 → 재시작 복구 PASS
+- 모바일 Dashboard 오버플로 수정 후 390px·320px 재검증 16/16 PASS
+- 자동 테스트 48/48, targeted 25/25, Python compileall, JavaScript 구문 검사 PASS
+- 상세 보고서: `analysis/integrated_mvp_validation/report.md`
+
+### 미검증·승인 필요
+
+- `OPENAI_API_KEY` 미설정으로 실제 OpenAI 외부 성공 호출은 미검증(mock·비활성 상태만 PASS)
+- 인증·사용자별 artifact 격리·CSRF·영속 실행 queue는 미구현
+- 업로드/run 보존·삭제 및 운영 승격·롤백 정책은 PM 결정 필요
+- 추가 Office 학습·외부 배포·운영 승격은 수행하지 않음
+
+## 2026-11-03 첨부 HTML 기반 랜딩 교체
+
+- `energy_planner_landing_reference.html`의 파란색 데이터 시각화 랜딩을 Home에 재현
+- 포인터 반응형 dot wave, 3단계 분석 미리보기, 샘플 선 그래프·도넛 인터랙션 구현
+- 시안의 수치는 `시연용 예시 데이터`와 실제 결과가 아니라는 안내로 명확히 분리
+- 주요 CTA를 실제 `/workspace`, `/dashboard` History API 라우트에 연결
+- 기존 Workspace·Dashboard·Guide DOM과 CSV·XGBoost·예측 API는 변경하지 않음
+- 실제 Chrome 1440px·390px·320px 검증 29/29 PASS, 가로 오버플로 없음
+- 전체 Python 회귀 48/48, JavaScript 문법, Python compileall PASS
+- 검증 결과: `analysis/landing_reference_validation/browser_results.json`
+
+## 2026-11-03 통합형 인터랙티브 화면 개편
+
+- `energy_planner_integrated_mockup.html`을 기준으로 Home·Workspace·Dashboard를 하나의 스크롤 페이지로 통합
+- Guide 탭을 제거하고 CSV 업로드 → 품질 진단 → XGBoost 학습 → 예측 대시보드의 Sticky 4단계 탐색 구현
+- `/`, `/workspace`, `/dashboard` 직접 진입과 History API 이동은 유지하며 해당 통합 섹션으로 이동
+- 기존 CSV·시간대·품질·학습·기준 모델·Test·예측·OpenAI API 계약과 저장 run은 변경하지 않음
+- 시안의 가상 KPI·학습 시뮬레이션은 화면에서 제거하고 실제 결과가 없으면 빈 상태를 표시
+- 파일 선택 취소, 실제 품질 API 결과, 학습 상태, 저장 모델 재사용 UI를 기존 로직으로 연결
+- 실제 예측 그래프에 포인터 호버 툴팁을 추가하고 44px 터치 타깃·키보드 포커스·reduced motion 지원
+- 실제 Headless Chrome 1440px·390px·320px 검증 7/7 PASS, 수평 오버플로 없음
+- 합성 180일 CSV의 실제 품질 API PASS 및 파일 삭제 후 상태 무효화 PASS; 신규 모델 학습은 실행하지 않음
+- 전체 Python 회귀 48/48 PASS, JavaScript 문법 검사 PASS
+- 검증 결과와 스크린샷: `analysis/integrated_ui_validation/`

@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-11-03T08:26:00.804Z",
+  "results": [
+    {
+      "name": "layout-1440",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44
+      }
+    },
+    {
+      "name": "layout-390",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44
+      }
+    },
+    {
+      "name": "layout-320",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "steps": 4,
+        "guideLinks": 0,
+        "fakeKpisVisible": false,
+        "panelsVisible": true,
+        "touchTargets": 44
+      }
+    },
+    {
+      "name": "real-quality-api",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace",
+        "status": "PASS",
+        "trainEnabled": true,
+        "fileDeleteVisible": true,
+        "dashboardEmpty": true,
+        "fakeNoticeVisible": false
+      }
+    },
+    {
+      "name": "sticky-navigation",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "activeStep": "dashboard-page",
+        "modelState": "저장된 모델 없음",
+        "trainingStatus": "학습 준비 완료"
+      }
+    },
+    {
+      "name": "file-delete-reset",
+      "status": "PASS",
+      "details": {
+        "fileInfoHidden": true,
+        "analyzeDisabled": true,
+        "qualityHidden": true
+      }
+    },
+    {
+      "name": "forecast-hover-tooltip",
+      "status": "PASS",
+      "details": {
+        "visible": true,
+        "text": "예측 +15시간 · 13.75 kWh"
+      }
+    }
+  ]
+}

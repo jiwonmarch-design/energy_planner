@@ -14,6 +14,10 @@ const state = {
   qualityRequestId: 0,
   viewedStep: 1,
   stepStatuses: { 1: "current", 2: "waiting", 3: "waiting" },
+  aiAnalysisAvailable: false,
+  aiAnalysisModel: "",
+  aiAnalysisComplete: false,
+  jobRecovered: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -34,9 +38,9 @@ function normalizeRoute(pathname) {
 
 function renderRoute(path, { scroll = true } = {}) {
   state.route = normalizeRoute(path);
-  document.body.dataset.route = state.route === "/" ? "home" : state.route.slice(1);
+  document.body.dataset.route = "integrated";
   document.querySelectorAll("[data-page]").forEach((page) => {
-    page.hidden = page.dataset.page !== state.route;
+    page.hidden = page.dataset.page === "/guide";
   });
   document.querySelectorAll("[data-route-link]").forEach((link) => {
     const active = new URL(link.href, location.origin).pathname === state.route;
@@ -50,7 +54,10 @@ function renderRoute(path, { scroll = true } = {}) {
   };
   document.title = titles[state.route];
   updateNextAction();
-  if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+  if (scroll) {
+    const target = state.route === "/workspace" ? $("data-workspace") : state.route === "/dashboard" ? $("dashboard-page") : $("top");
+    target?.scrollIntoView({ behavior: "auto", block: "start" });
+  }
 }
 
 function navigate(path, { replace = false, scroll = true } = {}) {
@@ -94,7 +101,7 @@ function renderWorkspaceSteps() {
     else step.removeAttribute("aria-current");
   });
   document.querySelectorAll("[data-step-panel]").forEach((panel) => {
-    panel.hidden = Number(panel.dataset.stepPanel) !== state.viewedStep;
+    panel.hidden = false;
   });
   $("wizard-previous").disabled = state.viewedStep === 1;
   $("wizard-next").disabled = state.viewedStep === 3;
@@ -105,9 +112,10 @@ function renderWorkspaceSteps() {
 function switchWorkspaceStep(number, { scroll = true } = {}) {
   state.viewedStep = Math.min(3, Math.max(1, number));
   renderWorkspaceSteps();
-  if (scroll && state.route === "/workspace") {
+  if (scroll) {
     const panel = document.querySelector(`[data-step-panel="${state.viewedStep}"]`);
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    panel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
     panel.focus({ preventScroll: true });
   }
 }
@@ -201,6 +209,31 @@ function resetQualityPanel(message) {
   $("train").disabled = true;
 }
 
+function resetAIAnalysis() {
+  state.aiAnalysisComplete = false;
+  $("ai-analysis-result").hidden = true;
+  $("ai-summary").textContent = "";
+  $("ai-peak").textContent = "";
+  $("ai-patterns").replaceChildren();
+  $("ai-cautions").replaceChildren();
+}
+
+function resetDashboardPrediction() {
+  $("total-forecast").textContent = "—";
+  $("average-forecast").textContent = "예측 실행 전";
+  $("peak-forecast").textContent = "예측 실행 전";
+  $("peak-time").textContent = "예측 실행 전";
+  $("forecast-reference").textContent = "예측 시작 기준: 미설정";
+  $("forecast-timezone").textContent = "시간대: 미설정";
+  $("forecast-table-body").replaceChildren();
+  $("daily-usage-chart").innerHTML = "";
+  $("period-composition-list").replaceChildren();
+  $("period-donut").style.background = "conic-gradient(var(--line) 0 100%)";
+  $("monthly-usage-list").replaceChildren();
+  $("actual-summary-label").textContent = "예측 실행 후 표시";
+  drawEmptyChart();
+}
+
 function invalidateAnalysis(message = "입력이 변경되어 재검증이 필요합니다.") {
   const hadAnalysis = Boolean(state.analysis);
   state.qualityRequestId += 1;
@@ -208,6 +241,8 @@ function invalidateAnalysis(message = "입력이 변경되어 재검증이 필�
   updateAnalyzeAvailability();
   $("analyze").textContent = "데이터 품질 진단하기";
   state.predictionComplete = false;
+  resetAIAnalysis();
+  resetDashboardPrediction();
   resetQualityPanel(message);
   resetTrainingView();
   const hasFile = Boolean(state.csvText);
@@ -227,7 +262,10 @@ function updateNextAction() {
   const running = ["QUEUED", "RUNNING"].includes(state.job?.status);
   const currentAnalysis = analysisIsCurrent();
   const contextMatches = contextsMatch(state.jobContext, currentContext());
-  const canPredict = completed && Boolean(state.csvText) && currentAnalysis && contextMatches;
+  const canPredict = completed && (
+    (Boolean(state.csvText) && currentAnalysis && contextMatches)
+    || (!state.csvText && state.jobRecovered)
+  );
   const homeCta = $("home-primary-cta");
   const homeLabel = $("home-cta-label");
   let homePath = "/workspace";
@@ -257,6 +295,14 @@ function updateNextAction() {
   $("run-prediction").disabled = !canPredict;
   $("workspace-run-prediction").hidden = !completed;
   $("workspace-run-prediction").disabled = !canPredict;
+  $("ai-analyze").disabled = !state.predictionComplete || !state.aiAnalysisAvailable;
+  if (!state.aiAnalysisAvailable) {
+    $("ai-analysis-status").textContent = "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다.";
+  } else if (!state.predictionComplete) {
+    $("ai-analysis-status").textContent = "24시간 예측을 먼저 실행해 주세요.";
+  } else if (!state.aiAnalysisComplete) {
+    $("ai-analysis-status").textContent = `AI 해석을 실행할 수 있습니다${state.aiAnalysisModel ? ` · ${state.aiAnalysisModel}` : ""}.`;
+  }
   if (completed && !state.predictionComplete) {
     $("sample-tag").textContent = canPredict ? "예측 실행 전" : "CSV 재검증 필요";
     $("sample-note").textContent = canPredict
@@ -286,6 +332,7 @@ async function readFile(file) {
   if (!file || !file.name.toLowerCase().endsWith(".csv")) throw new Error("CSV 파일만 선택할 수 있습니다.");
   if (file.size > 25 * 1024 * 1024) throw new Error("CSV는 25MB 이하여야 합니다.");
   state.csvText = await file.text();
+  state.jobRecovered = false;
   state.fileName = file.name;
   state.fileToken = `${file.name}:${file.size}:${file.lastModified}`;
   state.observationDays = estimateObservationDays(state.csvText);
@@ -312,6 +359,8 @@ function clearSelectedFile() {
   state.warningRequired = false;
   state.observationDays = null;
   state.predictionComplete = false;
+  resetAIAnalysis();
+  resetDashboardPrediction();
   fileInput.value = "";
   drop.hidden = false;
   $("file-info").hidden = true;
@@ -397,6 +446,8 @@ drop.addEventListener("drop", (event) =>
 
 function handleInfluentialInputChange() {
   state.predictionComplete = false;
+  resetAIAnalysis();
+  resetDashboardPrediction();
   clearTimeModeError();
   if (state.analysis || state.analysisSignature) invalidateAnalysis();
   else {
@@ -579,6 +630,7 @@ async function startTraining() {
   setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "in-progress" }, 3);
   try {
     state.job = await api("/api/training-jobs", requestBody());
+    state.jobRecovered = false;
     state.jobContext = currentContext();
     sessionStorage.setItem(jobSessionKey, JSON.stringify({ jobId: state.job.job_id, context: state.jobContext }));
     renderJob(state.job);
@@ -645,7 +697,8 @@ function renderJob(job) {
   const names = { xgboost: "xgboost", last_24h: "last-24h", last_168h: "last-168h" };
   Object.entries(names).forEach(([key, id]) => {
     const metric = job.validation_metrics?.[key];
-    $("metric-" + id).textContent = metricText(metric);
+    const testMetric = job.test_metrics?.[key];
+    $("metric-" + id).textContent = `Validation ${metricText(metric)} · Test ${metricText(testMetric)}`;
     $("model-" + id).classList.toggle("selected", job.selected_model === key);
     $("workspace-metric-" + id).textContent = metricText(metric);
     $("workspace-model-" + id).classList.toggle("selected", job.selected_model === key);
@@ -705,6 +758,7 @@ async function recoverJob() {
     const response = await fetch(`/api/training-jobs/${saved.jobId}`);
     if (!response.ok) throw new Error("저장된 학습 작업을 현재 서버에서 찾을 수 없습니다.");
     state.job = await response.json();
+    state.jobRecovered = state.job.status === "COMPLETED" && !state.csvText;
     renderJob(state.job);
     if (["QUEUED", "RUNNING"].includes(state.job.status) && !state.poll) {
       state.poll = setInterval(pollJob, 2000);
@@ -733,6 +787,82 @@ function displayTime(value) {
   });
 }
 
+function renderForecastTable(timestamps, values) {
+  const fragment = document.createDocumentFragment();
+  timestamps.forEach((timestamp, index) => {
+    const row = document.createElement("tr");
+    const time = document.createElement("td");
+    const amount = document.createElement("td");
+    time.textContent = displayTime(timestamp);
+    amount.textContent = `${fmt(values[index], 2)} kWh`;
+    row.append(time, amount);
+    fragment.append(row);
+  });
+  $("forecast-table-body").replaceChildren(fragment);
+}
+
+function drawDailyUsage(values) {
+  const svg = $("daily-usage-chart");
+  if (!values.length) {
+    svg.innerHTML = "";
+    return;
+  }
+  const width = 520;
+  const height = 240;
+  const baseline = 194;
+  const max = Math.max(...values.map((item) => item.kwh), 0.001);
+  const barWidth = 48;
+  const gap = 20;
+  const bars = values.map((item, index) => {
+    const barHeight = (item.kwh / max) * 144;
+    const x = 24 + index * (barWidth + gap);
+    const y = baseline - barHeight;
+    const label = item.date.slice(5);
+    return `<g tabindex="0" role="img" aria-label="${item.date} ${fmt(item.kwh, 1)} kWh"><rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="3" fill="#204ed5"><title>${item.date}: ${fmt(item.kwh, 1)} kWh</title></rect><text x="${x + barWidth / 2}" y="216" text-anchor="middle" fill="#526579" font-size="11">${label}</text></g>`;
+  }).join("");
+  svg.innerHTML = `<line x1="18" y1="${baseline}" x2="502" y2="${baseline}" stroke="#bac3cc"/>${bars}`;
+}
+
+function renderPeriodComposition(values) {
+  const colors = ["#204ed5", "#35bee4", "#b8e85b", "#17212c"];
+  let cursor = 0;
+  const stops = values.map((item, index) => {
+    const start = cursor;
+    cursor += item.share * 100;
+    return `${colors[index]} ${start}% ${cursor}%`;
+  });
+  $("period-donut").style.background = `conic-gradient(${stops.join(",")})`;
+  $("period-donut").setAttribute("aria-label", values.map((item) => `${item.label} ${fmt(item.share * 100, 1)}%`).join(", "));
+  const fragment = document.createDocumentFragment();
+  values.forEach((item, index) => {
+    const row = document.createElement("li");
+    const swatch = document.createElement("i");
+    const label = document.createElement("span");
+    const value = document.createElement("strong");
+    swatch.style.background = colors[index];
+    label.textContent = item.label;
+    value.textContent = `${fmt(item.share * 100, 1)}%`;
+    row.append(swatch, label, value);
+    fragment.append(row);
+  });
+  $("period-composition-list").replaceChildren(fragment);
+}
+
+function renderMonthlyUsage(values) {
+  const fragment = document.createDocumentFragment();
+  values.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "monthly-usage-item";
+    const label = document.createElement("span");
+    const value = document.createElement("strong");
+    label.textContent = item.month;
+    value.textContent = `${fmt(item.kwh, 1)} kWh`;
+    card.append(label, value);
+    fragment.append(card);
+  });
+  $("monthly-usage-list").replaceChildren(fragment);
+}
+
 async function runPrediction(source) {
   const dashboardButton = $("run-prediction");
   const workspaceButton = $("workspace-run-prediction");
@@ -741,6 +871,7 @@ async function runPrediction(source) {
   $("dashboard-error").hidden = true;
   $("dashboard-error").textContent = "";
   if (source === "workspace") error.textContent = "";
+  resetAIAnalysis();
   dashboardButton.disabled = true;
   workspaceButton.disabled = true;
   sourceButton.textContent = "예측 중…";
@@ -749,12 +880,18 @@ async function runPrediction(source) {
     const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
     drawPredictionChart(result.history_kwh, result.predictions_kwh);
     $("total-forecast").innerHTML = `${fmt(result.total_kwh)} <small>kWh</small>`;
+    $("average-forecast").textContent = `${fmt(result.average_kwh, 2)} kWh`;
     $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh`;
     $("peak-time").textContent = displayTime(result.peak_timestamp);
     $("forecast-reference").textContent = `예측 시작 기준: ${displayTime(result.forecast_origin)}`;
     $("forecast-timezone").textContent = `시간대: ${$("timezone").value.trim()}`;
     $("sample-tag").textContent = "실제 예측 결과";
     $("sample-note").textContent = `학습 기록 ${result.run_id} · ${result.model_kind} · 저장된 모델로 생성한 실제 예측`;
+    renderForecastTable(result.timestamps, result.predictions_kwh);
+    drawDailyUsage(result.recent_daily_usage || []);
+    renderPeriodComposition(result.period_composition || []);
+    renderMonthlyUsage(result.recent_monthly_usage || []);
+    $("actual-summary-label").textContent = `최근 24시간 ${fmt(result.actual_summary.total_24h_kwh, 1)} kWh`;
     $("workspace-prediction-summary").textContent = `예측 완료 · 총 ${fmt(result.total_kwh)} kWh · 최대 ${fmt(result.peak_kwh)} kWh · 피크 ${displayTime(result.peak_timestamp)}`;
     state.predictionComplete = true;
     updateNextAction();
@@ -773,8 +910,57 @@ async function runPrediction(source) {
 $("run-prediction").onclick = () => runPrediction("dashboard");
 $("workspace-run-prediction").onclick = () => runPrediction("workspace");
 
+function renderTextList(target, values) {
+  const fragment = document.createDocumentFragment();
+  values.forEach((value) => {
+    const item = document.createElement("li");
+    item.textContent = value;
+    fragment.append(item);
+  });
+  target.replaceChildren(fragment);
+}
+
+$("ai-analyze").onclick = async () => {
+  const button = $("ai-analyze");
+  if (!state.predictionComplete || !state.job?.job_id) return;
+  button.disabled = true;
+  button.textContent = "AI 분석 중…";
+  $("ai-analysis-status").textContent = "예측 수치의 패턴을 해석하고 있습니다. 모델 예측에는 영향을 주지 않습니다.";
+  try {
+    const result = await api(`/api/ai-analysis/${state.job.job_id}`, requestBody());
+    $("ai-summary").textContent = result.summary;
+    $("ai-peak").textContent = result.peak_interpretation;
+    renderTextList($("ai-patterns"), result.patterns);
+    renderTextList($("ai-cautions"), result.cautions);
+    $("ai-analysis-result").hidden = false;
+    $("ai-analysis-status").textContent = `AI 해석 완료 · ${result.model}`;
+    state.aiAnalysisComplete = true;
+  } catch (caught) {
+    $("ai-analysis-result").hidden = true;
+    $("ai-analysis-status").textContent = `AI 해석을 완료하지 못했습니다. ${caught.message} 24시간 예측 결과는 그대로 유지됩니다.`;
+  } finally {
+    button.textContent = "AI 분석하기";
+    updateNextAction();
+  }
+};
+
+async function loadCapabilities() {
+  try {
+    const response = await fetch("/api/health", { cache: "no-store" });
+    if (!response.ok) throw new Error("health check failed");
+    const health = await response.json();
+    state.aiAnalysisAvailable = Boolean(health.ai_analysis?.enabled);
+    state.aiAnalysisModel = health.ai_analysis?.model || "";
+  } catch {
+    state.aiAnalysisAvailable = false;
+    state.aiAnalysisModel = "";
+  }
+  updateNextAction();
+}
+
 function drawPredictionChart(history, forecast) {
   const svg = $("forecast-chart");
+  const tooltip = $("forecast-tooltip");
   const all = [...history, ...forecast];
   const width = 680;
   const height = 210;
@@ -782,8 +968,11 @@ function drawPredictionChart(history, forecast) {
   const max = Math.max(...all);
   const min = Math.min(...all);
   const range = Math.max(max - min, 0.001);
-  const point = (value, index) =>
-    `${padding + (index * (width - 2 * padding)) / (all.length - 1)},${height - padding - ((value - min) * (height - 2 * padding)) / range}`;
+  const pointCoordinates = (value, index) => [
+    padding + (index * (width - 2 * padding)) / (all.length - 1),
+    height - padding - ((value - min) * (height - 2 * padding)) / range,
+  ];
+  const point = (value, index) => pointCoordinates(value, index).join(",");
   const grid = [0, 0.25, 0.5, 0.75, 1]
     .map(
       (tick) =>
@@ -792,7 +981,30 @@ function drawPredictionChart(history, forecast) {
     .join("");
   const historyPoints = history.map(point).join(" ");
   const forecastPoints = forecast.map((value, index) => point(value, index + history.length)).join(" ");
-  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#235c45" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><text x="${padding}" y="240" fill="#69756e" font-size="11">12시간 전</text><text x="250" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
+  const forecastDots = forecast.map((value, index) => {
+    const [cx, cy] = pointCoordinates(value, index + history.length);
+    return `<circle cx="${cx}" cy="${cy}" r="4" fill="#204ed5" tabindex="0"><title>+${index + 1}시간: ${fmt(value, 2)} kWh</title></circle>`;
+  }).join("");
+  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#204ed5" stroke-width="4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>${forecastDots}<text x="${padding}" y="240" fill="#69756e" font-size="11">24시간 전</text><text x="310" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
+  svg.setAttribute("aria-label", `과거 24시간 실측과 향후 24시간 예측 그래프. 예측 최저 ${fmt(min, 1)} kWh, 최고 ${fmt(max, 1)} kWh`);
+  const showTooltip = (event) => {
+    if (!tooltip) return;
+    const rect = svg.getBoundingClientRect();
+    const viewX = ((event.clientX - rect.left) / rect.width) * 720;
+    const chartX = Math.max(padding, Math.min(width - padding, viewX - 10));
+    const index = Math.max(0, Math.min(all.length - 1, Math.round(((chartX - padding) / (width - 2 * padding)) * (all.length - 1))));
+    const isForecast = index >= history.length;
+    const relativeIndex = isForecast ? index - history.length + 1 : history.length - index;
+    tooltip.textContent = `${isForecast ? `예측 +${relativeIndex}시간` : `과거 ${relativeIndex}시간 전`} · ${fmt(all[index], 2)} kWh`;
+    tooltip.hidden = false;
+    const wrap = tooltip.parentElement;
+    const localX = event.clientX - wrap.getBoundingClientRect().left;
+    tooltip.style.left = `${Math.max(8, Math.min(wrap.clientWidth - tooltip.offsetWidth - 8, localX + 10))}px`;
+    tooltip.style.top = "8px";
+  };
+  svg.onpointermove = showTooltip;
+  svg.onclick = showTooltip;
+  svg.onpointerleave = () => { if (tooltip) tooltip.hidden = true; };
 }
 
 function drawEmptyChart() {
@@ -803,9 +1015,199 @@ function drawEmptyChart() {
   svg.innerHTML = `${grid}<text class="empty-chart-label" x="360" y="126">아직 실행된 예측이 없습니다.</text><text class="empty-chart-help" x="360" y="150">저장된 모델이 없다면 CSV를 업로드하고 모델을 먼저 준비해 주세요.</text>`;
 }
 
+function initIntegratedNavigation() {
+  const buttons = [...document.querySelectorAll("[data-integrated-target]")];
+  if (!buttons.length) return;
+  const targets = buttons.map((button) => $(button.dataset.integratedTarget)).filter(Boolean);
+  const activate = (id) => {
+    buttons.forEach((button) => {
+      const active = button.dataset.integratedTarget === id;
+      button.classList.toggle("is-active", active);
+      if (active) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+  };
+  buttons.forEach((button) => button.addEventListener("click", () => {
+    const target = $(button.dataset.integratedTarget);
+    if (!target) return;
+    const route = button.dataset.integratedTarget === "dashboard-page" ? "/dashboard" : "/workspace";
+    if (location.pathname !== route) history.pushState({}, "", route);
+    state.route = route;
+    target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    activate(button.dataset.integratedTarget);
+  }));
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+      if (visible) activate(visible.target.id);
+    }, { rootMargin: "-145px 0px -55% 0px", threshold: [0.05, 0.25, 0.5] });
+    targets.forEach((target) => observer.observe(target));
+  }
+}
+
+function initLandingReference() {
+  const hero = $("landing-home");
+  const wave = $("landing-wave");
+  if (!hero || !wave) return;
+
+  const stepButtons = [...document.querySelectorAll("[data-landing-step]")];
+  const stepContent = $("landing-step-content");
+  const stepMarkup = [
+    `<p class="landing-eyebrow">STEP 01</p><h3>건물 전력 사용량 CSV 업로드</h3><p><code>timestamp</code>와 <code>kwh</code> 컬럼이 있는 건물별 시간당 CSV와 건물 시간대를 준비합니다.</p><ul><li>한 파일에는 한 건물만 포함합니다.</li><li>누적 검침값이 아닌 1시간 구간 소비량을 사용합니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/workspace" data-route-link>실제 CSV 업로드 화면 열기 <span aria-hidden="true">→</span></a>`,
+    `<p class="landing-eyebrow">STEP 02 / QUALITY CHECK</p><h3>데이터 품질 진단</h3><p>시간 간격, 결측, 장기 상수 구간과 학습 가능한 168→24시간 조합을 확인합니다.</p><ul><li>PASS·WARNING·FAIL과 구체적인 사유를 표시합니다.</li><li>원본값은 자동 보간하거나 0으로 바꾸지 않습니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/guide#guide-quality" data-route-link>품질 판정 기준 보기 <span aria-hidden="true">→</span></a>`,
+    `<p class="landing-eyebrow">STEP 03 / MODEL TRAINING</p><h3>XGBoost 학습 및 평가</h3><p>사용자가 명시적으로 요청할 때만 건물 전용 모델을 학습하고 두 기준 모델과 비교합니다.</p><ul><li>Validation으로 모델을 선택하고 Test는 최종 평가에만 사용합니다.</li><li>예측할 때는 저장 모델을 재사용하며 자동 재학습하지 않습니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/dashboard" data-route-link>예측 대시보드 열기 <span aria-hidden="true">→</span></a>`,
+  ];
+
+  const renderLandingStep = (index, focus = false) => {
+    stepButtons.forEach((button, buttonIndex) => {
+      const active = buttonIndex === index;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    stepContent.innerHTML = stepMarkup[index];
+    if (focus) stepButtons[index].focus();
+  };
+
+  stepButtons.forEach((button, index) => {
+    button.addEventListener("click", () => renderLandingStep(index));
+    button.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      event.preventDefault();
+      const delta = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1;
+      renderLandingStep((index + delta + stepButtons.length) % stepButtons.length, true);
+    });
+  });
+  renderLandingStep(0);
+
+  const forecast = [2.85, 2.95, 3.08, 3.12, 3.02, 2.98, 3.1, 3.02, 3.75, 4.65, 5.52, 5.81, 6.15, 6.4, 6.35, 6.32, 6.11, 5.78, 5.59, 5.36, 4.12, 3.2, 3.04, 3.01];
+  const history = [3.1, 3.22, 3.15, 2.9, 2.85, 2.95, 4.4, 6.05, 5.8, 6.35, 6.13, 6.15, 6.02, 5.67, 4.85, 3.55, 2.65, 3.3, 3.02, 3.12, 3.1, 3.08, 3.12, 3.02];
+  const chart = $("landing-chart");
+  const tooltip = $("landing-tooltip");
+  const chartWrap = $("landing-chart-wrap");
+  let chartView = "forecast";
+  let activePoint = -1;
+  const chartButtons = [...document.querySelectorAll("[data-landing-view]")];
+  const drawLandingChart = () => {
+    const data = chartView === "forecast" ? forecast : history;
+    const x = (index) => 45 + (index * 650) / 23;
+    const y = (value) => 202 - (value - 2) * 35;
+    const grid = [2, 3, 4, 5, 6].map((tick) => {
+      const lineY = y(tick);
+      return `<line x1="40" x2="710" y1="${lineY}" y2="${lineY}" stroke="#dce3ef"/><text x="8" y="${lineY + 4}" fill="#7f8da3" font-size="11">${tick}</text>`;
+    }).join("");
+    const points = data.map((value, index) => [x(index), y(value)]);
+    let markup = `${grid}<path d="${points.map((point, index) => `${index ? "L" : "M"}${point.join(" ")}`).join(" ")}" stroke="${chartView === "forecast" ? "#2150d9" : "#8a9da2"}" fill="none" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (activePoint >= 0) {
+      const [pointX, pointY] = points[activePoint];
+      markup += `<line x1="${pointX}" x2="${pointX}" y1="10" y2="208" stroke="#386ae5" stroke-width="1.5" stroke-dasharray="5 5"/><circle cx="${pointX}" cy="${pointY}" r="6" fill="white" stroke="#2150d9" stroke-width="3"/>`;
+    }
+    chart.innerHTML = markup;
+    $("landing-axis-start").textContent = chartView === "forecast" ? "10월 31일 11:00" : "10월 30일 11:00";
+    $("landing-axis-end").textContent = chartView === "forecast" ? "11월 1일 10:00" : "10월 31일 10:00";
+  };
+  const showLandingChartPoint = (event) => {
+    const rect = chart.getBoundingClientRect();
+    const localX = ((event.clientX - rect.left) / rect.width) * 740;
+    activePoint = Math.max(0, Math.min(23, Math.round(((localX - 45) / 650) * 23)));
+    drawLandingChart();
+    const start = new Date(chartView === "forecast" ? "2026-10-31T11:00:00+09:00" : "2026-10-30T11:00:00+09:00");
+    const timestamp = new Date(start.getTime() + activePoint * 3600000);
+    const timeLabel = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "2-digit", hour12: false }).format(timestamp);
+    const value = (chartView === "forecast" ? forecast : history)[activePoint];
+    tooltip.style.display = "block";
+    tooltip.textContent = `${timeLabel} · ${chartView === "forecast" ? "예측 예시" : "사용량 예시"} ${value.toFixed(2)} kWh`;
+    const wrapRect = chartWrap.getBoundingClientRect();
+    const pointerX = event.clientX - wrapRect.left;
+    tooltip.style.left = `${Math.max(4, Math.min(chartWrap.clientWidth - tooltip.offsetWidth - 4, pointerX + 8))}px`;
+    tooltip.style.top = "8px";
+  };
+  chart.addEventListener("pointermove", showLandingChartPoint);
+  chart.addEventListener("click", showLandingChartPoint);
+  chart.addEventListener("pointerleave", () => {
+    activePoint = -1;
+    tooltip.style.display = "none";
+    drawLandingChart();
+  });
+  chartButtons.forEach((button) => button.addEventListener("click", () => {
+    chartButtons.forEach((candidate) => candidate.classList.toggle("is-active", candidate === button));
+    chartView = button.dataset.landingView;
+    activePoint = -1;
+    tooltip.style.display = "none";
+    drawLandingChart();
+  }));
+  drawLandingChart();
+
+  const periods = [["00–05시", 9.9, "#1b4cdc"], ["06–11시", 31.2, "#39bfdf"], ["12–17시", 44.2, "#abe24d"], ["18–23시", 14.7, "#172238"]];
+  const donut = $("landing-donut");
+  const legend = $("landing-legend");
+  let activePeriod = -1;
+  const drawLandingDonut = () => {
+    let accumulated = 0;
+    let markup = "";
+    periods.forEach(([label, value, color], index) => {
+      const length = (value / 100) * 471.24;
+      markup += `<circle data-landing-donut="${index}" cx="105" cy="105" r="75" fill="none" stroke="${color}" stroke-width="${activePeriod === index ? 38 : 31}" stroke-dasharray="${length} ${471.24 - length}" stroke-dashoffset="${-accumulated}" transform="rotate(-90 105 105)"/>`;
+      accumulated += length;
+    });
+    markup += `<circle cx="105" cy="105" r="47" fill="#fff"/><text x="105" y="102" text-anchor="middle" font-size="13" fill="#182849" font-weight="700">${activePeriod < 0 ? "24시간" : periods[activePeriod][0]}</text><text x="105" y="122" text-anchor="middle" font-size="16" fill="#2150d9" font-weight="800">${activePeriod < 0 ? "비중" : `${periods[activePeriod][1]}%`}</text>`;
+    donut.innerHTML = markup;
+    legend.replaceChildren(...periods.map(([label, value, color], index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = activePeriod === index ? "is-active" : "";
+      button.innerHTML = `<span><span class="landing-legend-dot" style="background:${color}"></span>${label}</span><b>${value}%</b>`;
+      button.addEventListener("pointerenter", () => { activePeriod = index; drawLandingDonut(); });
+      button.addEventListener("focus", () => { activePeriod = index; drawLandingDonut(); });
+      button.addEventListener("click", () => { activePeriod = index; drawLandingDonut(); });
+      return button;
+    }));
+    $("landing-donut-detail").textContent = activePeriod < 0
+      ? "도넛 영역이나 범례를 선택하면 상세 비중을 확인할 수 있습니다."
+      : `${periods[activePeriod][0]} · 약 ${(108.3 * periods[activePeriod][1] / 100).toFixed(1)} kWh · 전체의 ${periods[activePeriod][1]}%`;
+    donut.querySelectorAll("[data-landing-donut]").forEach((segment) => {
+      segment.addEventListener("pointerenter", () => { activePeriod = Number(segment.dataset.landingDonut); drawLandingDonut(); });
+      segment.addEventListener("click", () => { activePeriod = Number(segment.dataset.landingDonut); drawLandingDonut(); });
+    });
+  };
+  donut.addEventListener("pointerleave", () => { activePeriod = -1; drawLandingDonut(); });
+  legend.addEventListener("pointerleave", () => { activePeriod = -1; drawLandingDonut(); });
+  drawLandingDonut();
+
+  const dots = [];
+  for (let row = 0; row < 34; row += 1) {
+    for (let column = 0; column < 49; column += 1) dots.push({ x: column * 19 + 6, y: row * 15 });
+  }
+  let pointer = { x: 720, y: 220 };
+  let animationFrame = 0;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const drawLandingWave = () => {
+    wave.innerHTML = dots.map((dot) => {
+      const ridge = Math.sin(dot.x * 0.017 + dot.y * 0.024) * 34 + Math.sin(dot.x * 0.009 - dot.y * 0.029) * 24;
+      const distance = Math.hypot(dot.x - pointer.x, dot.y - pointer.y);
+      const influence = reducedMotion ? 0 : Math.max(0, 1 - distance / 190);
+      const y = dot.y + ridge * 0.56 + influence * Math.sin(distance * 0.05) * 19;
+      const fade = Math.max(0, Math.min(1, (dot.x - 290) / 390));
+      const radius = (0.6 + Math.abs(Math.sin((dot.x + dot.y) * 0.016)) * 2.2 + influence * 1.8) * fade;
+      return radius > 0.18 ? `<circle cx="${dot.x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(2)}" fill="#2150d9" opacity="${(0.12 + fade * 0.42 + influence * 0.2).toFixed(2)}"/>` : "";
+    }).join("");
+  };
+  if (!reducedMotion) {
+    hero.addEventListener("pointermove", (event) => {
+      const rect = hero.getBoundingClientRect();
+      pointer = { x: ((event.clientX - rect.left) / rect.width) * 900, y: ((event.clientY - rect.top) / rect.height) * 480 };
+      if (!animationFrame) animationFrame = requestAnimationFrame(() => { animationFrame = 0; drawLandingWave(); });
+    });
+  }
+  drawLandingWave();
+}
+
 drawEmptyChart();
+initLandingReference();
+initIntegratedNavigation();
 renderWorkspaceSteps();
 const initialRoute = normalizeRoute(location.pathname);
 if (initialRoute !== location.pathname) history.replaceState({}, "", initialRoute);
-renderRoute(initialRoute, { scroll: false });
+renderRoute(initialRoute, { scroll: initialRoute !== "/" });
 recoverJob();
+loadCapabilities();
