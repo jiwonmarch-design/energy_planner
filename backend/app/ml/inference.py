@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .artifacts import load_gru_artifacts, load_manifest
+from .artifacts import load_gru_artifacts, load_manifest, load_xgboost_artifacts
 from .baselines import LAST_168H, LAST_24H, baseline_predictions
 from .contracts import ArtifactError, HORIZON, LOOKBACK
 from .features import build_features
-from .model import GRUForecaster
+from .train import predict_xgboost
 
 
 @dataclass
@@ -42,13 +42,21 @@ def predict_from_run(
         raise ValueError("latest 168 hours are incomplete")
     origin = normalized_data.index[-1]
     model_kind = manifest["model_kind"]
-    if model_kind == "gru":
+    if model_kind == "xgboost":
+        _, _, models = load_xgboost_artifacts(run_dir, expected_building_id=building_id)
+        features = build_features(normalized_data.loc[latest], manifest["feature_timezone"])
+        x = features.to_numpy(dtype=np.float32)[None, :, :]
+        prediction = predict_xgboost(models, x)
+    elif model_kind == "gru":
+        # Read-only compatibility for immutable pre-XGBoost runs.
         _, config, state_dict, scalers = load_gru_artifacts(
             run_dir, expected_building_id=building_id
         )
         features = build_features(normalized_data.loc[latest], manifest["feature_timezone"])
         x = features.to_numpy(dtype=np.float32)[None, :, :]
         scaled = scalers.transform_x(x)
+        from .legacy_gru import GRUForecaster
+
         model = GRUForecaster(config)
         model.load_state_dict(state_dict, strict=True)
         model.eval()

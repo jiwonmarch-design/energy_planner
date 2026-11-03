@@ -23,7 +23,7 @@
 ### PLAN-02 ML 파이프라인 — 완료
 
 - 계약·품질·분할·피처·시퀀스·스케일링
-- GRU 학습과 Last-24h·Last-168h 비교
+- XGBoost 학습과 Last-24h·Last-168h 비교
 - Validation 선택, Test 보고, 불변 run 저장과 재사용 추론
 
 ### PLAN-03 품질 고도화 — 완료

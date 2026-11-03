@@ -1,5 +1,7 @@
 # Energy Planner — Phase 7 통합 구현 및 자동 검증 보고서
 
+> 이 문서는 2026-11-03 XGBoost 전환 이전 GRU 파이프라인의 과거 검증 기록입니다. 현재 신규 학습 명세는 `docs/training_spec.md`를 참조합니다.
+
 ## 1. 최종 판정
 
 Phase 7 독립 ML 백엔드 파이프라인 구현과 합성 데이터 자동 검증을 완료했다.

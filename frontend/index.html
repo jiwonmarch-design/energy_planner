@@ -55,25 +55,20 @@
     </section>
 
     <section id="workspace-page" class="page-view app-page" data-page="/workspace" hidden>
-      <header class="page-intro">
+      <header class="page-intro workspace-intro">
         <p class="page-kicker">DATA ANALYSIS / BUILDING MODEL</p>
-        <h1>건물 전력 데이터 분석</h1>
-        <p>CSV를 업로드하고 품질을 확인한 뒤, 학습 가능한 데이터로 건물별 예측 모델을 만듭니다.</p>
+        <h1>Energy Planner Workspace</h1>
+        <p>CSV 업로드부터 품질 진단, XGBoost 학습까지 순서대로 진행합니다.</p>
       </header>
-
-      <aside class="journey-guidance" aria-live="polite">
-        <span>다음 할 일</span>
-        <div><strong id="workspace-next-title">CSV 파일을 업로드하세요</strong><p id="workspace-next-copy">시간별 전력 사용량 CSV를 선택하고 건물의 시간대를 확인하세요.</p></div>
-      </aside>
 
       <nav class="workflow-steps" aria-label="분석 작업 진행 단계">
         <a class="workflow-step is-viewed status-current" data-workspace-step="1" data-status="current" data-status-label="현재 단계" href="#data-workspace" aria-current="step"><span>01</span><strong>CSV 업로드</strong><small>전력 사용량 파일과 시간대 확인</small></a>
         <a class="workflow-step status-waiting" data-workspace-step="2" data-status="waiting" data-status-label="대기" href="#quality-panel"><span>02</span><strong>품질 진단</strong><small>누락된 시간·연속성·학습 가능 여부</small></a>
-        <a class="workflow-step status-waiting" data-workspace-step="3" data-status="waiting" data-status-label="대기" href="#training-actions"><span>03</span><strong>모델 학습</strong><small>학습 시작과 진행 상태 확인</small></a>
+        <a class="workflow-step status-waiting" data-workspace-step="3" data-status="waiting" data-status-label="대기" href="#training-panel"><span>03</span><strong>XGBoost 모델 학습</strong><small>학습·평가와 선택 모델 확인</small></a>
       </nav>
 
-      <section id="data-workspace" class="workspace" aria-labelledby="upload-title">
-      <div class="step-column">
+      <section id="data-workspace" class="workspace workspace-flow" aria-labelledby="upload-title">
+      <section class="workflow-panel step-column" data-step-panel="1">
         <p class="step-label">1단계 · 데이터 업로드</p>
         <h2 id="upload-title">건물 전력 사용량 CSV 업로드</h2>
         <div id="drop-zone" class="drop-zone" tabindex="0" role="button" aria-label="CSV 파일 선택">
@@ -97,30 +92,49 @@
         </div>
 
         <p class="csv-contract-note"><code>timestamp</code>는 1시간 구간의 시작 시각, <code>kwh</code>는 해당 시간의 소비 에너지량입니다. 누적 검침값이나 순간 전력(kW)은 지원하지 않습니다. 180일 이상을 권장합니다.</p>
-        <div class="form-grid">
-          <label for="building-id">건물 ID <small>이 건물의 모델과 결과를 구분하는 식별자</small><input id="building-id" placeholder="예: office-main" maxlength="80" required></label>
+        <div class="form-grid single-field">
           <label for="timezone">건물의 시간대 <small id="timezone-help">도시명 또는 IANA 식별자로 검색하세요. 서버 검증을 최종 기준으로 사용합니다.</small><input id="timezone" value="Asia/Seoul" placeholder="예: 서울 또는 Asia/Seoul" list="timezone-options" aria-describedby="timezone-help" aria-autocomplete="list" autocomplete="off" required><datalist id="timezone-options"><option value="Asia/Seoul" label="서울 · 대한민국"></option><option value="Asia/Tokyo" label="도쿄 · 일본"></option><option value="America/New_York" label="뉴욕 · 미국"></option><option value="America/Chicago" label="시카고 · 미국"></option><option value="America/Los_Angeles" label="로스앤젤레스 · 미국"></option><option value="Europe/London" label="런던 · 영국"></option><option value="Europe/Paris" label="파리 · 프랑스"></option><option value="Australia/Sydney" label="시드니 · 호주"></option><option value="UTC" label="협정 세계시"></option></datalist></label>
-          <label for="timezone-mode">CSV의 시간 표기 방식 <small>타임스탬프에 오프셋이 있는지 확인하세요.</small><select id="timezone-mode" aria-describedby="timezone-mode-error"><option value="iana_civil_time">시간대 정보가 없는 현지 시각</option><option value="explicit_offset">CSV에 포함된 UTC 오프셋 사용</option></select><span id="timezone-mode-error" class="field-error" role="alert" hidden></span></label>
         </div>
+        <p class="auto-setting-note">건물 ID는 서버가 자동 생성합니다. timestamp의 UTC 오프셋은 자동 인식하며, 오프셋이 없으면 선택한 건물 시간대를 적용합니다.</p>
         <label id="warning-approval" class="approval" for="warning-approved" hidden><input id="warning-approved" type="checkbox"> 데이터 기간이 90~179일로 짧아 예측 성능이 불안정할 수 있음을 이해하고 실험적 학습에 동의합니다.</label>
         <button id="analyze" class="button primary" type="button" disabled>데이터 품질 진단하기</button>
         <p id="form-error" class="error" role="alert"></p>
-      </div>
+      </section>
 
-      <div id="quality-panel" class="result-column" aria-live="polite">
+      <section id="quality-panel" class="workflow-panel result-column" data-step-panel="2" aria-live="polite">
         <p class="step-label">2단계 · 데이터 품질 진단</p>
         <div id="empty-state" class="empty-state" data-panel-state="empty"><span id="quality-empty-title">CSV를 먼저 선택해 주세요.</span><p id="quality-empty-copy">파일을 선택하면 품질 진단 준비 상태를 확인할 수 있습니다.</p><dl id="quality-preview" class="quality-preview" hidden><dt>선택한 파일</dt><dd id="quality-preview-file">확인 전</dd><dt>관측 기간</dt><dd>진단 전</dd><dt>누락·연속성</dt><dd>진단 전</dd><dt>학습 가능 여부</dt><dd>진단 전</dd></dl></div>
         <div id="quality-result" hidden>
           <div class="status-row"><span id="status-badge" class="status">—</span><span id="eligibility"></span></div>
           <div id="quality-cards" class="metric-grid"></div>
           <div class="notice"><strong>진단 결과와 확인 사항</strong><ul id="reason-list"></ul></div>
-          <div id="training-actions" class="actions">
-            <button id="train" class="button primary" type="button">건물별 예측 모델 학습 시작</button>
-            <button id="open-dashboard" class="button secondary" type="button" hidden>예측 화면으로 이동</button>
-            <span>모델 학습은 ‘학습 시작’을 눌렀을 때만 진행됩니다. 예측 시에는 기존 모델을 사용합니다.</span>
-          </div>
         </div>
-      </div>
+      </section>
+
+      <section id="training-panel" class="workflow-panel training-panel" data-step-panel="3" aria-live="polite">
+        <p class="step-label">3단계 · XGBoost 모델 학습</p>
+        <div class="training-heading">
+          <div><h2>XGBoost 학습 및 평가</h2><p>품질 진단을 통과한 데이터만 학습할 수 있습니다. 중복 실행과 예측 시 자동 재학습은 차단됩니다.</p></div>
+          <span id="workspace-job-status" class="job-chip">학습 대기</span>
+        </div>
+        <div id="training-progress" class="training-progress" hidden>
+          <div class="progress-track" role="progressbar" aria-label="XGBoost 학습 진행 중"><span></span></div>
+          <strong id="training-stage">학습 작업을 준비하고 있습니다.</strong>
+        </div>
+        <div id="training-placeholder" class="training-placeholder">STEP 02 품질 진단을 통과하면 학습을 시작할 수 있습니다.</div>
+        <div id="training-actions" class="actions training-actions">
+          <button id="train" class="button primary" type="button" disabled>XGBoost 모델 학습 시작</button>
+          <button id="retry-training" class="button secondary" type="button" hidden>학습 재시도</button>
+          <button id="open-dashboard" class="button secondary" type="button" hidden>Dashboard에서 예측하기</button>
+        </div>
+        <div id="workspace-model-results" class="workspace-model-results" hidden>
+          <h3>Validation 기반 모델 비교</h3>
+          <div id="workspace-model-xgboost" class="model-row"><span>XGBoost</span><b id="workspace-metric-xgboost">평가 결과 없음</b></div>
+          <div id="workspace-model-last-24h" class="model-row"><span>Last-24h</span><b id="workspace-metric-last-24h">평가 결과 없음</b></div>
+          <div id="workspace-model-last-168h" class="model-row"><span>Last-168h</span><b id="workspace-metric-last-168h">평가 결과 없음</b></div>
+          <p id="test-evaluation-note">Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.</p>
+        </div>
+      </section>
       </section>
     </section>
 
@@ -146,7 +160,7 @@
         </article>
         <article class="panel model-panel">
           <div class="panel-head"><div><span>검증 데이터 기준 · MAE(kWh) / WAPE(%)</span><h3>모델 성능 비교</h3></div></div>
-          <div id="model-gru" class="model-row"><span>GRU 예측 모델</span><b id="metric-gru">평가 결과 없음</b></div>
+          <div id="model-xgboost" class="model-row"><span>XGBoost 예측 모델</span><b id="metric-xgboost">평가 결과 없음</b></div>
           <div id="model-last-24h" class="model-row"><span>전날 동일 시각 기준 <small>Last-24h</small></span><b id="metric-last-24h">평가 결과 없음</b></div>
           <div id="model-last-168h" class="model-row"><span>지난주 동일 시각 기준 <small>Last-168h</small></span><b id="metric-last-168h">평가 결과 없음</b></div>
           <p>모델은 검증 데이터로 선택하고, 테스트 데이터는 최종 성능 확인에만 사용합니다.</p>

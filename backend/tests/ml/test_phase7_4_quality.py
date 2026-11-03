@@ -20,7 +20,6 @@ from backend.app.ml.contracts import (
     TrainingConfig,
 )
 from backend.app.ml.features import build_features
-from backend.app.ml.model import GRUForecaster
 from backend.app.ml.quality import (
     diagnose_quality,
     diagnose_split_distribution,
@@ -31,6 +30,11 @@ from backend.app.ml.scaling import ScalerBundle
 from backend.app.ml.split import make_split_plan
 from backend.app.ml.train import run_training_pipeline
 from backend.tests.ml.synthetic import hourly_frame
+
+
+class _ConstantRegressor:
+    def predict(self, x):
+        return np.ones(len(x), dtype=float)
 
 
 class Phase74QualityCases(unittest.TestCase):
@@ -67,7 +71,7 @@ class Phase74QualityCases(unittest.TestCase):
     def test_pipeline_blocks_before_train_or_artifact_write(self):
         frame = hourly_frame(180, constant=0.0002)
         with tempfile.TemporaryDirectory() as temporary:
-            with patch("backend.app.ml.train.train_gru", side_effect=AssertionError("trained")):
+            with patch("backend.app.ml.train.train_xgboost", side_effect=AssertionError("trained")):
                 with self.assertRaisesRegex(EligibilityError, "FAIL_TRAIN_ZERO_VARIANCE"):
                     run_training_pipeline(
                         frame,
@@ -133,13 +137,13 @@ class Phase74QualityCases(unittest.TestCase):
         )
         train_end = pd.Timestamp(plan.train_end)
         scalers = ScalerBundle.fit(features.loc[: train_end - pd.Timedelta(hours=1)], data.kwh.loc[: train_end - pd.Timedelta(hours=1)])
-        config = dataclasses.replace(TrainingConfig(), hidden_size=8, num_layers=1, dropout=0)
+        config = dataclasses.replace(TrainingConfig(), n_estimators=2)
         with tempfile.TemporaryDirectory() as temporary:
             run = save_run_artifacts(
                 temporary,
                 building_id="bdg2-building",
                 run_id="timezone-run",
-                model_kind="gru",
+                model_kind="xgboost",
                 building_timezone="Etc/GMT+6",
                 training_config=config,
                 split_manifest=dataclasses.asdict(plan),
@@ -149,13 +153,12 @@ class Phase74QualityCases(unittest.TestCase):
                 test_metrics={},
                 selection={},
                 data_hash="synthetic",
-                state_dict=GRUForecaster(config).state_dict(),
-                scalers=scalers,
+                xgboost_models=[_ConstantRegressor() for _ in range(24)],
                 source_timezone_mode=SourceTimezoneMode.BDG2_FIXED_STANDARD_LOCAL_GRID,
                 source_timezone_metadata="US/Central",
             )
             manifest = load_manifest(run, expected_building_id="bdg2-building")
-            self.assertEqual(manifest["schema_version"], "phase8.1-v1")
+            self.assertEqual(manifest["schema_version"], "xgboost-v1")
             self.assertEqual(manifest["source_timezone_mode"], "bdg2_naive_local_grid_fixed_standard")
             self.assertEqual(manifest["source_timezone_metadata"], "US/Central")
             self.assertEqual(manifest["feature_timezone"], "Etc/GMT+6")

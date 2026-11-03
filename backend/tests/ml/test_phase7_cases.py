@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,9 +11,8 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-import torch
 
-from backend.app.ml.artifacts import load_gru_artifacts, save_run_artifacts
+from backend.app.ml.artifacts import load_xgboost_artifacts, save_run_artifacts
 from backend.app.ml.baselines import LAST_168H, LAST_24H, baseline_predictions
 from backend.app.ml.contracts import (
     ArtifactError,
@@ -24,12 +24,12 @@ from backend.app.ml.contracts import (
 from backend.app.ml.evaluate import evaluate_predictions, select_on_validation
 from backend.app.ml.features import build_features
 from backend.app.ml.inference import predict_from_run
-from backend.app.ml.model import GRUForecaster
+from backend.app.ml.model import flatten_features
 from backend.app.ml.quality import diagnose_quality, load_csv_frame, validate_and_normalize_frame
 from backend.app.ml.scaling import ScalerBundle
 from backend.app.ml.sequences import make_sequences, validate_minimum_samples
 from backend.app.ml.split import frozen_evaluation_origins, make_split_plan
-from backend.app.ml.train import predict_gru, train_gru
+from backend.app.ml.train import predict_xgboost, train_xgboost
 from backend.tests.ml.synthetic import hourly_frame
 
 
@@ -52,6 +52,14 @@ def batches(days: int = 90):
     )
     test_eval = make_sequences(features, data.kwh, plan, "test", origins=test_origins)
     return data, quality, plan, features, train, validation_dense, validation_eval, test_eval
+
+
+class ConstantRegressor:
+    def __init__(self, value: float = 1.0) -> None:
+        self.value = value
+
+    def predict(self, x):
+        return np.full(len(x), self.value, dtype=float)
 
 
 class Phase7ApprovedCases(unittest.TestCase):
@@ -144,26 +152,20 @@ class Phase7ApprovedCases(unittest.TestCase):
         np.testing.assert_array_equal(first.input_scaler.mean_, second.input_scaler.mean_)
         np.testing.assert_array_equal(first.target_scaler.var_, second.target_scaler.var_)
 
-    def test_case_08_gru_shapes_for_batch_one_and_many(self):
-        config = dataclasses.replace(TrainingConfig(), hidden_size=8, num_layers=1, dropout=0)
-        model = GRUForecaster(config)
-        self.assertEqual(tuple(model(torch.zeros(1, 168, 6)).shape), (1, 24))
-        self.assertEqual(tuple(model(torch.zeros(7, 168, 6)).shape), (7, 24))
+    def test_case_08_xgboost_table_shapes_for_batch_one_and_many(self):
+        self.assertEqual(flatten_features(np.zeros((1, 168, 6))).shape, (1, 1008))
+        self.assertEqual(flatten_features(np.zeros((7, 168, 6))).shape, (7, 1008))
 
     def test_case_09_artifacts_are_building_isolated_and_reloadable(self):
         data, quality, plan, features = prepared(90)
-        train_end = pd.Timestamp(plan.train_end)
-        scalers = ScalerBundle.fit(
-            features.loc[features.index < train_end], data.kwh.loc[data.index < train_end]
-        )
-        config = dataclasses.replace(TrainingConfig(), hidden_size=8, num_layers=1, dropout=0)
-        state = GRUForecaster(config).state_dict()
+        config = dataclasses.replace(TrainingConfig(), n_estimators=2)
+        models = [ConstantRegressor(float(hour + 1)) for hour in range(24)]
         with tempfile.TemporaryDirectory() as temporary:
             run = save_run_artifacts(
                 temporary,
                 building_id="building-a",
                 run_id="run-001",
-                model_kind="gru",
+                model_kind="xgboost",
                 building_timezone="Asia/Seoul",
                 training_config=config,
                 split_manifest=dataclasses.asdict(plan),
@@ -173,47 +175,37 @@ class Phase7ApprovedCases(unittest.TestCase):
                 test_metrics={},
                 selection={},
                 data_hash="synthetic",
-                state_dict=state,
-                scalers=scalers,
+                xgboost_models=models,
                 training_history=[],
             )
-            _, loaded_config, loaded_state, _ = load_gru_artifacts(
+            _, loaded_config, loaded_models = load_xgboost_artifacts(
                 run, expected_building_id="building-a"
             )
-            self.assertEqual(loaded_config.hidden_size, 8)
-            self.assertEqual(set(loaded_state), set(state))
+            self.assertEqual(loaded_config.n_estimators, 2)
+            self.assertEqual(len(loaded_models), 24)
             with self.assertRaises(ArtifactError):
-                load_gru_artifacts(run, expected_building_id="building-b")
-            with patch("backend.app.ml.train.train_gru", side_effect=AssertionError("retrained")):
+                load_xgboost_artifacts(run, expected_building_id="building-b")
+            with patch("backend.app.ml.train.train_xgboost", side_effect=AssertionError("retrained")):
                 result = predict_from_run(run, building_id="building-a", normalized_data=data)
             self.assertFalse(result.retrained)
             self.assertEqual(result.output_shape, (1, 24))
 
-    def test_case_10_same_seed_reproduces_checkpoint_and_predictions(self):
+    @unittest.skipUnless(importlib.util.find_spec("xgboost"), "xgboost is not installed")
+    def test_case_10_same_seed_reproduces_models_and_predictions(self):
         _, _, _, _, train, validation, _, _ = batches()
         train = SequenceBatch(train.x[:128], train.y[:128], train.origins[:128], train.target_starts[:128])
         validation = SequenceBatch(
             validation.x[:64], validation.y[:64], validation.origins[:64], validation.target_starts[:64]
         )
-        scaler = ScalerBundle.fit(
-            pd.DataFrame({"kwh": train.x[:, :, 0].reshape(-1)}).assign(
-                hour_sin=0.0, hour_cos=0.0, weekday_sin=0.0, weekday_cos=0.0, is_weekend=0.0
-            ),
-            pd.Series(train.y.reshape(-1)),
-        )
-        train_scaled = scaler.transform_batch(train)
-        validation_scaled = scaler.transform_batch(validation)
         config = dataclasses.replace(
-            TrainingConfig(), hidden_size=8, num_layers=1, dropout=0, max_epochs=2, patience=2
+            TrainingConfig(), n_estimators=2, early_stopping_rounds=1, max_depth=2
         )
-        first = train_gru(train_scaled, validation_scaled, config)
-        second = train_gru(train_scaled, validation_scaled, config)
+        first = train_xgboost(train, validation, config)
+        second = train_xgboost(train, validation, config)
         self.assertEqual(first.best_epoch, second.best_epoch)
-        for key in first.state_dict:
-            self.assertTrue(torch.equal(first.state_dict[key], second.state_dict[key]))
         np.testing.assert_array_equal(
-            predict_gru(first.state_dict, validation_scaled.x[:2], config),
-            predict_gru(second.state_dict, validation_scaled.x[:2], config),
+            predict_xgboost(first.models, validation.x[:2]),
+            predict_xgboost(second.models, validation.x[:2]),
         )
 
     def test_case_11_missing_latest_hour_rejects_inference(self):
@@ -238,20 +230,20 @@ class Phase7ApprovedCases(unittest.TestCase):
         actual = np.ones((12, 24)) * 10
         l24 = evaluate_predictions(actual, actual + 2)
         l168 = evaluate_predictions(actual, actual + 3)
-        gru = evaluate_predictions(actual, actual + 1)
-        decision = select_on_validation(gru, l24, l168)
-        self.assertEqual(decision.selected_model, "gru")
-        # Deliberately terrible GRU Test performance is report-only and is not an
+        xgboost = evaluate_predictions(actual, actual + 1)
+        decision = select_on_validation(xgboost, l24, l168)
+        self.assertEqual(decision.selected_model, "xgboost")
+        # Deliberately terrible XGBoost Test performance is report-only and is not an
         # input accepted by the selection API.
         _test_metrics = evaluate_predictions(actual, actual + 100)
-        self.assertEqual(decision.selected_model, "gru")
+        self.assertEqual(decision.selected_model, "xgboost")
         # Exact baseline ties deterministically prefer Last-24h. With all-zero
-        # actuals WAPE is undefined, so GRU cannot be promoted by omission of
+        # actuals WAPE is undefined, so XGBoost cannot be promoted by omission of
         # that safeguard.
         zeros = np.zeros((12, 24))
         tied_baseline = evaluate_predictions(zeros, np.ones_like(zeros))
-        undefined_gru = evaluate_predictions(zeros, np.zeros_like(zeros))
-        undefined = select_on_validation(undefined_gru, tied_baseline, tied_baseline)
+        undefined_xgboost = evaluate_predictions(zeros, np.zeros_like(zeros))
+        undefined = select_on_validation(undefined_xgboost, tied_baseline, tied_baseline)
         self.assertEqual(undefined.best_baseline, LAST_24H)
         self.assertEqual(undefined.selected_model, LAST_24H)
         self.assertIn("WAPE_UNDEFINED_BASELINE_SELECTED", undefined.reason_codes)
@@ -271,19 +263,19 @@ class Phase7ApprovedCases(unittest.TestCase):
         with self.assertRaisesRegex(EligibilityError, "FAIL_TRAIN_ZERO_VARIANCE"):
             ScalerBundle.fit(frame, frame.kwh)
 
-    def test_case_14_negative_gru_prediction_is_not_promoted_or_clipped(self):
+    def test_case_14_negative_xgboost_prediction_is_not_promoted_or_clipped(self):
         actual = np.ones((12, 24))
-        gru = evaluate_predictions(actual, np.full_like(actual, -0.01))
+        xgboost = evaluate_predictions(actual, np.full_like(actual, -0.01))
         baseline = evaluate_predictions(actual, np.full_like(actual, 2.0))
-        decision = select_on_validation(gru, baseline, baseline)
-        self.assertFalse(decision.gru_eligible)
-        self.assertIn("GRU_NEGATIVE_PREDICTION", decision.reason_codes)
-        self.assertEqual(gru.prediction_min, -0.01)
+        decision = select_on_validation(xgboost, baseline, baseline)
+        self.assertFalse(decision.xgboost_eligible)
+        self.assertIn("XGBOOST_NEGATIVE_PREDICTION", decision.reason_codes)
+        self.assertEqual(xgboost.prediction_min, -0.01)
 
     def test_case_15_legacy_model_path_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             legacy = Path(temporary) / "legacy_model.pth"
-            torch.save({"weight": torch.tensor([1.0])}, legacy)
+            legacy.write_bytes(b"legacy")
             with self.assertRaises(ArtifactError):
                 predict_from_run(legacy, building_id="a", normalized_data=pd.DataFrame())
 

@@ -6,15 +6,16 @@ import csv
 import hashlib
 import json
 import platform
+from importlib.metadata import PackageNotFoundError, version
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import joblib
 import numpy as np
 import sklearn
-import torch
 
 from .contracts import (
     ArtifactError,
@@ -59,8 +60,7 @@ def save_run_artifacts(
     test_metrics: dict[str, Any],
     selection: Any,
     data_hash: str,
-    state_dict: dict[str, torch.Tensor] | None = None,
-    scalers: ScalerBundle | None = None,
+    xgboost_models: list[Any] | None = None,
     training_history: list[dict[str, Any]] | None = None,
     derived_input_csv: bytes | None = None,
     distribution_report: Any | None = None,
@@ -70,12 +70,12 @@ def save_run_artifacts(
     """Create one immutable run directory; existing runs are never overwritten."""
     building_id = _safe_component(building_id, "building_id")
     run_id = _safe_component(run_id, "run_id")
-    if model_kind not in {"gru", "last_24h", "last_168h"}:
+    if model_kind not in {"xgboost", "last_24h", "last_168h"}:
         raise ArtifactError(f"unsupported model kind: {model_kind}")
-    if (state_dict is None) != (scalers is None):
-        raise ArtifactError("state_dict and scalers must be supplied together")
-    if model_kind == "gru" and (state_dict is None or scalers is None):
-        raise ArtifactError("GRU artifacts require state_dict and scalers")
+    if model_kind == "xgboost" and not xgboost_models:
+        raise ArtifactError("XGBoost artifacts require trained models")
+    if xgboost_models is not None and len(xgboost_models) != 24:
+        raise ArtifactError("XGBoost artifacts require 24 horizon models")
     run_dir = Path(artifact_root) / building_id / run_id
     if run_dir.exists():
         raise ArtifactError(f"run already exists and cannot be overwritten: {run_dir}")
@@ -84,7 +84,13 @@ def save_run_artifacts(
         _write_json(run_dir / "training_config.json", asdict(training_config))
         _write_json(
             run_dir / "feature_spec.json",
-            {"version": "a6-v1", "feature_names": FEATURE_NAMES, "lookback": 168, "horizon": 24},
+            {
+                "version": "xgboost-flat-a6-v1",
+                "feature_names": FEATURE_NAMES,
+                "lookback": 168,
+                "horizon": 24,
+                "table_columns": 168 * len(FEATURE_NAMES),
+            },
         )
         _write_json(run_dir / "split_manifest.json", split_manifest)
         _write_json(run_dir / "evaluation_schedule.json", evaluation_schedule)
@@ -94,22 +100,25 @@ def save_run_artifacts(
         _write_json(run_dir / "validation_metrics.json", validation_metrics)
         _write_json(run_dir / "test_metrics.json", test_metrics)
         if training_history is not None:
-            fields = list(training_history[0]) if training_history else ["epoch", "train_loss", "validation_loss"]
+            fields = list(training_history[0]) if training_history else [
+                "horizon",
+                "best_iteration",
+                "stopped_iteration",
+                "best_validation_mae",
+            ]
             with (run_dir / "training_history.csv").open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=fields)
                 writer.writeheader()
                 writer.writerows(training_history)
         if derived_input_csv is not None:
             (run_dir / "derived_input_utc.csv").write_bytes(derived_input_csv)
-        if state_dict is not None and scalers is not None:
-            torch.save(state_dict, run_dir / "model_state_dict.pth")
-            joblib.dump(scalers.input_scaler, run_dir / "input_scaler.pkl")
-            joblib.dump(scalers.target_scaler, run_dir / "target_scaler.pkl")
+        if xgboost_models is not None:
+            joblib.dump(xgboost_models, run_dir / "xgboost_models.joblib")
 
         files = sorted(path for path in run_dir.iterdir() if path.name != "manifest.json")
         hashes = {path.name: _sha256(path) for path in files}
         manifest = {
-            "schema_version": "phase8.1-v1",
+            "schema_version": "xgboost-v1",
             "building_id": building_id,
             "run_id": run_id,
             "model_kind": model_kind,
@@ -121,15 +130,16 @@ def save_run_artifacts(
             == SourceTimezoneMode.IANA_CIVIL_TIME,
             "feature_names": FEATURE_NAMES,
             "input_shape": [None, 168, 6],
+            "model_input_shape": [None, 1008],
             "output_shape": [None, 24],
             "data_sha256": data_hash,
             "selection": to_jsonable(selection),
-            "gru_candidate_saved": state_dict is not None,
+            "xgboost_candidate_saved": xgboost_models is not None,
             "status": "candidate",
             "created_at_utc": datetime.now(UTC).isoformat(),
             "environment": {
                 "python": platform.python_version(),
-                "torch": torch.__version__,
+                "xgboost": _package_version("xgboost"),
                 "numpy": np.__version__,
                 "sklearn": sklearn.__version__,
                 "device": "cpu",
@@ -180,16 +190,50 @@ def load_manifest(run_dir: str | Path, *, expected_building_id: str | None = Non
     return manifest
 
 
+def _package_version(name: str) -> str:
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return "not-installed"
+
+
+def load_xgboost_artifacts(
+    run_dir: str | Path,
+    *,
+    expected_building_id: str,
+) -> tuple[dict[str, Any], TrainingConfig, list[Any]]:
+    run_dir = Path(run_dir)
+    manifest = load_manifest(run_dir, expected_building_id=expected_building_id)
+    if manifest["model_kind"] != "xgboost" and not manifest.get(
+        "xgboost_candidate_saved", False
+    ):
+        raise ArtifactError("requested run does not contain an XGBoost candidate")
+    config = TrainingConfig(
+        **json.loads((run_dir / "training_config.json").read_text(encoding="utf-8"))
+    )
+    try:
+        models = joblib.load(run_dir / "xgboost_models.joblib")
+    except Exception as exc:
+        raise ArtifactError("trusted local XGBoost artifacts could not be loaded") from exc
+    if not isinstance(models, list) or len(models) != 24:
+        raise ArtifactError("XGBoost horizon model bundle is invalid")
+    return manifest, config, models
+
+
 def load_gru_artifacts(
     run_dir: str | Path,
     *,
     expected_building_id: str,
-) -> tuple[dict[str, Any], TrainingConfig, dict[str, torch.Tensor], ScalerBundle]:
+) -> tuple[dict[str, Any], Any, dict[str, Any], ScalerBundle]:
+    """Load a legacy immutable GRU run; new runs never call this function."""
+    import torch
     run_dir = Path(run_dir)
     manifest = load_manifest(run_dir, expected_building_id=expected_building_id)
     if manifest["model_kind"] != "gru" and not manifest.get("gru_candidate_saved", False):
         raise ArtifactError("requested run does not contain a GRU candidate")
-    config = TrainingConfig(**json.loads((run_dir / "training_config.json").read_text(encoding="utf-8")))
+    config = SimpleNamespace(
+        **json.loads((run_dir / "training_config.json").read_text(encoding="utf-8"))
+    )
     try:
         state_dict = torch.load(run_dir / "model_state_dict.pth", map_location="cpu", weights_only=True)
         input_scaler = joblib.load(run_dir / "input_scaler.pkl")

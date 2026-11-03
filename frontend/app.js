@@ -10,6 +10,7 @@ const state = {
   jobContext: null,
   predictionComplete: false,
   warningRequired: false,
+  observationDays: null,
   qualityRequestId: 0,
   viewedStep: 1,
   stepStatuses: { 1: "current", 2: "waiting", 3: "waiting" },
@@ -108,25 +109,20 @@ document.querySelectorAll("[data-workspace-step]").forEach((step) => {
     state.viewedStep = number;
     renderWorkspaceSteps();
     let target = number === 1 ? $("data-workspace") : $("quality-panel");
-    if (number === 3 && !$("quality-result").hidden) target = $("training-actions");
-    if (number === 3 && $("quality-result").hidden) {
-      $("workspace-next-title").textContent = "먼저 데이터 품질을 진단하세요";
-      $("workspace-next-copy").textContent = "모델 학습은 품질 진단을 통과한 뒤 사용자가 직접 시작할 수 있습니다.";
-    }
+    if (number === 3) target = $("training-panel");
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 });
 
 function currentContext() {
   return {
-    buildingId: $("building-id").value.trim(),
     timezone: $("timezone").value.trim(),
-    timezoneMode: $("timezone-mode").value,
+    fileToken: state.fileToken,
   };
 }
 
 function contextsMatch(left, right) {
-  return Boolean(left && right) && left.buildingId === right.buildingId && left.timezone === right.timezone && left.timezoneMode === right.timezoneMode;
+  return Boolean(left && right) && left.timezone === right.timezone && left.fileToken === right.fileToken;
 }
 
 function inputSignature() {
@@ -143,10 +139,28 @@ function analysisIsCurrent() {
 
 function jobStepStatus() {
   if (!state.job) return "waiting";
+  if (state.jobContext && state.fileToken && !contextsMatch(state.jobContext, currentContext())) return "waiting";
   if (["QUEUED", "RUNNING"].includes(state.job.status)) return "in-progress";
   if (state.job.status === "COMPLETED") return "complete";
   if (state.job.status === "FAILED") return "fail";
   return "waiting";
+}
+
+function updateAnalyzeAvailability() {
+  const approvalMissing = state.warningRequired && !$("warning-approved").checked;
+  $("analyze").disabled = !state.csvText || approvalMissing;
+}
+
+function resetTrainingView(message = "STEP 02 품질 진단을 통과하면 학습을 시작할 수 있습니다.") {
+  $("training-progress").hidden = true;
+  $("workspace-model-results").hidden = true;
+  $("retry-training").hidden = true;
+  $("open-dashboard").hidden = true;
+  $("training-placeholder").hidden = false;
+  $("training-placeholder").textContent = message;
+  $("workspace-job-status").textContent = "학습 대기";
+  $("workspace-job-status").removeAttribute("data-status");
+  $("train").disabled = true;
 }
 
 function resetQualityPanel(message) {
@@ -171,10 +185,11 @@ function invalidateAnalysis(message = "입력이 변경되어 재검증이 필�
   const hadAnalysis = Boolean(state.analysis);
   state.qualityRequestId += 1;
   $("quality-panel").removeAttribute("aria-busy");
-  $("analyze").disabled = !state.csvText;
+  updateAnalyzeAvailability();
   $("analyze").textContent = "데이터 품질 진단하기";
   state.predictionComplete = false;
   resetQualityPanel(message);
+  resetTrainingView();
   const hasFile = Boolean(state.csvText);
   setWorkspaceState(
     {
@@ -195,40 +210,25 @@ function updateNextAction() {
   const canPredict = completed && Boolean(state.csvText) && currentAnalysis && contextMatches;
   const homeCta = $("home-primary-cta");
   const homeLabel = $("home-cta-label");
-  let nextTitle = "CSV 파일을 업로드하세요";
-  let nextCopy = "시간별 전력 사용량 CSV를 선택하고 건물의 시간대를 확인하세요.";
   let homePath = "/workspace";
   let homeText = "CSV 업로드 시작";
 
   if (completed) {
-    nextTitle = canPredict ? "24시간 예측을 실행하세요" : "예측 입력을 다시 확인하세요";
-    nextCopy = canPredict
-      ? "저장된 모델을 사용해 재학습 없이 향후 24시간을 예측할 수 있습니다."
-      : "저장된 모델은 확인했습니다. 예측에 사용할 CSV를 선택하고 품질을 다시 진단해 주세요.";
     homePath = canPredict ? "/dashboard" : "/workspace";
     homeText = canPredict ? "24시간 예측 실행" : "예측 입력 준비하기";
   } else if (running) {
-    nextTitle = "건물별 예측 모델을 학습하고 있습니다";
-    nextCopy = "다른 화면으로 이동해도 서버 학습은 계속됩니다. 예측 화면에서 실제 상태를 확인할 수 있습니다.";
     homePath = "/dashboard";
     homeText = "학습 상태 확인";
   } else if (currentAnalysis && state.analysis.training_eligible) {
-    nextTitle = "건물별 예측 모델을 학습하세요";
-    nextCopy = "데이터가 학습 조건을 충족했습니다. ‘학습 시작’을 눌렀을 때만 학습합니다.";
     homePath = "/workspace";
     homeText = "모델 학습 계속하기";
   } else if (state.csvText) {
-    nextTitle = "데이터 품질 진단";
-    nextCopy = "업로드한 파일의 누락된 시간, 연속성과 학습 가능 여부를 확인하세요.";
     homePath = "/workspace";
     homeText = "품질 진단 계속하기";
   }
 
   homeCta.href = homePath;
   homeLabel.textContent = homeText;
-  $("workspace-next-title").textContent = nextTitle;
-  $("workspace-next-copy").textContent = nextCopy;
-
   $("dashboard-empty-action").hidden = completed;
   $("dashboard-empty-action").textContent = running ? "데이터 분석에서 학습 상태 확인" : "CSV 업로드하러 가기";
   $("return-workspace").hidden = !completed;
@@ -243,6 +243,21 @@ function updateNextAction() {
   }
 }
 
+function estimateObservationDays(csvText) {
+  const lines = csvText.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return null;
+  const headers = lines[0].split(",").map((value) => value.trim().replace(/^"|"$/g, ""));
+  const timestampIndex = headers.indexOf("timestamp");
+  if (timestampIndex < 0) return null;
+  const timestamps = lines.slice(1).map((line) => {
+    const raw = line.split(",")[timestampIndex]?.trim().replace(/^"|"$/g, "");
+    const value = Date.parse(raw);
+    return Number.isFinite(value) ? value : null;
+  }).filter((value) => value !== null);
+  if (timestamps.length < 2) return null;
+  return (Math.max(...timestamps) - Math.min(...timestamps) + 60 * 60 * 1000) / 86400000;
+}
+
 async function readFile(file) {
   error.textContent = "";
   clearTimeModeError();
@@ -251,16 +266,18 @@ async function readFile(file) {
   state.csvText = await file.text();
   state.fileName = file.name;
   state.fileToken = `${file.name}:${file.size}:${file.lastModified}`;
-  state.warningRequired = false;
+  state.observationDays = estimateObservationDays(state.csvText);
+  state.warningRequired = Number.isFinite(state.observationDays) && state.observationDays >= 90 && state.observationDays < 180;
   $("warning-approved").checked = false;
+  $("warning-approval").hidden = !state.warningRequired;
   drop.hidden = true;
   $("file-info").hidden = false;
   $("selected-file-name").textContent = file.name;
   $("selected-file-name").title = file.name;
   $("selected-file-meta").textContent = `${fmt(file.size / 1024)}KB · 브라우저에서 선택됨`;
   $("selected-file-state").textContent = "아직 서버에 전송되지 않음 · 품질 진단 전";
-  $("analyze").disabled = false;
   invalidateAnalysis("선택한 파일의 품질 진단을 실행해 주세요.");
+  updateAnalyzeAvailability();
 }
 
 function clearSelectedFile() {
@@ -271,6 +288,7 @@ function clearSelectedFile() {
   state.analysis = null;
   state.analysisSignature = "";
   state.warningRequired = false;
+  state.observationDays = null;
   state.predictionComplete = false;
   fileInput.value = "";
   drop.hidden = false;
@@ -284,13 +302,12 @@ function clearSelectedFile() {
   error.textContent = "";
   clearTimeModeError();
   resetQualityPanel("CSV를 먼저 선택해 주세요.");
+  resetTrainingView();
   setWorkspaceState({ 1: "current", 2: "waiting", 3: jobStepStatus() }, 1);
 }
 
 function validateRequiredInputs() {
   if (!state.csvText) return "CSV 파일을 선택해 주세요.";
-  if (!$("building-id").value.trim()) return "건물 ID를 입력해 주세요. 이 값은 모델과 결과를 구분하는 데 사용됩니다.";
-  if (!/^[A-Za-z0-9_-]+$/.test($("building-id").value.trim())) return "건물 ID에는 영문, 숫자, 밑줄(_), 하이픈(-)만 사용할 수 있습니다.";
   if (!$("timezone").value.trim()) return "건물의 시간대를 입력해 주세요. 예: Asia/Seoul";
   try {
     new Intl.DateTimeFormat("ko-KR", { timeZone: $("timezone").value.trim() }).format();
@@ -301,15 +318,12 @@ function validateRequiredInputs() {
 }
 
 function clearTimeModeError() {
-  const fieldError = $("timezone-mode-error");
-  fieldError.hidden = true;
-  fieldError.textContent = "";
-  $("timezone-mode").removeAttribute("aria-invalid");
+  // Timestamp offset mode is inferred by the server.
 }
 
 function qualityErrorDetails(message) {
   const mappings = [
-    [/explicit_offset mode requires an offset in every timestamp/i, "CSV에 UTC 오프셋이 포함되어 있지 않습니다. ‘시간대 정보가 없는 현지 시각’을 선택하고 다시 진단해 주세요.", true],
+    [/explicit_offset mode requires an offset in every timestamp/i, "일부 timestamp의 UTC 오프셋 형식이 올바르지 않습니다. 모든 행의 표기 방식을 통일해 주세요.", false],
     [/offset-aware and offset-naive timestamps cannot be mixed/i, "오프셋이 있는 시각과 없는 시각이 섞여 있습니다. CSV의 timestamp 형식을 한 가지 방식으로 통일해 주세요.", true],
     [/unknown IANA timezone/i, "건물의 시간대를 확인할 수 없습니다. Asia/Seoul 같은 IANA 식별자를 선택해 주세요.", false],
     [/timestamp cannot be resolved/i, "선택한 시간대에서 해석할 수 없는 시각이 있습니다. DST 중복·누락 시각과 CSV 시간대를 확인해 주세요.", true],
@@ -366,7 +380,7 @@ function handleInfluentialInputChange() {
   else {
     state.qualityRequestId += 1;
     $("quality-panel").removeAttribute("aria-busy");
-    $("analyze").disabled = !state.csvText;
+    updateAnalyzeAvailability();
     $("analyze").textContent = "데이터 품질 진단하기";
     if (state.csvText) {
       resetQualityPanel("입력 설정이 변경되었습니다. 다시 품질 진단해 주세요.");
@@ -376,10 +390,11 @@ function handleInfluentialInputChange() {
   }
 }
 
-$("building-id").addEventListener("input", handleInfluentialInputChange);
 $("timezone").addEventListener("input", handleInfluentialInputChange);
-$("timezone-mode").addEventListener("change", handleInfluentialInputChange);
-$("warning-approved").addEventListener("change", handleInfluentialInputChange);
+$("warning-approved").addEventListener("change", () => {
+  updateAnalyzeAvailability();
+  handleInfluentialInputChange();
+});
 
 async function api(path, body) {
   const response = await fetch(path, {
@@ -395,9 +410,7 @@ async function api(path, body) {
 function requestBody() {
   return {
     csv_text: state.csvText,
-    building_id: $("building-id").value.trim(),
     building_timezone: $("timezone").value.trim(),
-    source_timezone_mode: $("timezone-mode").value,
     warning_approved: $("warning-approved").checked,
   };
 }
@@ -410,7 +423,7 @@ function renderQuality(result) {
   $("quality-panel").removeAttribute("aria-busy");
   $("selected-file-state").textContent = "품질 진단 완료 · 서버 저장 모델과는 별도 상태";
   const quality = result.quality;
-  state.warningRequired = quality.status === "WARNING";
+  state.warningRequired = Boolean(result.split?.warning_limited_experiment);
   $("warning-approval").hidden = !state.warningRequired;
   const badge = $("status-badge");
   badge.textContent = quality.status;
@@ -436,6 +449,12 @@ function renderQuality(result) {
     .map((reason) => `<li>${qualityReasonText(reason)}</li>`)
     .join("");
   $("train").disabled = !result.training_eligible;
+  $("training-placeholder").hidden = false;
+  $("training-placeholder").textContent = result.training_eligible
+    ? "품질 진단을 통과했습니다. XGBoost 모델 학습을 시작할 수 있습니다."
+    : "품질 진단의 차단 사유를 해결한 뒤 다시 진단해 주세요.";
+  $("workspace-job-status").textContent = result.training_eligible ? "학습 준비 완료" : "학습 불가";
+  $("workspace-job-status").dataset.status = result.training_eligible ? "READY" : "BLOCKED";
   $("open-dashboard").hidden = state.job?.status !== "COMPLETED";
   const qualityStatus = quality.status.toLowerCase();
   const stepTwoStatus = qualityStatus === "pass" ? "complete" : qualityStatus === "warning" ? "warning" : "fail";
@@ -500,28 +519,26 @@ $("analyze").onclick = async () => {
     $("quality-empty-title").textContent = "품질 진단을 완료하지 못했습니다.";
     $("quality-empty-copy").textContent = details.message;
     $("selected-file-state").textContent = "진단 오류 · 파일은 브라우저에서 계속 선택된 상태";
-    if (details.timeMode) {
-      $("timezone-mode-error").hidden = false;
-      $("timezone-mode-error").textContent = details.message;
-      $("timezone-mode").setAttribute("aria-invalid", "true");
-      $("timezone-mode").focus();
-    }
     setWorkspaceState({ 1: "complete", 2: "fail", 3: jobStepStatus() }, 2);
   } finally {
     if (requestId !== state.qualityRequestId) return;
     $("quality-panel").removeAttribute("aria-busy");
-    $("analyze").disabled = false;
+    updateAnalyzeAvailability();
     $("analyze").textContent = "데이터 품질 진단하기";
   }
 };
 
-$("train").onclick = async () => {
+async function startTraining() {
   error.textContent = "";
   if (!analysisIsCurrent() || !state.analysis.training_eligible) {
     error.textContent = "현재 입력으로 품질 진단을 다시 완료한 뒤 모델 학습을 시작해 주세요.";
     return;
   }
   $("train").disabled = true;
+  $("retry-training").hidden = true;
+  $("training-placeholder").hidden = true;
+  $("training-progress").hidden = false;
+  $("training-stage").textContent = "서버에 학습 작업을 등록하고 있습니다.";
   setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "in-progress" }, 3);
   try {
     state.job = await api("/api/training-jobs", requestBody());
@@ -532,9 +549,15 @@ $("train").onclick = async () => {
   } catch (caught) {
     error.textContent = `모델 학습을 시작하지 못했습니다: ${caught.message} 품질 진단 결과와 제한 실험 동의를 확인해 주세요.`;
     setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "fail" }, 3);
-    $("train").disabled = false;
+    $("training-progress").hidden = true;
+    $("retry-training").hidden = false;
+    $("workspace-job-status").textContent = "학습 시작 실패";
+    $("workspace-job-status").dataset.status = "FAILED";
   }
-};
+}
+
+$("train").onclick = startTraining;
+$("retry-training").onclick = startTraining;
 
 function metricText(metric) {
   if (!metric || !Number.isFinite(metric.mae)) return "평가 결과 없음";
@@ -546,15 +569,29 @@ function renderJob(job) {
   const chip = $("job-status");
   chip.textContent = `${jobStatusText(job.status)} · ${job.progress_message}`;
   chip.dataset.status = job.status;
+  const workspaceChip = $("workspace-job-status");
+  workspaceChip.textContent = `${jobStatusText(job.status)} · ${job.progress_message}`;
+  workspaceChip.dataset.status = job.status;
   const completed = job.status === "COMPLETED";
   $("open-dashboard").hidden = !completed;
   if (["QUEUED", "RUNNING"].includes(job.status)) {
+    $("training-placeholder").hidden = true;
+    $("training-progress").hidden = false;
+    $("training-stage").textContent = job.progress_message;
+    $("workspace-model-results").hidden = true;
+    $("retry-training").hidden = true;
+    $("train").disabled = true;
     $("model-state").textContent = "학습 진행 중";
     setWorkspaceState({ 1: "complete", 2: "complete", 3: "in-progress" }, 3);
     updateNextAction();
     return;
   }
   if (job.status === "FAILED") {
+    $("training-progress").hidden = true;
+    $("training-placeholder").hidden = false;
+    $("training-placeholder").textContent = job.error || "학습에 실패했습니다. 입력과 서버 로그를 확인해 주세요.";
+    $("retry-training").hidden = !analysisIsCurrent();
+    $("train").disabled = true;
     error.textContent = job.error ? `모델 학습을 완료하지 못했습니다: ${job.error}` : "모델 학습을 완료하지 못했습니다. 입력 데이터와 서버 로그를 확인한 뒤 다시 시도하세요.";
     $("model-state").textContent = "학습 실패";
     setWorkspaceState({ 1: "complete", 2: "complete", 3: "fail" }, 3);
@@ -563,12 +600,23 @@ function renderJob(job) {
   if (!completed) return;
 
   setWorkspaceState({ 1: "complete", 2: "complete", 3: "complete" }, 3);
-  const names = { gru: "gru", last_24h: "last-24h", last_168h: "last-168h" };
+  $("training-progress").hidden = true;
+  $("training-placeholder").hidden = true;
+  $("retry-training").hidden = true;
+  $("train").disabled = true;
+  $("workspace-model-results").hidden = false;
+  const names = { xgboost: "xgboost", last_24h: "last-24h", last_168h: "last-168h" };
   Object.entries(names).forEach(([key, id]) => {
     const metric = job.validation_metrics?.[key];
     $("metric-" + id).textContent = metricText(metric);
     $("model-" + id).classList.toggle("selected", job.selected_model === key);
+    $("workspace-metric-" + id).textContent = metricText(metric);
+    $("workspace-model-" + id).classList.toggle("selected", job.selected_model === key);
   });
+  const selectedTest = job.test_metrics?.[job.selected_model];
+  $("test-evaluation-note").textContent = selectedTest
+    ? `선택 모델 ${job.selected_model} · Test 최종 평가 ${metricText(selectedTest)}`
+    : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
   $("model-state").textContent = "모델 준비 완료";
   $("selected-model").textContent = job.selected_model || "—";
   $("run-id").textContent = job.run_dir ? job.run_dir.split(/[\\/]/).at(-1) : "—";
@@ -590,7 +638,7 @@ async function pollJob() {
     if (["COMPLETED", "FAILED"].includes(job.status)) {
       clearInterval(state.poll);
       state.poll = null;
-      $("train").disabled = false;
+      $("train").disabled = true;
     }
   } catch (caught) {
     clearInterval(state.poll);
@@ -614,9 +662,7 @@ async function recoverJob() {
   if (!saved?.jobId) return;
   state.jobContext = saved.context || null;
   if (state.jobContext) {
-    $("building-id").value = state.jobContext.buildingId || $("building-id").value;
     $("timezone").value = state.jobContext.timezone || $("timezone").value;
-    $("timezone-mode").value = state.jobContext.timezoneMode || $("timezone-mode").value;
   }
   try {
     const response = await fetch(`/api/training-jobs/${saved.jobId}`);

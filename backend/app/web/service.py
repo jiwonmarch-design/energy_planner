@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import re
 import threading
@@ -46,18 +47,45 @@ def parse_csv_text(csv_text: str) -> pd.DataFrame:
         raise DataContractError("CSV를 읽을 수 없습니다. UTF-8과 헤더를 확인하세요.") from exc
 
 
+def infer_source_timezone_mode(frame: pd.DataFrame) -> SourceTimezoneMode:
+    """Use explicit offsets when every timestamp has one; otherwise use building time."""
+    if "timestamp" not in frame.columns:
+        return SourceTimezoneMode.IANA_CIVIL_TIME
+    labels = frame["timestamp"].astype(str).str.strip()
+    offset_pattern = r"(?:Z|[+-]\d{2}:?\d{2})$"
+    aware = labels.str.contains(offset_pattern, regex=True, case=False, na=False)
+    if aware.any() and not aware.all():
+        raise DataContractError(
+            "offset-aware and offset-naive timestamps cannot be mixed"
+        )
+    return (
+        SourceTimezoneMode.EXPLICIT_OFFSET
+        if aware.all()
+        else SourceTimezoneMode.IANA_CIVIL_TIME
+    )
+
+
+def generated_building_id(csv_text: str, building_timezone: str) -> str:
+    digest = hashlib.sha256()
+    digest.update(building_timezone.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(csv_text.encode("utf-8"))
+    return f"building-{digest.hexdigest()[:16]}"
+
+
 def analyze_csv(
     csv_text: str,
     *,
     building_timezone: str,
-    source_timezone_mode: SourceTimezoneMode | str,
+    source_timezone_mode: SourceTimezoneMode | str | None = None,
     warning_approved: bool = False,
 ) -> dict[str, Any]:
     frame = parse_csv_text(csv_text)
+    resolved_timezone_mode = source_timezone_mode or infer_source_timezone_mode(frame)
     data = validate_and_normalize_frame(
         frame,
         building_timezone,
-        source_timezone_mode=source_timezone_mode,
+        source_timezone_mode=resolved_timezone_mode,
     )
     quality = diagnose_quality(data)
     payload: dict[str, Any] = {
@@ -66,7 +94,7 @@ def analyze_csv(
         "training_eligible": False,
         "training_blockers": [],
         "prediction_eligible": quality.latest_168_complete,
-        "source_timezone_mode": SourceTimezoneMode(source_timezone_mode).value,
+        "source_timezone_mode": SourceTimezoneMode(resolved_timezone_mode).value,
         "building_timezone": building_timezone,
     }
     try:
@@ -99,6 +127,7 @@ class TrainingJob:
     test_metrics: dict[str, Any] | None = None
     error: str | None = None
     progress_message: str = "학습 대기 중"
+    progress_mode: str = "indeterminate"
     csv_text: str = field(default="", repr=False)
     building_timezone: str = field(default="", repr=False)
     source_timezone_mode: str = field(default="", repr=False)
@@ -127,19 +156,22 @@ class TrainingJobManager:
     def submit(
         self,
         *,
-        building_id: str,
+        building_id: str | None = None,
         csv_text: str,
         building_timezone: str,
-        source_timezone_mode: str,
+        source_timezone_mode: str | None = None,
         warning_approved: bool = False,
         start_background: bool = True,
     ) -> TrainingJob:
-        if not BUILDING_ID.fullmatch(building_id or ""):
+        building_id = building_id or generated_building_id(csv_text, building_timezone)
+        if not BUILDING_ID.fullmatch(building_id):
             raise DataContractError("building_id는 영문, 숫자, 밑줄, 하이픈만 사용할 수 있습니다.")
+        frame = parse_csv_text(csv_text)
+        resolved_timezone_mode = source_timezone_mode or infer_source_timezone_mode(frame)
         analysis = analyze_csv(
             csv_text,
             building_timezone=building_timezone,
-            source_timezone_mode=source_timezone_mode,
+            source_timezone_mode=resolved_timezone_mode,
             warning_approved=warning_approved,
         )
         if not analysis["training_eligible"]:
@@ -154,7 +186,7 @@ class TrainingJobManager:
             building_id=building_id,
             csv_text=csv_text,
             building_timezone=building_timezone,
-            source_timezone_mode=source_timezone_mode,
+            source_timezone_mode=SourceTimezoneMode(resolved_timezone_mode).value,
         )
         with self._lock:
             if any(
@@ -177,7 +209,7 @@ class TrainingJobManager:
         job = self._jobs[job_id]
         job.status = "RUNNING"
         job.started_at_utc = datetime.now(UTC).isoformat()
-        job.progress_message = "GRU와 기준 모델을 평가하고 있습니다."
+        job.progress_message = "XGBoost와 기준 모델을 평가하고 있습니다."
         try:
             run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}_{job_id[:8]}"
             outcome = self.pipeline(

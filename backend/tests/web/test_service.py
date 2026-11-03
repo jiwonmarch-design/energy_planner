@@ -11,7 +11,13 @@ from backend.app.ml.baselines import LAST_24H
 from backend.app.ml.contracts import DataContractError, EligibilityError, TrainingConfig
 from backend.app.ml.quality import diagnose_quality, validate_and_normalize_frame
 from backend.app.ml.split import make_split_plan
-from backend.app.web.service import TrainingJobManager, analyze_csv, parse_csv_text
+from backend.app.web.service import (
+    TrainingJobManager,
+    analyze_csv,
+    generated_building_id,
+    infer_source_timezone_mode,
+    parse_csv_text,
+)
 from backend.tests.ml.synthetic import hourly_frame
 
 
@@ -20,6 +26,32 @@ def csv_for(days: int, *, constant: float | None = None) -> str:
 
 
 class WebServiceCases(unittest.TestCase):
+    def test_timezone_mode_is_inferred_from_timestamp_offsets(self):
+        aware = parse_csv_text(csv_for(180))
+        self.assertEqual(infer_source_timezone_mode(aware).value, "explicit_offset")
+        naive = aware.copy()
+        naive["timestamp"] = naive["timestamp"].str.replace("+00:00", "", regex=False)
+        self.assertEqual(infer_source_timezone_mode(naive).value, "iana_civil_time")
+
+    def test_server_generates_stable_building_id(self):
+        csv_text = csv_for(180)
+        first = generated_building_id(csv_text, "Asia/Seoul")
+        second = generated_building_id(csv_text, "Asia/Seoul")
+        self.assertEqual(first, second)
+        self.assertRegex(first, r"^building-[0-9a-f]{16}$")
+
+    def test_submit_without_building_id_uses_generated_id(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            job = manager.submit(
+                csv_text=csv_for(180),
+                building_timezone="Asia/Seoul",
+                source_timezone_mode=None,
+                start_background=False,
+            )
+            self.assertRegex(job.building_id, r"^building-[0-9a-f]{16}$")
+            self.assertEqual(job.source_timezone_mode, "explicit_offset")
+
     def test_quality_api_payload_for_complete_180_days(self):
         result = analyze_csv(
             csv_for(180),
@@ -189,7 +221,7 @@ class WebServiceCases(unittest.TestCase):
 
     def test_completed_baseline_run_is_reused_for_24_hour_prediction(self):
         validation_metrics = {
-            "gru": {"mae": 2.0},
+            "xgboost": {"mae": 2.0},
             "last_24h": {"mae": 1.0},
             "last_168h": {"mae": 1.5},
         }

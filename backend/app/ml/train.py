@@ -1,8 +1,7 @@
-"""Deterministic CPU training with early stopping."""
+"""Deterministic CPU XGBoost training and the end-to-end ML pipeline."""
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -11,17 +10,14 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import torch
-from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
 
-from .contracts import SequenceBatch, TrainingConfig
-from .model import GRUForecaster, set_deterministic_seed
+from .contracts import HORIZON, SequenceBatch, TrainingConfig
+from .model import create_xgboost_regressor, flatten_features
 
 
 @dataclass
 class TrainingOutcome:
-    state_dict: dict[str, torch.Tensor]
+    models: list[Any]
     best_epoch: int
     stopped_epoch: int
     best_validation_loss: float
@@ -49,100 +45,71 @@ class PipelineOutcome:
     total_seconds: float
 
 
-def _loader(batch: SequenceBatch, batch_size: int, shuffle: bool, seed: int) -> DataLoader:
-    dataset = TensorDataset(torch.from_numpy(batch.x), torch.from_numpy(batch.y))
-    generator = torch.Generator().manual_seed(seed)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        generator=generator,
-        num_workers=0,
-    )
-
-
-def _mean_loss(model: nn.Module, loader: DataLoader, loss_fn: nn.Module) -> float:
-    total = 0.0
-    count = 0
-    model.eval()
-    with torch.inference_mode():
-        for x, y in loader:
-            loss = loss_fn(model(x), y)
-            if not torch.isfinite(loss):
-                raise RuntimeError("non-finite validation loss")
-            total += float(loss) * len(x)
-            count += len(x)
-    if count == 0:
-        raise ValueError("validation set is empty")
-    return total / count
-
-
-def train_gru(
+def train_xgboost(
     train: SequenceBatch,
     validation: SequenceBatch,
     config: TrainingConfig = TrainingConfig(),
 ) -> TrainingOutcome:
-    if config.device != "cpu":
-        raise ValueError("Phase 7 implementation supports CPU only")
+    """Train one deterministic regressor for each of the 24 forecast hours."""
     if len(train.x) == 0 or len(validation.x) == 0:
         raise ValueError("training and validation samples are required")
-    set_deterministic_seed(config.seed)
-    model = GRUForecaster(config)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    loss_fn = nn.L1Loss()
-    train_loader = _loader(train, config.batch_size, True, config.seed)
-    validation_loader = _loader(validation, config.batch_size, False, config.seed)
-    best_loss = float("inf")
-    best_state: dict[str, torch.Tensor] | None = None
-    best_epoch = 0
-    stale = 0
+    train_x = flatten_features(train.x)
+    validation_x = flatten_features(validation.x)
+    train_y = np.asarray(train.y, dtype=np.float32)
+    validation_y = np.asarray(validation.y, dtype=np.float32)
+    if train_y.shape != (len(train_x), HORIZON) or validation_y.shape != (
+        len(validation_x),
+        HORIZON,
+    ):
+        raise ValueError("expected y shape [B,24]")
+
+    models: list[Any] = []
     history: list[dict[str, float | int]] = []
-    stopped_epoch = 0
-    for epoch in range(1, config.max_epochs + 1):
-        model.train()
-        total = 0.0
-        count = 0
-        for x, y in train_loader:
-            optimizer.zero_grad(set_to_none=True)
-            prediction = model(x)
-            loss = loss_fn(prediction, y)
-            if not torch.isfinite(loss):
-                raise RuntimeError("non-finite training loss")
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.gradient_clip)
-            optimizer.step()
-            total += float(loss.detach()) * len(x)
-            count += len(x)
-        validation_loss = _mean_loss(model, validation_loader, loss_fn)
-        train_loss = total / count
-        history.append({"epoch": epoch, "train_loss": train_loss, "validation_loss": validation_loss})
-        if best_loss - validation_loss >= config.min_delta:
-            best_loss = validation_loss
-            best_epoch = epoch
-            best_state = deepcopy({key: value.detach().cpu() for key, value in model.state_dict().items()})
-            stale = 0
-        else:
-            stale += 1
-        stopped_epoch = epoch
-        if stale >= config.patience:
-            break
-    if best_state is None or not np.isfinite(best_loss):
-        raise RuntimeError("training did not produce a finite checkpoint")
-    return TrainingOutcome(best_state, best_epoch, stopped_epoch, best_loss, history)
+    best_iterations: list[int] = []
+    stopped_iterations: list[int] = []
+    best_losses: list[float] = []
+    for horizon in range(HORIZON):
+        model = create_xgboost_regressor(config)
+        model.fit(
+            train_x,
+            train_y[:, horizon],
+            eval_set=[(validation_x, validation_y[:, horizon])],
+            verbose=False,
+        )
+        results = model.evals_result().get("validation_0", {}).get("mae", [])
+        if not results or not np.isfinite(results).all():
+            raise RuntimeError("training did not produce finite validation metrics")
+        best_iteration = int(getattr(model, "best_iteration", int(np.argmin(results))))
+        best_loss = float(results[best_iteration])
+        stopped_iteration = len(results) - 1
+        models.append(model)
+        best_iterations.append(best_iteration)
+        stopped_iterations.append(stopped_iteration)
+        best_losses.append(best_loss)
+        history.append(
+            {
+                "horizon": horizon + 1,
+                "best_iteration": best_iteration,
+                "stopped_iteration": stopped_iteration,
+                "best_validation_mae": best_loss,
+            }
+        )
+    return TrainingOutcome(
+        models=models,
+        best_epoch=max(best_iterations),
+        stopped_epoch=max(stopped_iterations),
+        best_validation_loss=float(np.mean(best_losses)),
+        history=history,
+    )
 
 
-def predict_gru(
-    state_dict: dict[str, torch.Tensor],
-    x: np.ndarray,
-    config: TrainingConfig = TrainingConfig(),
-) -> np.ndarray:
-    model = GRUForecaster(config)
-    model.load_state_dict(state_dict, strict=True)
-    model.eval()
-    with torch.inference_mode():
-        result = model(torch.from_numpy(np.asarray(x, dtype=np.float32))).cpu().numpy()
-    if result.shape != (len(x), config.output_size) or not np.isfinite(result).all():
-        raise RuntimeError("invalid GRU output")
+def predict_xgboost(models: list[Any], x: np.ndarray) -> np.ndarray:
+    if len(models) != HORIZON:
+        raise RuntimeError(f"expected {HORIZON} XGBoost horizon models")
+    table = flatten_features(x)
+    result = np.column_stack([model.predict(table) for model in models]).astype(float)
+    if result.shape != (len(x), HORIZON) or not np.isfinite(result).all():
+        raise RuntimeError("invalid XGBoost output")
     return result
 
 
@@ -158,12 +125,7 @@ def run_training_pipeline(
     source_timezone_mode="iana_civil_time",
     source_timezone_metadata: str | None = None,
 ) -> PipelineOutcome:
-    """Run the approved standalone pipeline without promotion or retraining.
-
-    The caller must explicitly approve 90-179 day limited experiments. The
-    returned run always remains a candidate; this function never writes an
-    active-model pointer.
-    """
+    """Train and evaluate an XGBoost candidate without promotion or retraining."""
     from .artifacts import save_run_artifacts
     from .baselines import LAST_168H, LAST_24H, baseline_predictions
     from .contracts import to_jsonable
@@ -175,7 +137,6 @@ def run_training_pipeline(
         enforce_train_variance,
         validate_and_normalize_frame,
     )
-    from .scaling import ScalerBundle
     from .sequences import make_sequences, validate_minimum_samples
     from .split import frozen_evaluation_origins, make_split_plan
 
@@ -184,9 +145,7 @@ def run_training_pipeline(
         frame, building_timezone, source_timezone_mode=source_timezone_mode
     )
     quality = diagnose_quality(data)
-    plan = make_split_plan(
-        data.index, quality.status, warning_approved=warning_approved
-    )
+    plan = make_split_plan(data.index, quality.status, warning_approved=warning_approved)
     distribution_report = diagnose_split_distribution(data, plan)
     enforce_train_variance(distribution_report)
     features = build_features(data, building_timezone)
@@ -201,26 +160,14 @@ def run_training_pipeline(
     )
     test_eval = make_sequences(features, data.kwh, plan, "test", origins=test_origins)
     validate_minimum_samples(train_dense, validation_dense, validation_eval, test_eval)
-
-    train_end = pd.Timestamp(plan.train_end)
-    train_features = features.loc[
-        (features.index >= pd.Timestamp(plan.train_start)) & (features.index < train_end)
-    ]
-    train_targets = data.kwh.loc[
-        (data.index >= pd.Timestamp(plan.train_start)) & (data.index < train_end)
-    ]
-    scalers = ScalerBundle.fit(train_features, train_targets)
-    train_scaled = scalers.transform_batch(train_dense)
-    validation_dense_scaled = scalers.transform_batch(validation_dense)
     data_preparation_seconds = perf_counter() - total_started
+
     training_started = perf_counter()
-    outcome = train_gru(train_scaled, validation_dense_scaled, config)
+    outcome = train_xgboost(train_dense, validation_dense, config)
     training_seconds = perf_counter() - training_started
 
-    validation_x = scalers.transform_x(validation_eval.x)
-    validation_gru = scalers.inverse_y(predict_gru(outcome.state_dict, validation_x, config))
     validation_predictions = {
-        "gru": validation_gru,
+        "xgboost": predict_xgboost(outcome.models, validation_eval.x),
         LAST_24H: baseline_predictions(data.kwh, validation_eval.origins, LAST_24H),
         LAST_168H: baseline_predictions(data.kwh, validation_eval.origins, LAST_168H),
     }
@@ -229,17 +176,13 @@ def run_training_pipeline(
         for name, values in validation_predictions.items()
     }
     selection = select_on_validation(
-        validation_metrics_objects["gru"],
+        validation_metrics_objects["xgboost"],
         validation_metrics_objects[LAST_24H],
         validation_metrics_objects[LAST_168H],
     )
 
-    # Freeze the candidate before any Test prediction is created. All three Test
-    # metrics may be reported, but are never passed back into selection.
     test_predictions = {
-        "gru": scalers.inverse_y(
-            predict_gru(outcome.state_dict, scalers.transform_x(test_eval.x), config)
-        ),
+        "xgboost": predict_xgboost(outcome.models, test_eval.x),
         LAST_24H: baseline_predictions(data.kwh, test_eval.origins, LAST_24H),
         LAST_168H: baseline_predictions(data.kwh, test_eval.origins, LAST_168H),
     }
@@ -264,8 +207,9 @@ def run_training_pipeline(
         "frozen_before_training": True,
     }
     canonical_input = data.rename_axis("timestamp").reset_index()
-    canonical_input["timestamp"] = canonical_input["timestamp"].map(lambda value: value.isoformat())
-    derived_input_csv = canonical_input.to_csv(index=False).encode("utf-8")
+    canonical_input["timestamp"] = canonical_input["timestamp"].map(
+        lambda value: value.isoformat()
+    )
     artifact_started = perf_counter()
     run_dir = save_run_artifacts(
         artifact_root,
@@ -282,17 +226,13 @@ def run_training_pipeline(
         test_metrics=test_metrics,
         selection=selection,
         data_hash=digest.hexdigest(),
-        # Preserve the evaluated GRU candidate even when a baseline wins. The
-        # manifest's model_kind remains the fixed Validation-selected predictor.
-        state_dict=outcome.state_dict,
-        scalers=scalers,
+        xgboost_models=outcome.models,
         training_history=outcome.history,
-        derived_input_csv=derived_input_csv,
+        derived_input_csv=canonical_input.to_csv(index=False).encode("utf-8"),
         source_timezone_mode=source_timezone_mode,
         source_timezone_metadata=source_timezone_metadata,
     )
     artifact_save_seconds = perf_counter() - artifact_started
-    total_seconds = perf_counter() - total_started
     return PipelineOutcome(
         run_dir=run_dir,
         quality_status=quality.status.value,
@@ -310,15 +250,11 @@ def run_training_pipeline(
         data_preparation_seconds=data_preparation_seconds,
         training_seconds=training_seconds,
         artifact_save_seconds=artifact_save_seconds,
-        total_seconds=total_seconds,
+        total_seconds=perf_counter() - total_started,
     )
 
 
-def run_training_pipeline_from_csv(
-    csv_path: str | Path,
-    **pipeline_options,
-) -> PipelineOutcome:
-    """CSV entry point for the standalone pipeline."""
+def run_training_pipeline_from_csv(csv_path: str | Path, **pipeline_options) -> PipelineOutcome:
     from .quality import load_csv_frame
 
     return run_training_pipeline(load_csv_frame(csv_path), **pipeline_options)

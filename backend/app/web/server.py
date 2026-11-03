@@ -80,17 +80,17 @@ class Handler(BaseHTTPRequestHandler):
                 result = analyze_csv(
                     value.get("csv_text", ""),
                     building_timezone=value.get("building_timezone", ""),
-                    source_timezone_mode=value.get("source_timezone_mode", "iana_civil_time"),
+                    source_timezone_mode=value.get("source_timezone_mode"),
                     warning_approved=bool(value.get("warning_approved", False)),
                 )
                 self._json(HTTPStatus.OK, result)
                 return
             if path == "/api/training-jobs":
                 job = MANAGER.submit(
-                    building_id=value.get("building_id", ""),
+                    building_id=None,
                     csv_text=value.get("csv_text", ""),
                     building_timezone=value.get("building_timezone", ""),
-                    source_timezone_mode=value.get("source_timezone_mode", "iana_civil_time"),
+                    source_timezone_mode=value.get("source_timezone_mode"),
                     warning_approved=bool(value.get("warning_approved", False)),
                 )
                 self._json(HTTPStatus.ACCEPTED, job.public())

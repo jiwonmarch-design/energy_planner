@@ -133,7 +133,7 @@
 ## 9. 구현 불변 조건
 
 - 기존 HTML/CSS/JavaScript 프론트엔드 및 현재 백엔드 API 계약을 우선 유지한다. 프레임워크 전환 금지.
-- GRU 아키텍처와 6개 피처, 입력 168시간/예측 24시간, 시간순 Train/Validation/Test 분할, Validation 기반 GRU·Last-24h·Last-168h 선택, Test 최종 평가 규칙 변경 금지.
+- XGBoost 설정과 6개 피처, 입력 168시간/예측 24시간, 시간순 Train/Validation/Test 분할, Validation 기반 XGBoost·Last-24h·Last-168h 선택, Test 최종 평가 규칙 변경 금지.
 - CSV 규격: 시간 구간 시작 `timestamp`, 1시간 소비량 `kwh`, 최소 90일, 180일 이상 권장 등의 현행 정책 보존.
 - 날짜·시간대 정책, 파일 크기 제한, 보안/보존 정책을 텍스트 수정 과정에서 바꾸지 않는다.
 - 실제 성공 응답 전 `업로드 완료`, `학습 완료`, `모델 저장됨`, `예측 완료`를 표시하지 않는다.

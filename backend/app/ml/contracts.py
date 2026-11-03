@@ -54,17 +54,18 @@ class TrainingConfig:
     input_size: int = 6
     lookback: int = LOOKBACK
     output_size: int = HORIZON
-    hidden_size: int = 64
-    num_layers: int = 2
-    dropout: float = 0.1
-    batch_size: int = 64
-    learning_rate: float = 0.001
-    max_epochs: int = 50
-    patience: int = 7
-    min_delta: float = 0.0001
-    gradient_clip: float = 1.0
+    n_estimators: int = 500
+    learning_rate: float = 0.05
+    max_depth: int = 6
+    min_child_weight: float = 1.0
+    subsample: float = 0.9
+    colsample_bytree: float = 0.9
+    reg_alpha: float = 0.0
+    reg_lambda: float = 1.0
+    early_stopping_rounds: int = 30
     seed: int = 42
-    device: str = "cpu"
+    n_jobs: int = 1
+    tree_method: str = "hist"
 
 
 @dataclass
@@ -150,9 +151,9 @@ class EvaluationMetrics:
 class SelectionDecision:
     selected_model: str
     best_baseline: str
-    gru_eligible: bool
+    xgboost_eligible: bool
     reason_codes: list[str] = field(default_factory=list)
-    gru_mae_improvement: float | None = None
+    xgboost_mae_improvement: float | None = None
 
 
 def to_jsonable(value: Any) -> Any:

@@ -1,6 +1,6 @@
 # Energy Planner 개발 진행 기록
 
-최종 갱신: 2026-11-02
+최종 갱신: 2026-11-03
 
 ## 완료한 작업
 
@@ -20,6 +20,9 @@
 - Phase 9 디자인 통일: CSV 입력·품질 판정·예측 대시보드를 Editorial Contour 체계로 정리
 - Phase 9 페이지 구조: Home `/`, Workspace `/workspace`, Dashboard `/dashboard` History API 분리
 - Phase 9 UX 미반영 항목: 선택 파일 카드·교체·취소, 진단 요청 경합 방지, 상태별 품질 패널, 시간 오류 한국어 안내, 시간대 자동완성 대안 구현
+- 신규 학습 모델을 GRU에서 XGBoost로 전환: 168×6 입력 flatten, 24개 horizon 회귀기, 신규 artifact·추론·UI·문서 계약 반영
+- 기존 GRU run은 수정하지 않고 읽기 전용 추론 호환 경로로 분리
+- Workspace 최종 정리: 세로형 3단계 흐름, 서버 자동 건물 ID·시간대 모드 판별, XGBoost 불확정형 진행 표시·재시도·상태 복원·모델 비교 반영
 
 ## 테스트 결과
 
@@ -37,6 +40,11 @@
 - UX 실제 Chrome 시나리오: 19/19 PASS(업로드 전후, 교체·취소, PASS/WARNING/FAIL, 오류 복구, 요청 경합, 1440/390/320px)
 - UX 변경 후 전체 회귀 테스트: 39/39 PASS, JavaScript 문법·Python compileall PASS
 - 실제 건물 학습: Panther_office_Danica 1회 성공, 추가 실행 없음
+- XGBoost 전환 회귀 테스트: 38 PASS, 1 SKIP(`xgboost` 패키지 미설치로 실제 결정성 학습 미검증)
+- XGBoost 전환 Python compileall·JavaScript 문법 검사: PASS
+- 기존 Leon GRU run 읽기 전용 재로딩·24시간 추론 호환: PASS(원본 run 수정 없음)
+- Workspace/API 변경 회귀 테스트: 41 PASS, 1 SKIP(`xgboost` 미설치)
+- Workspace 실제 브라우저 시각 검증: 미검증(브라우저 URL 안전 확인 실패로 자동 제어 중단)
 
 ## 발견 및 해결
 
@@ -49,6 +57,7 @@
 
 ## 현재 진행 중
 
+- XGBoost 의존성 설치 승인과 실제 합성 학습 검증 대기
 - Phase 8 운영 보안·job 영속화 후속 설계와 실제 브라우저 QA 준비
 
 ## 남은 작업
@@ -57,6 +66,7 @@
 - 인증과 사용자별 artifact 격리
 - 서버 재시작·전체 새로고침 후 진행 중 job 재연결
 - Danica run의 운영 승격 여부는 PM 검토 후 별도 결정
+- 승인된 환경에 `backend/requirements.txt`를 설치한 뒤 XGBoost 결정성·end-to-end 합성 학습 검증
 
 ## 사용자 승인 필요
 
@@ -64,7 +74,8 @@
 - 품질 임계값의 장기 운영 정책 확정
 - 모델 승격·롤백·보존 기간
 - Danica 기존 시간대 manifest 형식 승인 또는 별도 교정 실험 여부
+- XGBoost 패키지 설치 승인
 
 ## 다음 세션 시작 위치
 
-PRD·SPEC·PLAN을 기준으로 Phase 8 job 영속화·사용자 격리·보안 설계를 이어서 구현한다. 브라우저 시각 QA 환경이 있으면 반응형 화면을 검증한다. 추가 Office 학습과 운영 승격은 수행하지 않는다.
+승인된 환경에 XGBoost 의존성을 설치한 뒤 실제 학습·저장·재로딩·예측 회귀를 검증한다. 이후 PRD·SPEC·PLAN을 기준으로 Phase 8 job 영속화·사용자 격리·보안 설계를 이어서 구현한다. 추가 Office 학습과 운영 승격은 수행하지 않는다.

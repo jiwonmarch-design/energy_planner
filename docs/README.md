@@ -1,13 +1,13 @@
 # Energy Planner Mini
 
-Energy Planner는 사용자가 업로드한 건물별 시간당 kWh CSV를 진단하고, 건물 전용 GRU와 Last-24h·Last-168h 기준 모델을 비교해 향후 24시간 수요를 예측하는 로컬 웹 MVP입니다.
+Energy Planner는 사용자가 업로드한 건물별 시간당 kWh CSV를 진단하고, 건물 전용 XGBoost와 Last-24h·Last-168h 기준 모델을 비교해 향후 24시간 수요를 예측하는 로컬 웹 MVP입니다.
 
 ## 현재 구현 상태
 
 - CSV 계약 및 품질 진단
 - 장기 상수·상태 전환·Train 0분산·분포 이동 검사
 - IANA, explicit offset, BDG2 고정표준시 모드 분리
-- 건물별 GRU 학습과 기준 모델 비교 파이프라인
+- 건물별 XGBoost 학습과 기준 모델 비교 파이프라인
 - 불변 run 저장과 저장 모델 재사용 추론
 - 로컬 CSV 업로드, 품질 결과, 학습 상태, 모델·예측 대시보드
 - 완료된 학습의 Validation MAE·선택 모델·run ID 표시
@@ -18,6 +18,12 @@ Energy Planner는 사용자가 업로드한 건물별 시간당 kWh CSV를 진�
 ## 로컬 실행
 
 프로젝트 루트에서 기존 ML 가상환경의 Python으로 실행합니다.
+
+XGBoost 전환 후 의존성은 승인된 가상환경에서 다음 파일로 설치합니다.
+
+```powershell
+python -m pip install -r backend/requirements.txt
+```
 
 ```powershell
 & 'C:\Users\aicam\Desktop\energy_planner_project\analysis\energy-planner-mvp\.venv-phase4-gru\Scripts\python.exe' -m backend.app.web.server --host 127.0.0.1 --port 8765

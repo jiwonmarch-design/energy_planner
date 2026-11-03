@@ -451,3 +451,97 @@ main {
     font-size: 8px;
   }
 }
+
+/* Workspace v2: compact intro, neutral stepper, vertical three-step flow. */
+#workspace-page .workspace-intro { padding: 34px 0 22px; border-bottom: 0; }
+#workspace-page .workspace-intro h1 { font-size: clamp(32px, 4vw, 48px); }
+#workspace-page .workflow-steps { margin-top: 12px; }
+.workflow-step,
+.workflow-step.status-current,
+.workflow-step.status-in-progress,
+.workflow-step.status-complete,
+.workflow-step.status-warning,
+.workflow-step.status-fail {
+  position: relative;
+  background: #fff;
+  color: var(--ink);
+  border-bottom: 3px solid transparent;
+}
+.workflow-step.is-viewed { background: var(--blue-soft); border-bottom-color: var(--blue); }
+.workflow-step::after {
+  top: 14px;
+  right: 14px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  color: var(--muted);
+  font-size: 9px;
+}
+.workspace.workspace-flow {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 22px;
+}
+.workspace.workspace-flow::before { display: none; }
+.workflow-panel,
+.step-column,
+.result-column,
+.training-panel {
+  width: 100%;
+  padding: 36px 40px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(23, 33, 44, 0.04);
+}
+.step-column { border-right: 1px solid var(--line); }
+.result-column { background: var(--surface); }
+.form-grid.single-field { grid-template-columns: minmax(260px, 560px); margin-bottom: 12px; }
+.auto-setting-note { margin: 0 0 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.training-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.training-heading h2 { margin-bottom: 8px; }
+.training-heading p,
+.training-placeholder,
+.workspace-model-results > p { color: var(--muted); font-size: 13px; line-height: 1.65; }
+.training-placeholder {
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+.training-progress { margin-top: 24px; }
+.progress-track {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8edf8;
+}
+.progress-track span {
+  position: absolute;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+  animation: xgboost-progress 1.2s ease-in-out infinite;
+}
+.training-progress strong { display: block; margin-top: 10px; font-size: 13px; }
+@keyframes xgboost-progress { from { transform: translateX(-110%); } to { transform: translateX(320%); } }
+.training-actions { flex-wrap: wrap; }
+.workspace-model-results { margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--line); }
+.workspace-model-results h3 { margin: 0 0 12px; }
+
+@media (max-width: 700px) {
+  .workflow-panel,
+  .step-column,
+  .result-column,
+  .training-panel { padding: 26px 20px; }
+  .training-heading { flex-direction: column; }
+}

@@ -44,7 +44,7 @@ def evaluate_predictions(actual: np.ndarray, predicted: np.ndarray) -> Evaluatio
 
 
 def select_on_validation(
-    gru: EvaluationMetrics,
+    xgboost: EvaluationMetrics,
     last_24h: EvaluationMetrics,
     last_168h: EvaluationMetrics,
 ) -> SelectionDecision:
@@ -58,36 +58,36 @@ def select_on_validation(
     if baseline.mae <= 0:
         improvement = None
         mae_ok = False
-        reasons.append("GRU_5_PERCENT_MAE_IMPROVEMENT_UNDEFINED_AT_ZERO_BASELINE")
+        reasons.append("XGBOOST_5_PERCENT_MAE_IMPROVEMENT_UNDEFINED_AT_ZERO_BASELINE")
     else:
-        improvement = (baseline.mae - gru.mae) / baseline.mae
+        improvement = (baseline.mae - xgboost.mae) / baseline.mae
         mae_ok = improvement >= 0.05 - tolerance
         if not mae_ok:
-            reasons.append("GRU_MAE_IMPROVEMENT_BELOW_5_PERCENT")
-    rmse_ok = gru.rmse <= baseline.rmse * 1.05 + tolerance
+            reasons.append("XGBOOST_MAE_IMPROVEMENT_BELOW_5_PERCENT")
+    rmse_ok = xgboost.rmse <= baseline.rmse * 1.05 + tolerance
     if not rmse_ok:
-        reasons.append("GRU_RMSE_DEGRADED_OVER_5_PERCENT")
-    if gru.wape is None or baseline.wape is None:
+        reasons.append("XGBOOST_RMSE_DEGRADED_OVER_5_PERCENT")
+    if xgboost.wape is None or baseline.wape is None:
         wape_ok = False
         reasons.append("WAPE_UNDEFINED_BASELINE_SELECTED")
     else:
-        wape_ok = gru.wape <= baseline.wape * 1.05 + tolerance
+        wape_ok = xgboost.wape <= baseline.wape * 1.05 + tolerance
         if not wape_ok:
-            reasons.append("GRU_WAPE_DEGRADED_OVER_5_PERCENT")
-    valid_ok = gru.nonfinite_count == 0 and gru.negative_count == 0
-    if gru.nonfinite_count:
-        reasons.append("GRU_NONFINITE_PREDICTION")
-    if gru.negative_count:
-        reasons.append("GRU_NEGATIVE_PREDICTION")
+            reasons.append("XGBOOST_WAPE_DEGRADED_OVER_5_PERCENT")
+    valid_ok = xgboost.nonfinite_count == 0 and xgboost.negative_count == 0
+    if xgboost.nonfinite_count:
+        reasons.append("XGBOOST_NONFINITE_PREDICTION")
+    if xgboost.negative_count:
+        reasons.append("XGBOOST_NEGATIVE_PREDICTION")
     eligible = mae_ok and rmse_ok and wape_ok and valid_ok
     if eligible:
-        reasons.append("GRU_VALIDATION_PROMOTION_RULES_MET")
+        reasons.append("XGBOOST_VALIDATION_PROMOTION_RULES_MET")
     else:
         reasons.append("BEST_BASELINE_SELECTED")
     return SelectionDecision(
-        selected_model="gru" if eligible else baseline_name,
+        selected_model="xgboost" if eligible else baseline_name,
         best_baseline=baseline_name,
-        gru_eligible=eligible,
+        xgboost_eligible=eligible,
         reason_codes=reasons,
-        gru_mae_improvement=improvement,
+        xgboost_mae_improvement=improvement,
     )

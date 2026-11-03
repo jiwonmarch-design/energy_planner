@@ -1,4 +1,7 @@
-"""Train-only input and target scaling."""
+"""Train-only scaling retained for read-only legacy GRU run compatibility.
+
+New XGBoost training uses raw engineered values and does not call this module.
+"""
 
 from __future__ import annotations
 
