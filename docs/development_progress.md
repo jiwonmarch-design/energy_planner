@@ -239,3 +239,13 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 독립 HTML 다운로드에서 STEP 06 상태와 원본 CSV·API 키를 제외하고 보고서 수치·본문·인터랙티브 비교 그래프만 포함; A4 인쇄 CSS를 STEP 05 보고서 전용으로 정리
 - 실제 완료 job과 OpenAI 호출로 Chrome 12/12 PASS, 1440px·390px·320px 및 오프라인 HTML·2페이지 A4 PDF 확인, 전체 테스트 55 PASS·3 subtests PASS
 - 검증 산출물: `analysis/six_step_report_validation/`
+
+## 2026-11-04 데이터 업로드·품질 진단 통합
+
+- CSV 업로드와 데이터 품질 진단을 하나의 `STEP 01 데이터 준비`로 통합하고 전체 탐색을 5단계로 정리
+- 건물 시간대·CSV 선택 → 진단 실행 → 4개 핵심 지표·상세 판정·시간순 분할 결과를 같은 작업 영역에서 순차 표시
+- 진단 전 큰 빈 결과 카드를 낮은 대기 패널로 축소하고, 진단 완료 시 결과 제목으로 초점을 이동해 비동기 상태 변화를 명확히 처리
+- PASS 결과에서만 `XGBoost 모델 학습으로 이동`을 제공하고 파일·시간대 변경 시 기존 진단·예측·보고서 상태 무효화 유지
+- 실제 Chrome에서 합성 180일 CSV 품질 API 연결, 1440px·390px·320px 반응형, 44px 조작 영역, 콘솔 오류 0을 6/6 PASS로 확인
+- 전체 Python 회귀 55 PASS·3 subtests PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
+- 검증 산출물: `analysis/data_preparation_validation/`

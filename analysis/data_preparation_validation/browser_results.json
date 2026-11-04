@@ -1,0 +1,75 @@
+{
+  "generated_at": "2026-11-04T08:33:10.367Z",
+  "checks": [
+    {
+      "name": "initial_combined_data_preparation",
+      "status": "PASS",
+      "details": {
+        "steps": 5,
+        "panels": 5,
+        "hasOldQualitySection": false,
+        "qualityInsideUpload": true,
+        "title": "전력 데이터 업로드 및 품질 진단",
+        "status": "업로드 대기",
+        "buttonDisabled": true,
+        "awaitingHeight": 85,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "file_selection_prepares_inline_diagnosis",
+      "status": "PASS",
+      "details": {
+        "enabled": true,
+        "status": "진단 대기",
+        "title": "선택한 파일의 품질 진단을 실행해 주세요.",
+        "preview": true,
+        "sameSection": true
+      }
+    },
+    {
+      "name": "diagnosis_renders_inline_and_unlocks_training",
+      "status": "PASS",
+      "details": {
+        "loadingObserved": true,
+        "cards": 4,
+        "details": 4,
+        "nextVisible": true,
+        "buttonText": "데이터 품질 다시 진단하기",
+        "status": "PASS",
+        "focused": true,
+        "trainingEnabled": true,
+        "firstStepStatus": "complete",
+        "secondStepStatus": "current",
+        "sameSection": true
+      }
+    },
+    {
+      "name": "mobile_390_layout",
+      "status": "PASS",
+      "details": {
+        "overflow": 0,
+        "minButton": 44,
+        "resultVisible": true
+      }
+    },
+    {
+      "name": "mobile_320_layout",
+      "status": "PASS",
+      "details": {
+        "overflow": 0,
+        "minButton": 44
+      }
+    },
+    {
+      "name": "no_console_or_runtime_errors",
+      "status": "PASS",
+      "details": {
+        "runtimeErrors": [],
+        "consoleErrors": []
+      }
+    }
+  ],
+  "pass": 6,
+  "fail": 0
+}

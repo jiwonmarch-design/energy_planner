@@ -140,16 +140,29 @@ function statusLabel(status) {
 }
 
 function renderWorkspaceSteps() {
+  const qualityStatus = state.stepStatuses[2] || "waiting";
+  const dataPreparationStatus = ["complete", "warning", "fail", "in-progress"].includes(qualityStatus)
+    ? qualityStatus
+    : state.stepStatuses[1] === "complete"
+      ? "current"
+      : state.stepStatuses[1] || "waiting";
+  const workflowStatuses = {
+    1: dataPreparationStatus,
+    2: state.stepStatuses[3] || "waiting",
+    3: state.stepStatuses[4] || "waiting",
+    4: state.stepStatuses[5] || "waiting",
+    5: state.stepStatuses[6] || "waiting",
+  };
   document.querySelectorAll("[data-workflow-step]").forEach((step) => {
     const number = Number(step.dataset.workflowStep);
-    const status = state.stepStatuses[number] || "waiting";
+    const status = workflowStatuses[number] || "waiting";
     step.dataset.status = status;
     step.dataset.statusLabel = statusLabel(status);
   });
 }
 
 function switchWorkspaceStep(number, { scroll = true } = {}) {
-  state.viewedStep = Math.min(3, Math.max(1, number));
+  state.viewedStep = Math.min(5, Math.max(1, number));
   renderWorkspaceSteps();
   if (scroll) {
     const panel = document.querySelector(`[data-step-panel="${state.viewedStep}"]`);
@@ -203,7 +216,7 @@ function updateAnalyzeAvailability() {
   $("analyze").disabled = !state.csvText || approvalMissing;
 }
 
-function resetTrainingView(message = "STEP 02 품질 진단을 통과하면 학습을 시작할 수 있습니다.") {
+function resetTrainingView(message = "STEP 01 데이터 품질 진단을 통과하면 학습을 시작할 수 있습니다.") {
   $("training-progress").hidden = false;
   $("workspace-model-results").hidden = true;
   $("workspace-job-status").textContent = "학습 대기";
@@ -225,14 +238,15 @@ function resetQualityPanel(message) {
   empty.dataset.panelState = state.csvText ? "selected" : "empty";
   $("quality-empty-title").textContent = message;
   $("quality-empty-copy").textContent = state.csvText
-    ? "변경된 입력으로 파일 형식, 누락된 시간과 학습 가능 여부를 다시 확인하세요."
-    : "왼쪽에서 시간별 전력 사용량 CSV를 선택해 주세요.";
+    ? "진단 버튼을 누르면 파일 형식, 누락된 시간과 학습 가능 여부를 확인합니다."
+    : "위에서 시간별 전력 사용량 CSV를 선택해 주세요.";
   $("quality-preview").hidden = !state.csvText;
   $("quality-preview-file").textContent = state.fileName || "확인 전";
   $("quality-preview-file").title = state.fileName || "";
   $("warning-approval").hidden = !state.warningRequired;
-  $("quality-heading-status").textContent = "진단 대기";
+  $("quality-heading-status").textContent = state.csvText ? "진단 대기" : "업로드 대기";
   $("quality-heading-status").className = "status";
+  $("quality-next-actions").hidden = true;
   $("train").disabled = true;
 }
 
@@ -308,9 +322,9 @@ function resetDashboardPrediction() {
 function invalidateAnalysis(message = "입력이 변경되어 재검증이 필요합니다.") {
   const hadAnalysis = Boolean(state.analysis);
   state.qualityRequestId += 1;
-  $("quality").removeAttribute("aria-busy");
+  $("upload").removeAttribute("aria-busy");
   updateAnalyzeAvailability();
-  $("analyze").textContent = "데이터 품질 진단하기";
+  $("analyze").textContent = "데이터 품질 진단하기 →";
   state.predictionComplete = false;
   resetAIAnalysis();
   resetDashboardPrediction();
@@ -366,8 +380,8 @@ function updateNextAction() {
     homeTarget = "training";
     homeText = "모델 학습 계속하기";
   } else if (state.csvText) {
-    homeTarget = "quality";
-    homeText = "품질 진단 계속하기";
+    homeTarget = "upload";
+    homeText = "데이터 품질 진단 계속하기";
   }
 
   homeCta.href = `#${homeTarget}`;
@@ -428,8 +442,8 @@ function updateNextAction() {
   } else if (state.csvText) {
     gateTitle = "업로드한 CSV의 품질을 확인해 주세요.";
     gateDescription = "필수 컬럼, 관측 기간과 시간 연속성을 확인한 뒤 모델을 학습합니다.";
-    gateActionTarget = "quality";
-    gateActionText = "품질 진단으로 이동";
+    gateActionTarget = "upload";
+    gateActionText = "데이터 준비로 이동";
   }
   $("dashboard-gate-title").textContent = gateTitle;
   $("dashboard-gate-description").textContent = gateDescription;
@@ -650,9 +664,9 @@ function handleInfluentialInputChange() {
   if (state.analysis || state.analysisSignature) invalidateAnalysis();
   else {
     state.qualityRequestId += 1;
-    $("quality").removeAttribute("aria-busy");
+    $("upload").removeAttribute("aria-busy");
     updateAnalyzeAvailability();
-    $("analyze").textContent = "데이터 품질 진단하기";
+    $("analyze").textContent = "데이터 품질 진단하기 →";
     if (state.csvText) {
       resetQualityPanel("입력 설정이 변경되었습니다. 다시 품질 진단해 주세요.");
       $("selected-file-state").textContent = "입력 설정 변경됨 · 다시 품질 진단 필요";
@@ -691,7 +705,7 @@ function renderQuality(result) {
   state.analysisSignature = inputSignature();
   $("empty-state").hidden = true;
   $("quality-result").hidden = false;
-  $("quality").removeAttribute("aria-busy");
+  $("upload").removeAttribute("aria-busy");
   $("selected-file-state").textContent = "선택한 파일로 진단을 완료했습니다";
   const quality = result.quality;
   state.warningRequired = Boolean(result.split?.warning_limited_experiment);
@@ -761,12 +775,19 @@ function renderQuality(result) {
     : "품질 진단의 차단 사유를 해결한 뒤 다시 진단해 주세요.");
   $("workspace-job-status").textContent = result.training_eligible ? "학습 준비 완료" : "학습 불가";
   $("workspace-job-status").dataset.status = result.training_eligible ? "READY" : "BLOCKED";
+  $("quality-next-actions").hidden = !result.training_eligible;
   const qualityStatus = quality.status.toLowerCase();
   const stepTwoStatus = qualityStatus === "pass" ? "complete" : qualityStatus === "warning" ? "warning" : "fail";
   setWorkspaceState(
     { 1: "complete", 2: stepTwoStatus, 3: result.training_eligible ? "current" : jobStepStatus() },
     2,
   );
+  requestAnimationFrame(() => {
+    const heading = $("quality-result-title");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+  });
 }
 
 function qualityReasonText(code) {
@@ -798,7 +819,7 @@ $("analyze").onclick = async () => {
     return;
   }
   $("analyze").disabled = true;
-  $("analyze").textContent = "품질 진단 중…";
+  $("analyze").textContent = "데이터 품질 확인 중…";
   const requestId = ++state.qualityRequestId;
   const requestSignature = inputSignature();
   $("empty-state").hidden = false;
@@ -807,7 +828,7 @@ $("analyze").onclick = async () => {
   $("quality-empty-title").textContent = "데이터 품질을 진단하고 있습니다.";
   $("quality-empty-copy").textContent = "파일 형식, 관측 기간, 누락된 시간과 학습 가능 여부를 확인합니다.";
   $("quality-preview").hidden = false;
-  $("quality").setAttribute("aria-busy", "true");
+  $("upload").setAttribute("aria-busy", "true");
   $("selected-file-state").textContent = "품질 진단을 위해 로컬 서버에 전송 중";
   setWorkspaceState({ 1: "complete", 2: "in-progress", 3: jobStepStatus() }, 2);
   try {
@@ -825,11 +846,19 @@ $("analyze").onclick = async () => {
     $("quality-empty-copy").textContent = details.message;
     $("selected-file-state").textContent = "진단 오류 · 파일은 브라우저에서 계속 선택된 상태";
     setWorkspaceState({ 1: "complete", 2: "fail", 3: jobStepStatus() }, 2);
+    requestAnimationFrame(() => {
+      const heading = $("quality-empty-title");
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    });
   } finally {
     if (requestId !== state.qualityRequestId) return;
-    $("quality").removeAttribute("aria-busy");
+    $("upload").removeAttribute("aria-busy");
     updateAnalyzeAvailability();
-    $("analyze").textContent = "데이터 품질 진단하기";
+    $("analyze").textContent = analysisIsCurrent()
+      ? "데이터 품질 다시 진단하기"
+      : "데이터 품질 진단하기 →";
   }
 };
 
