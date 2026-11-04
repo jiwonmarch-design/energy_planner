@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-11-03T06:03:44.711Z",
+  "jobId": "fe23f3d76c884a9bb81af29a027179e3",
+  "trainingElapsedSeconds": 121.707,
+  "results": [
+    {
+      "id": "I01-home-wave",
+      "status": "PASS",
+      "details": {
+        "route": "/",
+        "waveLoaded": true,
+        "rollbackHidden": true,
+        "overflow": false
+      }
+    },
+    {
+      "id": "I02-guide-route",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "current": "/guide",
+        "sections": 6,
+        "faq": 4,
+        "overflow": false
+      }
+    },
+    {
+      "id": "I03-quality",
+      "status": "PASS",
+      "details": {
+        "status": "PASS",
+        "eligible": true,
+        "splitCards": 3
+      }
+    },
+    {
+      "id": "I04-training-start",
+      "status": "PASS",
+      "details": {
+        "jobId": "fe23f3d76c884a9bb81af29a027179e3",
+        "context": {
+          "timezone": "Asia/Seoul",
+          "fileToken": "synthetic_180_days.csv:142573:1793685701757"
+        }
+      }
+    },
+    {
+      "id": "I05-navigation-during-training",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace",
+        "jobId": "fe23f3d76c884a9bb81af29a027179e3"
+      }
+    },
+    {
+      "id": "I06-xgboost-training",
+      "status": "PASS",
+      "details": {
+        "status": "COMPLETED",
+        "selectedModel": "last_168h",
+        "runId": "20261103T060143Z_fe23f3d7",
+        "metrics": [
+          "MAE 0 kWh · WAPE 0%",
+          "MAE 1.605 kWh · WAPE 8.2%",
+          "MAE 0 kWh · WAPE 0%"
+        ],
+        "elapsedSeconds": 120.222
+      }
+    },
+    {
+      "id": "I07-dashboard-prediction",
+      "status": "PASS",
+      "details": {
+        "total": "386.6 kWh",
+        "average": "16.11 kWh",
+        "forecastRows": 24,
+        "dailyBars": 7,
+        "periods": 4,
+        "months": 6,
+        "aiDisabled": true,
+        "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다.",
+        "overflow": false
+      }
+    },
+    {
+      "id": "I08-ai-disabled",
+      "status": "PASS",
+      "details": {
+        "aiDisabled": true,
+        "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다."
+      }
+    },
+    {
+      "id": "I09-guide-responsive-390",
+      "status": "PASS",
+      "details": {
+        "width": 390,
+        "overflow": false,
+        "minNavHeight": 54,
+        "bodyFont": "14px"
+      }
+    },
+    {
+      "id": "I10-dashboard-responsive-390",
+      "status": "FAIL",
+      "details": {
+        "width": 390,
+        "overflow": true,
+        "chartWidth": 304,
+        "viewportWidth": 390
+      }
+    },
+    {
+      "id": "I09-guide-responsive-320",
+      "status": "PASS",
+      "details": {
+        "width": 320,
+        "overflow": false,
+        "minNavHeight": 54,
+        "bodyFont": "14px"
+      }
+    },
+    {
+      "id": "I10-dashboard-responsive-320",
+      "status": "FAIL",
+      "details": {
+        "width": 320,
+        "overflow": true,
+        "chartWidth": 242,
+        "viewportWidth": 320
+      }
+    }
+  ]
+}

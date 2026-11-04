@@ -1,0 +1,272 @@
+{
+  "executed_at": "2026-11-03T08:02:16.272Z",
+  "browser": "Chrome headless actual browser",
+  "checks": [
+    {
+      "name": "landing_1440_route_and_copy",
+      "status": "PASS",
+      "details": {
+        "route": "/",
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "activeNav": "/",
+        "headline": "전력 사용량을\n미리 예측하고,\n더 나은 결정을.",
+        "waveDots": 1062,
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard",
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다.",
+        "hiddenPages": true,
+        "navMinHeight": 72,
+        "primaryMinHeight": 44
+      }
+    },
+    {
+      "name": "landing_1440_interactive_wave",
+      "status": "PASS",
+      "details": {
+        "waveDots": 1062
+      }
+    },
+    {
+      "name": "landing_1440_routing",
+      "status": "PASS",
+      "details": {
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard"
+      }
+    },
+    {
+      "name": "landing_1440_sample_disclosure",
+      "status": "PASS",
+      "details": {
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다."
+      }
+    },
+    {
+      "name": "landing_1440_no_overflow",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425
+      }
+    },
+    {
+      "name": "landing_1440_app_pages_preserved",
+      "status": "PASS",
+      "details": {
+        "hiddenPages": true
+      }
+    },
+    {
+      "name": "landing_1440_step_interaction",
+      "status": "PASS",
+      "details": {
+        "selected": "true",
+        "content": "STEP 03 / MODEL TRAINING\n\nXGBoost 학습 및 평가\n\n사용자가 명시적으로 요청할 때만 건물 전용 모델을 학습하고 두 기준 모델과 비교합니다.\n\nValidation으로 모델을 선택하고 Test는 최종 평가에만 사용합니다.\n예측할 때는 저장 모델을 재사용하며 자동 재학습하지 않습니다.\n예측 대시보드 열기\n→"
+      }
+    },
+    {
+      "name": "landing_1440_chart_interaction",
+      "status": "PASS",
+      "details": {
+        "active": true,
+        "paths": 1,
+        "axis": "10월 30일 11:00"
+      }
+    },
+    {
+      "name": "landing_390_route_and_copy",
+      "status": "PASS",
+      "details": {
+        "route": "/",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "activeNav": "/",
+        "headline": "전력 사용량을\n미리 예측하고,\n더 나은 결정을.",
+        "waveDots": 1062,
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard",
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다.",
+        "hiddenPages": true,
+        "navMinHeight": 54,
+        "primaryMinHeight": 44
+      }
+    },
+    {
+      "name": "landing_390_interactive_wave",
+      "status": "PASS",
+      "details": {
+        "waveDots": 1062
+      }
+    },
+    {
+      "name": "landing_390_routing",
+      "status": "PASS",
+      "details": {
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard"
+      }
+    },
+    {
+      "name": "landing_390_sample_disclosure",
+      "status": "PASS",
+      "details": {
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다."
+      }
+    },
+    {
+      "name": "landing_390_no_overflow",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390
+      }
+    },
+    {
+      "name": "landing_390_app_pages_preserved",
+      "status": "PASS",
+      "details": {
+        "hiddenPages": true
+      }
+    },
+    {
+      "name": "landing_390_touch_targets",
+      "status": "PASS",
+      "details": {
+        "navMinHeight": 54,
+        "primaryMinHeight": 44
+      }
+    },
+    {
+      "name": "landing_390_step_interaction",
+      "status": "PASS",
+      "details": {
+        "selected": "true",
+        "content": "STEP 03 / MODEL TRAINING\n\nXGBoost 학습 및 평가\n\n사용자가 명시적으로 요청할 때만 건물 전용 모델을 학습하고 두 기준 모델과 비교합니다.\n\nValidation으로 모델을 선택하고 Test는 최종 평가에만 사용합니다.\n예측할 때는 저장 모델을 재사용하며 자동 재학습하지 않습니다.\n예측 대시보드 열기\n→"
+      }
+    },
+    {
+      "name": "landing_390_chart_interaction",
+      "status": "PASS",
+      "details": {
+        "active": true,
+        "paths": 1,
+        "axis": "10월 30일 11:00"
+      }
+    },
+    {
+      "name": "landing_320_route_and_copy",
+      "status": "PASS",
+      "details": {
+        "route": "/",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "activeNav": "/",
+        "headline": "전력 사용량을\n미리 예측하고,\n더 나은 결정을.",
+        "waveDots": 1062,
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard",
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다.",
+        "hiddenPages": true,
+        "navMinHeight": 54,
+        "primaryMinHeight": 44
+      }
+    },
+    {
+      "name": "landing_320_interactive_wave",
+      "status": "PASS",
+      "details": {
+        "waveDots": 1062
+      }
+    },
+    {
+      "name": "landing_320_routing",
+      "status": "PASS",
+      "details": {
+        "workspaceHref": "/workspace",
+        "dashboardHref": "/dashboard"
+      }
+    },
+    {
+      "name": "landing_320_sample_disclosure",
+      "status": "PASS",
+      "details": {
+        "sampleBadge": "시연용 예시 데이터",
+        "sampleNotice": "아래 수치는 화면 구성을 보여주기 위한 예시이며 저장 모델의 실제 예측 결과가 아닙니다."
+      }
+    },
+    {
+      "name": "landing_320_no_overflow",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320
+      }
+    },
+    {
+      "name": "landing_320_app_pages_preserved",
+      "status": "PASS",
+      "details": {
+        "hiddenPages": true
+      }
+    },
+    {
+      "name": "landing_320_touch_targets",
+      "status": "PASS",
+      "details": {
+        "navMinHeight": 54,
+        "primaryMinHeight": 44
+      }
+    },
+    {
+      "name": "landing_320_step_interaction",
+      "status": "PASS",
+      "details": {
+        "selected": "true",
+        "content": "STEP 03 / MODEL TRAINING\n\nXGBoost 학습 및 평가\n\n사용자가 명시적으로 요청할 때만 건물 전용 모델을 학습하고 두 기준 모델과 비교합니다.\n\nValidation으로 모델을 선택하고 Test는 최종 평가에만 사용합니다.\n예측할 때는 저장 모델을 재사용하며 자동 재학습하지 않습니다.\n예측 대시보드 열기\n→"
+      }
+    },
+    {
+      "name": "landing_320_chart_interaction",
+      "status": "PASS",
+      "details": {
+        "active": true,
+        "paths": 1,
+        "axis": "10월 30일 11:00"
+      }
+    },
+    {
+      "name": "dashboard_cta_navigation",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard"
+      }
+    },
+    {
+      "name": "workspace_cta_navigation",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace"
+      }
+    },
+    {
+      "name": "workspace_route_regression",
+      "status": "PASS",
+      "details": {
+        "route": "/workspace",
+        "visible": true,
+        "fileInput": true,
+        "diagnoseButton": true
+      }
+    }
+  ],
+  "summary": {
+    "pass": 29,
+    "fail": 0
+  }
+}

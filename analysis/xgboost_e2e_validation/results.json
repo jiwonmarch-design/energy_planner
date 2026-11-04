@@ -1,0 +1,215 @@
+{
+  "status": "PASS",
+  "environment": {
+    "xgboost": "3.4.1",
+    "config": {
+      "input_size": 6,
+      "lookback": 168,
+      "output_size": 24,
+      "n_estimators": 500,
+      "learning_rate": 0.05,
+      "max_depth": 6,
+      "min_child_weight": 1.0,
+      "subsample": 0.9,
+      "colsample_bytree": 0.9,
+      "reg_alpha": 0.0,
+      "reg_lambda": 1.0,
+      "early_stopping_rounds": 30,
+      "seed": 42,
+      "n_jobs": 1,
+      "tree_method": "hist"
+    },
+    "source": "generated 180-day hourly CSV"
+  },
+  "pipeline": {
+    "run_dir": "<temporary>/artifacts/synthetic-xgboost-180d/xgboost-e2e-validation",
+    "quality_status": "PASS",
+    "selected_model": "last_168h",
+    "train_samples": 2689,
+    "validation_dense_samples": 697,
+    "validation_evaluation_windows": 30,
+    "test_evaluation_windows": 30,
+    "input_shape": [
+      2689,
+      168,
+      6
+    ],
+    "output_shape": [
+      2689,
+      24
+    ],
+    "best_epoch": 302,
+    "stopped_epoch": 332,
+    "validation_metrics": {
+      "xgboost": {
+        "mae": 6.496906280517578e-05,
+        "rmse": 8.385922530829223e-05,
+        "wape": 2.911622768656314e-06,
+        "mape": 2.9937046022436336e-06,
+        "mape_excluded_count": 0,
+        "peak_mae": 9.46044921875e-05,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198301315307617,
+        "prediction_max": 29.801774978637695,
+        "prediction_mean": 22.313691163063048,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      },
+      "last_24h": {
+        "mae": 1.7634857348205133,
+        "rmse": 2.1755515326039943,
+        "wape": 0.07903154202949295,
+        "mape": 0.08645639370805987,
+        "mape_excluded_count": 0,
+        "peak_mae": 1.658274486135693,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198062264195158,
+        "prediction_max": 29.801937735804856,
+        "prediction_mean": 22.28943479921867,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      },
+      "last_168h": {
+        "mae": 3.860462912847535e-07,
+        "rmse": 4.618763402728424e-07,
+        "wape": 1.7300867873539193e-08,
+        "mape": 1.768501396372906e-08,
+        "mape_excluded_count": 0,
+        "peak_mae": 4.922765387031329e-07,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198062264195158,
+        "prediction_max": 29.801937735804856,
+        "prediction_mean": 22.313695124606216,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      }
+    },
+    "test_metrics": {
+      "xgboost": {
+        "mae": 6.233056386311849e-05,
+        "rmse": 8.141877147312616e-05,
+        "wape": 2.839457781814678e-06,
+        "mape": 2.9490492413890937e-06,
+        "mape_excluded_count": 0,
+        "peak_mae": 8.646647135416667e-05,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198301315307617,
+        "prediction_max": 29.801774978637695,
+        "prediction_mean": 21.95157214005788,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      },
+      "last_24h": {
+        "mae": 1.913377221528994,
+        "rmse": 2.3313784662561314,
+        "wape": 0.08716355996952842,
+        "mape": 0.09500673778853723,
+        "mape_excluded_count": 0,
+        "peak_mae": 1.8146751807722494,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198062264195164,
+        "prediction_max": 29.801937735804856,
+        "prediction_mean": 22.152340702207393,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      },
+      "last_168h": {
+        "mae": 3.7806058703626635e-07,
+        "rmse": 4.530587558717167e-07,
+        "wape": 1.7222482989484763e-08,
+        "mape": 1.7650743677258442e-08,
+        "mape_excluded_count": 0,
+        "peak_mae": 4.852866656079869e-07,
+        "peak_time_error_hours": 0.0,
+        "prediction_min": 13.198062264195164,
+        "prediction_max": 29.801937735804856,
+        "prediction_mean": 21.95157266349066,
+        "negative_count": 0,
+        "nonfinite_count": 0
+      }
+    },
+    "data_preparation_seconds": 3.040183699922636,
+    "training_seconds": 118.78771840012632,
+    "artifact_save_seconds": 0.11999989999458194,
+    "total_seconds": 122.05448350007646
+  },
+  "candidate_prediction": {
+    "shape": [
+      1,
+      24
+    ],
+    "minimum_kwh": 16.19793701171875,
+    "maximum_kwh": 25.999937057495117,
+    "mean_kwh": 21.10710334777832,
+    "inference_seconds": 0.023981399834156036
+  },
+  "selected_prediction": {
+    "building_id": "synthetic-xgboost-180d",
+    "run_id": "xgboost-e2e-validation",
+    "model_kind": "last_168h",
+    "forecast_origin": "2025-06-29T23:00:00+00:00",
+    "timestamps": [
+      "2025-06-30T00:00:00+00:00",
+      "2025-06-30T01:00:00+00:00",
+      "2025-06-30T02:00:00+00:00",
+      "2025-06-30T03:00:00+00:00",
+      "2025-06-30T04:00:00+00:00",
+      "2025-06-30T05:00:00+00:00",
+      "2025-06-30T06:00:00+00:00",
+      "2025-06-30T07:00:00+00:00",
+      "2025-06-30T08:00:00+00:00",
+      "2025-06-30T09:00:00+00:00",
+      "2025-06-30T10:00:00+00:00",
+      "2025-06-30T11:00:00+00:00",
+      "2025-06-30T12:00:00+00:00",
+      "2025-06-30T13:00:00+00:00",
+      "2025-06-30T14:00:00+00:00",
+      "2025-06-30T15:00:00+00:00",
+      "2025-06-30T16:00:00+00:00",
+      "2025-06-30T17:00:00+00:00",
+      "2025-06-30T18:00:00+00:00",
+      "2025-06-30T19:00:00+00:00",
+      "2025-06-30T20:00:00+00:00",
+      "2025-06-30T21:00:00+00:00",
+      "2025-06-30T22:00:00+00:00",
+      "2025-06-30T23:00:00+00:00"
+    ],
+    "predictions_kwh": {
+      "count": 24,
+      "minimum": 16.198062264195176,
+      "maximum": 26.0,
+      "mean": 21.10711898063278
+    },
+    "input_shape": [
+      1,
+      168,
+      6
+    ],
+    "output_shape": [
+      1,
+      24
+    ],
+    "retrained": false,
+    "inference_seconds": 0.02954640006646514
+  },
+  "resources": {
+    "total_seconds": 122.37241080007516,
+    "working_set_start_bytes": 137609216,
+    "working_set_end_bytes": 217075712,
+    "peak_working_set_bytes": 316780544
+  },
+  "checks": {
+    "pipeline_completed": true,
+    "xgboost_candidate_saved": true,
+    "xgboost_models_reloaded": true,
+    "config_reloaded": true,
+    "candidate_output_shape": true,
+    "candidate_output_finite": true,
+    "selected_output_shape": true,
+    "selected_output_finite": true,
+    "selected_inference_did_not_retrain": true,
+    "validation_has_three_models": true,
+    "test_has_three_models": true,
+    "evaluation_schedule_frozen": true
+  }
+}

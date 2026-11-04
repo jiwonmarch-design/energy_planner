@@ -1,0 +1,227 @@
+{
+  "executed_at": "2026-11-03T06:09:47.794Z",
+  "browser": "Chrome CDP actual browser session",
+  "training_reexecuted": false,
+  "checks": [
+    {
+      "name": "guide_390_direct_route",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "guide_390_no_horizontal_overflow",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "guide_390_touch_target",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "dashboard_390_restart_recovery",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "dashboard_390_prediction_available",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "dashboard_390_no_horizontal_overflow",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "dashboard_390_chart_fits",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "dashboard_prediction_24_rows",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "dashboard_ai_missing_key_safe_state",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 390,
+        "scrollWidth": 390,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 24,
+        "resultKind": "실제 예측 결과",
+        "aiDisabled": true,
+        "chartWidth": 304
+      }
+    },
+    {
+      "name": "guide_320_direct_route",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "guide_320_no_horizontal_overflow",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "guide_320_touch_target",
+      "status": "PASS",
+      "details": {
+        "route": "/guide",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "navHeight": 54,
+        "active": "/guide"
+      }
+    },
+    {
+      "name": "dashboard_320_restart_recovery",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 0,
+        "resultKind": "예측 실행 전",
+        "aiDisabled": true,
+        "chartWidth": 242
+      }
+    },
+    {
+      "name": "dashboard_320_prediction_available",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 0,
+        "resultKind": "예측 실행 전",
+        "aiDisabled": true,
+        "chartWidth": 242
+      }
+    },
+    {
+      "name": "dashboard_320_no_horizontal_overflow",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 0,
+        "resultKind": "예측 실행 전",
+        "aiDisabled": true,
+        "chartWidth": 242
+      }
+    },
+    {
+      "name": "dashboard_320_chart_fits",
+      "status": "PASS",
+      "details": {
+        "route": "/dashboard",
+        "viewport": 320,
+        "scrollWidth": 320,
+        "jobStatus": "COMPLETED",
+        "predictionEnabled": true,
+        "forecastRows": 0,
+        "resultKind": "예측 실행 전",
+        "aiDisabled": true,
+        "chartWidth": 242
+      }
+    }
+  ],
+  "summary": {
+    "pass": 16,
+    "fail": 0
+  }
+}
