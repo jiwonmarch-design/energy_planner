@@ -4,7 +4,7 @@
 
 - 작업 전 `docs/development_progress.md`에서 현재 상태를 확인한다.
 - 요청과 관련된 문서와 코드 범위만 선택적으로 읽는다.
-- 현재 없는 `docs/prd.md`, `docs/spec.md`, `docs/plan.md`를 필수 선행 문서로 취급하지 않는다.
+- 현재 존재하는 `docs/prd.md`, `docs/spec.md`, `docs/plan.md`는 요청과 관련된 절만 선택적으로 참조한다.
 - 문서 작성 순서는 MVP → PRD → SPEC → PLAN을 따른다.
 - 위 문서가 생성되면 이후 관련 작업에서 참조한다.
 - 기존 ML 기술 명세는 중복 작성하지 않고 필요할 때 `docs/data_contract.md`, `docs/data_quality_policy.md`, `docs/training_spec.md`를 참조한다.
@@ -15,6 +15,7 @@
 - 이미 구현된 기능을 재사용하고 관련 없는 코드와 문서는 수정하지 않는다.
 - 관련 작업은 적절히 묶어 수행하고 지나치게 세분화하지 않는다.
 - 기존 Phase 7-6 및 Phase 8의 미커밋 변경을 보존한다.
+- ML 변경은 XGBoost·baseline 비교, 시간순 분할과 Validation 선택/Test 독립 원칙을 유지한다.
 
 ## 토큰 절약
 
@@ -34,8 +35,9 @@
 - 코드 변경 시 관련 테스트를 실행하고 PASS, FAIL, 미검증을 구분한다.
 - 실제 브라우저에서 확인하지 않은 UI를 검증 완료로 보고하지 않는다.
 - API 키와 개인정보를 출력하거나 코드에 저장하지 않는다.
+- OpenAI 연동은 서버 환경변수의 키만 사용하고 원본 CSV 전체를 외부로 전송하지 않는다.
 - 패키지 설치, Git push, 외부 배포는 명시적 승인 후 진행한다.
-- 각 작업 단위가 완료되면 별도 요청 없이 적절한 커밋 메시지를 작성해 Git commit한다.
+- 각 작업 단위가 완료되면 별도 요청 없이 적절한 커밋 메시지로 Git commit하되, 요청이 commit을 금지하면 커밋하지 않는다.
 
 ## 작업 기록
 
