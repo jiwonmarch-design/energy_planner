@@ -17,6 +17,8 @@ const state = {
   aiAnalysisModel: "",
   aiAnalysisComplete: false,
   jobRecovered: false,
+  predictionResult: null,
+  selectedForecastIndex: 0,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -27,6 +29,69 @@ const jobSessionKey = "energy-planner.active-job.v1";
 
 function fmt(number, digits = 1) {
   return Number(number).toLocaleString("ko-KR", { maximumFractionDigits: digits });
+}
+
+function localDateParts(value, timeZone) {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+function forecastPeriodText(timestamps, timeZone) {
+  if (!timestamps?.length) return "";
+  const start = localDateParts(timestamps[0], timeZone);
+  const end = localDateParts(timestamps.at(-1), timeZone);
+  const startDate = `${start.year}.${start.month}.${start.day} (${start.weekday})`;
+  const startTime = `${start.hour}:${start.minute}`;
+  const endTime = `${end.hour}:${end.minute}`;
+  const sameDate = start.year === end.year && start.month === end.month && start.day === end.day;
+  const endLabel = sameDate ? endTime : `${end.year}.${end.month}.${end.day} (${end.weekday}) ${endTime}`;
+  return `예측 대상 ${startDate} ${startTime}–${endLabel}`;
+}
+
+function formatLocalDateTime(value, timeZone) {
+  const part = localDateParts(value, timeZone);
+  return `${part.year}.${part.month}.${part.day} (${part.weekday}) ${part.hour}:${part.minute}`;
+}
+
+function formatMonthDay(value, timeZone) {
+  return new Intl.DateTimeFormat("ko-KR", { timeZone, month: "long", day: "numeric" }).format(new Date(value));
+}
+
+function formatKoreanHour(value, timeZone) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(value)).replace(":00", "시");
+}
+
+function formatChartTime(value, timeZone, includeDate = false) {
+  const part = localDateParts(value, timeZone);
+  return includeDate ? `${part.month}.${part.day} ${part.hour}시` : `${part.hour}시`;
+}
+
+function modelDisplayName(name) {
+  return {
+    xgboost: "XGBoost",
+    last_24h: "직전 24시간 반복",
+    last_168h: "지난주 같은 시간 반복",
+  }[name] || name || "확인 불가";
+}
+
+function friendlyProgressMessage(message = "") {
+  return message
+    .replace("후보 모델 평가와 저장을 완료했습니다. 자동 승격은 하지 않았습니다.", "학습과 모델 선택을 완료했습니다.")
+    .replaceAll("후보 모델", "비교 모델");
 }
 
 function scrollToSection(id, { smooth = true, updateHistory = true } = {}) {
@@ -175,15 +240,30 @@ function resetAIAnalysis() {
 }
 
 function resetDashboardPrediction() {
+  state.predictionResult = null;
+  state.selectedForecastIndex = 0;
   $("dashboard-gate").hidden = false;
   $("dashboard-results").hidden = true;
   $("total-forecast").textContent = "—";
-  $("average-forecast").textContent = "예측 실행 전";
-  $("peak-forecast").textContent = "예측 실행 전";
-  $("peak-time").textContent = "예측 실행 전";
-  $("forecast-reference").textContent = "예측 시작 기준: 미설정";
+  $("forecast-change").textContent = "직전 24시간과 비교 전";
+  $("peak-forecast").textContent = "사용량 계산 전";
+  $("peak-time").textContent = "예측 전";
+  $("test-wape").textContent = "—";
+  $("test-wape-help").textContent = "과거 Test 구간의 평가 결과를 불러오고 있습니다.";
+  $("forecast-period").textContent = "";
+  $("forecast-period").hidden = true;
+  $("forecast-narrative").textContent = "예측 결과를 요약하고 있습니다.";
+  $("data-last-observation").textContent = "데이터 마지막 시점: 미설정";
   $("forecast-timezone").textContent = "시간대: 미설정";
   $("forecast-table-body").replaceChildren();
+  $("compare-previous").checked = false;
+  $("forecast-hour-slider").value = "0";
+  $("forecast-selected-value").textContent = "예측 결과를 선택해 확인하세요.";
+  $("history-legend").hidden = true;
+  $("dashboard-validation-body").replaceChildren();
+  $("dashboard-selected-model").textContent = "—";
+  $("dashboard-test-wape").textContent = "—";
+  $("dashboard-run-id").textContent = "—";
   $("daily-usage-chart").innerHTML = "";
   $("period-composition-list").replaceChildren();
   $("period-donut").style.background = "conic-gradient(var(--line) 0 100%)";
@@ -238,11 +318,14 @@ function updateNextAction() {
   const homeCta = $("home-primary-cta");
   const homeLabel = $("home-cta-label");
   let homeTarget = "upload";
-  let homeText = "전력 분석 시작";
+  let homeText = "CSV로 예측 시작하기";
 
-  if (completed) {
+  if (state.predictionComplete) {
+    homeTarget = "dashboard";
+    homeText = "예측 결과 보기";
+  } else if (completed) {
     homeTarget = canPredict ? "dashboard" : "upload";
-    homeText = canPredict ? "24시간 예측 실행" : "예측 입력 준비하기";
+    homeText = canPredict ? "예측 실행 준비하기" : "예측 입력 준비하기";
   } else if (running) {
     homeTarget = "training";
     homeText = "학습 상태 확인";
@@ -286,7 +369,7 @@ function updateNextAction() {
   let gateTitle = "예측 결과를 만들기 위한 준비가 필요합니다.";
   let gateDescription = "CSV 업로드부터 모델 학습까지 순서대로 완료하면 실제 예측 결과가 표시됩니다.";
   let gateActionTarget = "upload";
-  let gateActionText = "CSV 업로드 시작";
+  let gateActionText = "CSV로 예측 시작하기";
   if (running) {
     gateTitle = "모델 학습이 진행 중입니다.";
     gateDescription = "학습이 완료되면 이 화면에서 24시간 예측을 실행할 수 있습니다.";
@@ -326,6 +409,7 @@ function updateNextAction() {
   $("run-prediction").disabled = !canPredict;
   $("dashboard-gate").hidden = state.predictionComplete;
   $("dashboard-results").hidden = !state.predictionComplete;
+  $("dashboard-new-csv").hidden = !state.predictionComplete;
 
   const dashboardStatus = $("job-status");
   dashboardStatus.removeAttribute("data-status");
@@ -538,7 +622,7 @@ function renderQuality(result) {
   $("empty-state").hidden = true;
   $("quality-result").hidden = false;
   $("quality").removeAttribute("aria-busy");
-  $("selected-file-state").textContent = "품질 진단 완료 · 서버 저장 모델과는 별도 상태";
+  $("selected-file-state").textContent = "선택한 파일로 진단을 완료했습니다";
   const quality = result.quality;
   state.warningRequired = Boolean(result.split?.warning_limited_experiment);
   $("warning-approval").hidden = !state.warningRequired;
@@ -724,17 +808,78 @@ function metricText(metric) {
   return `MAE ${fmt(metric.mae, 3)} kWh · WAPE ${wape}`;
 }
 
+function renderForecastValidation(job, runId = state.predictionResult?.run_id) {
+  if (!job) return;
+  const selectedTest = job.test_metrics?.[job.selected_model];
+  const wape = Number.isFinite(selectedTest?.wape) ? selectedTest.wape * 100 : null;
+  const wapeText = wape === null ? "확인 불가" : `${fmt(wape, 1)}%`;
+  $("test-wape").textContent = wapeText;
+  $("dashboard-test-wape").textContent = wapeText;
+  $("dashboard-selected-model").textContent = modelDisplayName(job.selected_model);
+  $("dashboard-run-id").textContent = runId || "예측 실행 후 표시";
+  $("test-wape-help").textContent = wape === null
+    ? "학습에 사용하지 않은 과거 Test 구간의 WAPE를 확인할 수 없습니다. 이번 예측의 오차 범위를 임의로 추정하지 않습니다."
+    : `학습에 사용하지 않은 과거 Test 구간에서, 총 실제 사용량 대비 절대 오차 합계가 ${fmt(wape, 1)}%였습니다. 이번 예측값의 ±${fmt(wape, 1)}% 범위를 보장하는 수치는 아닙니다.`;
+
+  const fragment = document.createDocumentFragment();
+  ["xgboost", "last_24h", "last_168h"].forEach((name) => {
+    const row = document.createElement("tr");
+    if (job.selected_model === name) row.className = "selected";
+    const model = document.createElement("td");
+    const metric = document.createElement("td");
+    const result = document.createElement("td");
+    model.textContent = modelDisplayName(name);
+    metric.textContent = metricText(job.validation_metrics?.[name]);
+    result.textContent = job.selected_model === name ? "이번 예측에 사용" : "비교 기준";
+    row.append(model, metric, result);
+    fragment.append(row);
+  });
+  $("dashboard-validation-body").replaceChildren(fragment);
+}
+
+function renderPredictionOverview(result) {
+  const timeZone = result.building_timezone || $("timezone").value.trim() || "UTC";
+  const actualTotal = Number(result.actual_summary?.total_24h_kwh);
+  const forecastTotal = Number(result.total_kwh);
+  const changePercent = actualTotal > 0 ? ((forecastTotal - actualTotal) / actualTotal) * 100 : null;
+  const period = forecastPeriodText(result.timestamps, timeZone);
+  $("forecast-period").textContent = period;
+  $("forecast-period").hidden = !period;
+  $("total-forecast").innerHTML = `${fmt(forecastTotal)} <small>kWh</small>`;
+  $("peak-time").textContent = formatKoreanHour(result.peak_timestamp, timeZone);
+  $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh 예상`;
+  $("data-last-observation").textContent = `데이터 마지막 시점: ${formatLocalDateTime(result.history_timestamps?.at(-1) || result.forecast_origin, timeZone)}`;
+  $("forecast-timezone").textContent = `시간대: ${timeZone}`;
+
+  let comparisonSentence = "직전 24시간 실측 합계가 0kWh여서 증감률은 계산할 수 없습니다";
+  if (changePercent !== null) {
+    const decreased = changePercent < 0;
+    const direction = decreased ? "감소" : changePercent > 0 ? "증가" : "변화 없음";
+    const arrow = decreased ? "↓" : changePercent > 0 ? "↑" : "→";
+    $("forecast-change").textContent = `${arrow} 직전 24시간보다 ${fmt(Math.abs(changePercent), 1)}% ${direction} 예상`;
+    comparisonSentence = changePercent === 0
+      ? "직전 24시간과 같은 수준이며"
+      : `직전 24시간보다 약 ${fmt(Math.abs(changePercent), 1)}% ${decreased ? "적으며" : "많으며"}`;
+  } else {
+    $("forecast-change").textContent = "직전 24시간 실측이 0kWh여서 증감률 계산 불가";
+  }
+  $("forecast-narrative").textContent = `${formatMonthDay(result.timestamps[0], timeZone)} 예상 사용량은 ${fmt(forecastTotal)}kWh입니다. ${comparisonSentence}, 가장 많이 사용할 것으로 예상되는 시간은 ${formatKoreanHour(result.peak_timestamp, timeZone)}입니다.`;
+  $("sample-note").textContent = "학습과 모델 선택을 완료했습니다. 저장된 결과로 이번 예측을 생성했습니다.";
+  renderForecastValidation(state.job, result.run_id);
+}
+
 function renderJob(job) {
   const chip = $("job-status");
-  chip.textContent = `${jobStatusText(job.status)} · ${job.progress_message}`;
+  const progressMessage = friendlyProgressMessage(job.progress_message);
+  chip.textContent = `${jobStatusText(job.status)} · ${progressMessage}`;
   chip.dataset.status = job.status;
   const workspaceChip = $("workspace-job-status");
-  workspaceChip.textContent = `${jobStatusText(job.status)} · ${job.progress_message}`;
+  workspaceChip.textContent = `${jobStatusText(job.status)} · ${progressMessage}`;
   workspaceChip.dataset.status = job.status;
   const completed = job.status === "COMPLETED";
   if (["QUEUED", "RUNNING"].includes(job.status)) {
     $("training-progress").hidden = false;
-    setTrainingProgress(job.progress_percent, job.progress_message);
+    setTrainingProgress(job.progress_percent, progressMessage);
     $("workspace-model-results").hidden = true;
     $("train").disabled = true;
     setWorkspaceState({ 1: "complete", 2: "complete", 3: "in-progress" }, 3);
@@ -753,7 +898,7 @@ function renderJob(job) {
 
   setWorkspaceState({ 1: "complete", 2: "complete", 3: "complete" }, 3);
   $("training-progress").hidden = false;
-  setTrainingProgress(job.progress_percent ?? 100, job.progress_message);
+  setTrainingProgress(job.progress_percent ?? 100, progressMessage);
   $("train").disabled = true;
   $("workspace-model-results").hidden = false;
   const names = { xgboost: "xgboost", last_24h: "last-24h", last_168h: "last-168h" };
@@ -761,12 +906,13 @@ function renderJob(job) {
     const metric = job.validation_metrics?.[key];
     $("workspace-metric-" + id).textContent = metricText(metric);
     $("workspace-model-" + id).classList.toggle("selected", job.selected_model === key);
+    $("workspace-result-" + id).textContent = job.selected_model === key ? "이번 예측에 사용" : "비교 기준";
   });
   const selectedTest = job.test_metrics?.[job.selected_model];
   $("test-evaluation-note").textContent = selectedTest
-    ? `Validation 선택 모델 ${job.selected_model} · Test는 모델 선택에 사용하지 않으며 최종 평가만 수행 · ${metricText(selectedTest)}`
+    ? `Validation에서 ${modelDisplayName(job.selected_model)} 선택 · Test는 모델 선택에 사용하지 않고 최종 평가만 수행 · ${metricText(selectedTest)}`
     : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
-  $("selected-model").textContent = job.selected_model || "—";
+  renderForecastValidation(job);
   updateNextAction();
 }
 
@@ -832,14 +978,8 @@ async function recoverJob() {
   }
 }
 
-function displayTime(value) {
-  return new Date(value).toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function displayTime(value, timeZone = state.predictionResult?.building_timezone || $("timezone").value.trim() || "UTC") {
+  return formatLocalDateTime(value, timeZone);
 }
 
 function renderForecastTable(timestamps, values) {
@@ -986,21 +1126,16 @@ async function runPrediction() {
   $("dashboard-gate-description").textContent = "저장된 모델과 최신 입력을 확인한 뒤 결과 화면으로 전환합니다.";
   try {
     const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
-    drawPredictionChart(result.history_kwh, result.predictions_kwh, result.timestamps);
-    $("total-forecast").innerHTML = `${fmt(result.total_kwh)} <small>kWh</small>`;
-    $("average-forecast").textContent = `${fmt(result.average_kwh, 2)} kWh`;
-    $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh`;
-    $("peak-time").textContent = displayTime(result.peak_timestamp);
-    $("forecast-reference").textContent = `예측 시작 기준: ${displayTime(result.forecast_origin)}`;
-    $("forecast-timezone").textContent = `시간대: ${$("timezone").value.trim()}`;
-    $("sample-tag").textContent = "실제 예측 결과";
-    $("sample-note").textContent = `학습 기록 ${result.run_id} · ${result.model_kind} · 저장된 모델로 생성한 실제 예측`;
+    state.predictionResult = result;
+    state.selectedForecastIndex = 0;
+    renderPredictionOverview(result);
+    drawPredictionChart(result);
     renderForecastTable(result.timestamps, result.predictions_kwh);
     drawDailyUsage(result.recent_daily_usage || []);
     renderPeriodComposition(result.period_composition || []);
     renderMonthlyUsage(result.recent_monthly_usage || []);
     $("actual-summary-label").textContent = `최근 24시간 ${fmt(result.actual_summary.total_24h_kwh, 1)} kWh`;
-    $("workspace-prediction-summary").textContent = `예측 완료 · 총 ${fmt(result.total_kwh)} kWh · 최대 ${fmt(result.peak_kwh)} kWh · 피크 ${displayTime(result.peak_timestamp)}`;
+    $("workspace-prediction-summary").textContent = `예측 완료 · 총 ${fmt(result.total_kwh)} kWh · 최대 ${fmt(result.peak_kwh)} kWh · 피크 ${formatLocalDateTime(result.peak_timestamp, result.building_timezone || $("timezone").value.trim())}`;
     state.predictionComplete = true;
     updateNextAction();
   } catch (caught) {
@@ -1064,81 +1199,135 @@ async function loadCapabilities() {
   updateNextAction();
 }
 
-function drawPredictionChart(history, forecast, timestamps = []) {
-  const svg = $("forecast-chart");
+function updateForecastSelection(index, { showTooltip = false } = {}) {
+  const result = state.predictionResult;
+  if (!result?.predictions_kwh?.length) return;
+  const safeIndex = Math.max(0, Math.min(result.predictions_kwh.length - 1, Number(index) || 0));
+  state.selectedForecastIndex = safeIndex;
+  const timeZone = result.building_timezone || $("timezone").value.trim() || "UTC";
+  const forecastValue = result.predictions_kwh[safeIndex];
+  const compare = $("compare-previous").checked;
+  const previousValue = result.history_kwh?.[safeIndex];
+  const previousTime = result.history_timestamps?.[safeIndex];
+  const forecastTime = result.timestamps[safeIndex];
+  const slider = $("forecast-hour-slider");
+  slider.value = String(safeIndex);
+  slider.setAttribute("aria-valuetext", `${formatLocalDateTime(forecastTime, timeZone)}, 예상 ${fmt(forecastValue, 1)} kWh`);
+  $("forecast-selected-value").textContent = `${formatLocalDateTime(forecastTime, timeZone)} · 예상 ${fmt(forecastValue, 1)} kWh${compare && Number.isFinite(previousValue) ? ` · 직전 24시간 ${fmt(previousValue, 1)} kWh` : ""}`;
+
+  const point = document.querySelector(`[data-forecast-index="${safeIndex}"]`);
+  const guide = $("forecast-hover-guide");
+  const activePoint = $("forecast-hover-point");
+  if (point && guide && activePoint) {
+    const x = point.getAttribute("cx");
+    const y = point.getAttribute("cy");
+    guide.setAttribute("x1", x);
+    guide.setAttribute("x2", x);
+    activePoint.setAttribute("cx", x);
+    activePoint.setAttribute("cy", y);
+  }
+
   const tooltip = $("forecast-tooltip");
-  const all = [...history, ...forecast];
-  const width = 680;
-  const height = 210;
-  const padding = 28;
-  const max = Math.max(...all);
-  const min = Math.min(...all);
-  const range = Math.max(max - min, 0.001);
-  const pointCoordinates = (value, index) => [
-    padding + (index * (width - 2 * padding)) / (all.length - 1),
-    height - padding - ((value - min) * (height - 2 * padding)) / range,
-  ];
-  const point = (value, index) => pointCoordinates(value, index).join(",");
-  const grid = [0, 0.25, 0.5, 0.75, 1]
-    .map(
-      (tick) =>
-        `<line x1="${padding}" y1="${padding + tick * (height - 2 * padding)}" x2="${width - padding}" y2="${padding + tick * (height - 2 * padding)}" stroke="#e4e7df"/>`,
-    )
-    .join("");
-  const historyPoints = history.map(point).join(" ");
-  const forecastPoints = forecast.map((value, index) => point(value, index + history.length)).join(" ");
-  const forecastDots = forecast.map((value, index) => {
-    const [cx, cy] = pointCoordinates(value, index + history.length);
-    return `<circle cx="${cx}" cy="${cy}" r="4" fill="#204ed5" tabindex="0"><title>+${index + 1}시간: ${fmt(value, 2)} kWh</title></circle>`;
-  }).join("");
-  svg.innerHTML = `<g transform="translate(10,20)">${grid}<polyline points="${historyPoints}" fill="none" stroke="#a3aea7" stroke-width="3"/><polyline points="${forecastPoints}" fill="none" stroke="#2855da" stroke-width="4" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round"/>${forecastDots}<line id="forecast-hover-guide" x1="0" x2="0" y1="${padding}" y2="${height - padding}" stroke="#2855da" stroke-width="1.5" stroke-dasharray="5 5" visibility="hidden"/><circle id="forecast-hover-point" cx="0" cy="0" r="6" fill="#fff" stroke="#2855da" stroke-width="3" visibility="hidden"/><text x="${padding}" y="240" fill="#69756e" font-size="11">24시간 전</text><text x="310" y="240" fill="#69756e" font-size="11">현재</text><text x="610" y="240" fill="#69756e" font-size="11">+24h</text></g>`;
-  svg.setAttribute("aria-label", `과거 24시간 실측과 향후 24시간 예측 그래프. 예측 최저 ${fmt(min, 1)} kWh, 최고 ${fmt(max, 1)} kWh`);
-  const showTooltip = (event) => {
-    if (!tooltip) return;
-    const rect = svg.getBoundingClientRect();
-    const viewX = ((event.clientX - rect.left) / rect.width) * 720;
-    const chartX = Math.max(padding, Math.min(width - padding, viewX - 10));
-    const index = Math.max(0, Math.min(all.length - 1, Math.round(((chartX - padding) / (width - 2 * padding)) * (all.length - 1))));
-    const isForecast = index >= history.length;
-    const relativeIndex = isForecast ? index - history.length + 1 : history.length - index;
-    let timeLabel = isForecast ? `예측 +${relativeIndex}시간` : `과거 ${relativeIndex}시간 전`;
-    if (timestamps.length && timestamps[0]) {
-      const timestamp = isForecast
-        ? timestamps[index - history.length]
-        : new Date(new Date(timestamps[0]).getTime() - relativeIndex * 3_600_000).toISOString();
-      timeLabel = displayTime(timestamp);
-    }
-    tooltip.textContent = `${timeLabel} · ${fmt(all[index], 2)} kWh`;
-    tooltip.hidden = false;
-    const [pointX, pointY] = pointCoordinates(all[index], index);
-    const guide = $("forecast-hover-guide");
-    const activePoint = $("forecast-hover-point");
-    guide.setAttribute("x1", pointX);
-    guide.setAttribute("x2", pointX);
-    guide.setAttribute("visibility", "visible");
-    activePoint.setAttribute("cx", pointX);
-    activePoint.setAttribute("cy", pointY);
-    activePoint.setAttribute("visibility", "visible");
-    const wrap = tooltip.parentElement;
-    const localX = event.clientX - wrap.getBoundingClientRect().left;
-    tooltip.style.left = `${Math.max(8, Math.min(wrap.clientWidth - tooltip.offsetWidth - 8, localX + 10))}px`;
-    tooltip.style.top = "8px";
-  };
-  svg.onpointermove = showTooltip;
-  svg.onclick = showTooltip;
-  svg.onpointerleave = () => {
+  if (!showTooltip || !tooltip || !point) {
     if (tooltip) tooltip.hidden = true;
-    $("forecast-hover-guide")?.setAttribute("visibility", "hidden");
-    $("forecast-hover-point")?.setAttribute("visibility", "hidden");
+    return;
+  }
+  const lines = [
+    formatLocalDateTime(forecastTime, timeZone),
+    `예측 사용량 ${fmt(forecastValue, 1)} kWh`,
+  ];
+  if (compare && Number.isFinite(previousValue) && previousTime) {
+    lines.push(`직전 24시간 (${formatLocalDateTime(previousTime, timeZone)}) ${fmt(previousValue, 1)} kWh`);
+  }
+  tooltip.textContent = lines.join("\n");
+  tooltip.hidden = false;
+  const wrap = tooltip.parentElement;
+  const chart = $("forecast-chart");
+  const chartRect = chart.getBoundingClientRect();
+  const viewWidth = chart.viewBox.baseVal.width || 960;
+  const localX = (Number(point.getAttribute("cx")) / viewWidth) * chartRect.width;
+  tooltip.style.left = `${Math.max(8, Math.min(wrap.clientWidth - tooltip.offsetWidth - 8, localX + 12))}px`;
+  tooltip.style.top = "10px";
+}
+
+function drawPredictionChart(result) {
+  const svg = $("forecast-chart");
+  const forecast = result.predictions_kwh.map(Number);
+  const history = (result.history_kwh || []).map(Number);
+  const timestamps = result.timestamps || [];
+  const compare = $("compare-previous").checked;
+  const timeZone = result.building_timezone || $("timezone").value.trim() || "UTC";
+  const compact = window.matchMedia("(max-width: 700px)").matches;
+  const width = compact ? 560 : 960;
+  const height = compact ? 410 : 360;
+  const left = compact ? 92 : 82;
+  const right = compact ? 20 : 26;
+  const top = compact ? 44 : 34;
+  const bottom = compact ? 76 : 62;
+  const axisFontSize = compact ? 17 : 12;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const visibleValues = compare ? [...forecast, ...history] : forecast;
+  const dataMax = Math.max(...visibleValues, 0);
+  const axisMax = dataMax > 0 ? dataMax * 1.14 : 1;
+  const pointCoordinates = (value, index) => [
+    left + (index * plotWidth) / Math.max(forecast.length - 1, 1),
+    top + plotHeight - (value / axisMax) * plotHeight,
+  ];
+  const points = (values) => values.map((value, index) => pointCoordinates(value, index).join(",")).join(" ");
+
+  const yGrid = Array.from({ length: 5 }, (_, index) => {
+    const ratio = index / 4;
+    const y = top + ratio * plotHeight;
+    const value = axisMax * (1 - ratio);
+    return `<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" stroke="#dedbd3"/><text x="${left - 12}" y="${y + 4}" text-anchor="end" fill="#657184" font-size="${axisFontSize}">${fmt(value, value >= 100 ? 0 : 1)}</text>`;
+  }).join("");
+  const xTickIndexes = [0, 6, 12, 18, 23].filter((index) => index < timestamps.length);
+  const xTicks = xTickIndexes.map((index) => {
+    const [x] = pointCoordinates(0, index);
+    const includeDate = index === 0 || localDateParts(timestamps[index], timeZone).day !== localDateParts(timestamps[Math.max(0, index - 1)], timeZone).day;
+    return `<line x1="${x}" y1="${top + plotHeight}" x2="${x}" y2="${top + plotHeight + 6}" stroke="#8f99a6"/><text x="${x}" y="${height - 24}" text-anchor="middle" fill="#657184" font-size="${axisFontSize}">${formatChartTime(timestamps[index], timeZone, includeDate)}</text>`;
+  }).join("");
+  const historyLine = compare && history.length === forecast.length
+    ? `<polyline points="${points(history)}" fill="none" stroke="#8b9691" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`
+    : "";
+  const forecastDots = forecast.map((value, index) => {
+    const [cx, cy] = pointCoordinates(value, index);
+    return `<circle data-forecast-index="${index}" cx="${cx}" cy="${cy}" r="3.5" fill="#1f4fdb"><title>${formatLocalDateTime(timestamps[index], timeZone)} · ${fmt(value, 1)} kWh</title></circle>`;
+  }).join("");
+  const peakIndex = forecast.indexOf(Math.max(...forecast));
+  const [peakX, peakY] = pointCoordinates(forecast[peakIndex], peakIndex);
+  const peakLabelWidth = compact ? 208 : 168;
+  const peakLabelX = Math.max(left, Math.min(width - right - peakLabelWidth, peakX - peakLabelWidth / 2));
+  const peakLabelY = Math.max(6, peakY - 34);
+  const peakLabel = `${formatChartTime(timestamps[peakIndex], timeZone)} · ${fmt(forecast[peakIndex], 1)}kWh`;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `<g aria-hidden="true">${yGrid}${xTicks}<text x="${compact ? 24 : 20}" y="${top + plotHeight / 2}" transform="rotate(-90 ${compact ? 24 : 20} ${top + plotHeight / 2})" text-anchor="middle" fill="#4f5c70" font-size="${axisFontSize}" font-weight="700">사용량 (kWh)</text>${historyLine}<polyline points="${points(forecast)}" fill="none" stroke="#1f4fdb" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round" stroke-linejoin="round"/>${forecastDots}<line id="forecast-hover-guide" x1="${left}" x2="${left}" y1="${top}" y2="${top + plotHeight}" stroke="#1f4fdb" stroke-width="1.5" stroke-dasharray="4 5"/><circle id="forecast-hover-point" cx="${left}" cy="${top + plotHeight}" r="6" fill="#fffdf8" stroke="#1f4fdb" stroke-width="3"/><g class="peak-label" transform="translate(${peakLabelX} ${peakLabelY})"><rect width="${peakLabelWidth}" height="${compact ? 34 : 26}" rx="2" fill="#10213d"/><text x="${peakLabelWidth / 2}" y="${compact ? 23 : 18}" text-anchor="middle" fill="#fff" font-size="${axisFontSize}" font-weight="700">${peakLabel}</text></g></g>`;
+  svg.setAttribute("aria-label", `24시간 전력 예측 그래프. 최고 예상 사용량은 ${formatLocalDateTime(result.peak_timestamp, timeZone)} ${fmt(result.peak_kwh, 1)} kWh입니다.${compare ? " 직전 24시간 실측을 회색 실선으로 함께 표시합니다." : ""}`);
+  $("history-legend").hidden = !compare;
+
+  const selectFromPointer = (event) => {
+    const rect = svg.getBoundingClientRect();
+    const viewX = ((event.clientX - rect.left) / rect.width) * width;
+    const index = Math.round(((Math.max(left, Math.min(width - right, viewX)) - left) / plotWidth) * (forecast.length - 1));
+    updateForecastSelection(index, { showTooltip: true });
   };
+  svg.onpointermove = selectFromPointer;
+  svg.onclick = selectFromPointer;
+  svg.onpointerleave = () => {
+    $("forecast-tooltip").hidden = true;
+  };
+  updateForecastSelection(state.selectedForecastIndex);
 }
 
 function drawEmptyChart() {
   const svg = $("forecast-chart");
-  const grid = [54, 94, 134, 174, 214]
-    .map((y) => `<line x1="42" y1="${y}" x2="678" y2="${y}" stroke="#e4e7df"/>`)
+  svg.setAttribute("viewBox", "0 0 960 360");
+  const grid = [52, 112, 172, 232, 292]
+    .map((y) => `<line x1="82" y1="${y}" x2="934" y2="${y}" stroke="#e4e7df"/>`)
     .join("");
-  svg.innerHTML = `${grid}<text class="empty-chart-label" x="360" y="126">아직 실행된 예측이 없습니다.</text><text class="empty-chart-help" x="360" y="150">저장된 모델이 없다면 CSV를 업로드하고 모델을 먼저 준비해 주세요.</text>`;
+  svg.innerHTML = `${grid}<text class="empty-chart-label" x="508" y="164">아직 실행된 예측이 없습니다.</text><text class="empty-chart-help" x="508" y="190">CSV 품질 진단과 모델 학습을 완료하면 실제 결과를 표시합니다.</text>`;
 }
 
 function initIntegratedNavigation() {
@@ -1228,6 +1417,21 @@ function initBrandCurve() {
     render();
   });
 }
+
+$("compare-previous").addEventListener("change", () => {
+  if (state.predictionResult) drawPredictionChart(state.predictionResult);
+});
+$("forecast-hour-slider").addEventListener("input", (event) => {
+  updateForecastSelection(Number(event.currentTarget.value));
+});
+let forecastResizeFrame = 0;
+window.addEventListener("resize", () => {
+  if (!state.predictionResult || forecastResizeFrame) return;
+  forecastResizeFrame = requestAnimationFrame(() => {
+    forecastResizeFrame = 0;
+    drawPredictionChart(state.predictionResult);
+  });
+});
 
 drawEmptyChart();
 initHeroWave();

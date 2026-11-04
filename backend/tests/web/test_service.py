@@ -317,6 +317,7 @@ class WebServiceCases(unittest.TestCase):
             manager._run(job.job_id, warning_approved=False)
             result = manager.predict(job.job_id, csv_text)
             self.assertEqual(result["model_kind"], LAST_24H)
+            self.assertEqual(result["building_timezone"], "Asia/Seoul")
             self.assertEqual(tuple(result["output_shape"]), (1, 24))
             self.assertEqual(len(result["predictions_kwh"]), 24)
             self.assertEqual(len(result["history_kwh"]), 24)

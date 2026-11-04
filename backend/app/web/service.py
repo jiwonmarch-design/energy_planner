@@ -301,7 +301,7 @@ class TrainingJobManager:
                     job.test_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
             job.status = "COMPLETED"
             job.progress_percent = 100
-            job.progress_message = "후보 모델 평가와 저장을 완료했습니다. 자동 승격은 하지 않았습니다."
+            job.progress_message = "학습과 모델 선택을 완료했습니다."
         except Exception as exc:  # surfaced to the local user, not silently retried
             job.status = "FAILED"
             job.error = f"{type(exc).__name__}: {exc}"
@@ -358,6 +358,7 @@ class TrainingJobManager:
         period_total = sum(period_totals)
         return {
             **asdict(result),
+            "building_timezone": job.building_timezone,
             "history_timestamps": [value.isoformat() for value in data.index[-24:]],
             "history_kwh": data.kwh.iloc[-24:].astype(float).tolist(),
             "total_kwh": float(sum(values)),

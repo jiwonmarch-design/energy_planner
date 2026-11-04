@@ -1,0 +1,280 @@
+{
+  "generatedAt": "2026-11-04T06:32:05.476Z",
+  "baseUrl": "http://127.0.0.1:8765",
+  "total": 19,
+  "passed": 19,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "initial_state_and_cta_roles",
+      "status": "PASS",
+      "details": {
+        "ctaText": "CSV로 예측 시작하기",
+        "ctaTarget": "upload",
+        "heroActionLinks": 1,
+        "gateVisible": true,
+        "resultsHidden": true,
+        "gateAction": "CSV로 예측 시작하기",
+        "gateTarget": "upload",
+        "headingWidth": 1130,
+        "bodyWidth": 1130,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "dashboard_full_width_initial",
+      "status": "PASS",
+      "details": {
+        "ctaText": "CSV로 예측 시작하기",
+        "ctaTarget": "upload",
+        "heroActionLinks": 1,
+        "gateVisible": true,
+        "resultsHidden": true,
+        "gateAction": "CSV로 예측 시작하기",
+        "gateTarget": "upload",
+        "headingWidth": 1130,
+        "bodyWidth": 1130,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "completed_job_recovered",
+      "status": "PASS",
+      "details": {
+        "status": "COMPLETED"
+      }
+    },
+    {
+      "name": "prediction_completed",
+      "status": "PASS",
+      "details": {
+        "error": ""
+      }
+    },
+    {
+      "name": "dynamic_forecast_period",
+      "status": "PASS",
+      "details": "예측 대상 2026.11.01 (일) 00:00–23:00"
+    },
+    {
+      "name": "decision_summary_and_three_metrics",
+      "status": "PASS",
+      "details": {
+        "period": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "narrative": "11월 1일 예상 사용량은 108.3kWh입니다. 직전 24시간보다 약 5.6% 많으며, 가장 많이 사용할 것으로 예상되는 시간은 오후 1시입니다.",
+        "total": "108.3 kWh",
+        "change": "↑ 직전 24시간보다 5.6% 증가 예상",
+        "peakTime": "오후 1시",
+        "peakValue": "6.4 kWh 예상",
+        "wape": "5.1%",
+        "lastObservation": "데이터 마지막 시점: 2026.10.31 (토) 23:00",
+        "timezone": "시간대: Asia/Seoul",
+        "metricCards": 3,
+        "yAxis": true,
+        "xTicks": 5,
+        "peakLabel": "13시 · 6.4kWh",
+        "tableRows": 24,
+        "topHasRawModel": false,
+        "homeCta": "예측 결과 보기",
+        "homeTarget": "dashboard",
+        "newCsvVisible": true,
+        "aiEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "test_wape_and_peak",
+      "status": "PASS",
+      "details": {
+        "period": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "narrative": "11월 1일 예상 사용량은 108.3kWh입니다. 직전 24시간보다 약 5.6% 많으며, 가장 많이 사용할 것으로 예상되는 시간은 오후 1시입니다.",
+        "total": "108.3 kWh",
+        "change": "↑ 직전 24시간보다 5.6% 증가 예상",
+        "peakTime": "오후 1시",
+        "peakValue": "6.4 kWh 예상",
+        "wape": "5.1%",
+        "lastObservation": "데이터 마지막 시점: 2026.10.31 (토) 23:00",
+        "timezone": "시간대: Asia/Seoul",
+        "metricCards": 3,
+        "yAxis": true,
+        "xTicks": 5,
+        "peakLabel": "13시 · 6.4kWh",
+        "tableRows": 24,
+        "topHasRawModel": false,
+        "homeCta": "예측 결과 보기",
+        "homeTarget": "dashboard",
+        "newCsvVisible": true,
+        "aiEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "timezone_and_last_observation",
+      "status": "PASS",
+      "details": {
+        "period": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "narrative": "11월 1일 예상 사용량은 108.3kWh입니다. 직전 24시간보다 약 5.6% 많으며, 가장 많이 사용할 것으로 예상되는 시간은 오후 1시입니다.",
+        "total": "108.3 kWh",
+        "change": "↑ 직전 24시간보다 5.6% 증가 예상",
+        "peakTime": "오후 1시",
+        "peakValue": "6.4 kWh 예상",
+        "wape": "5.1%",
+        "lastObservation": "데이터 마지막 시점: 2026.10.31 (토) 23:00",
+        "timezone": "시간대: Asia/Seoul",
+        "metricCards": 3,
+        "yAxis": true,
+        "xTicks": 5,
+        "peakLabel": "13시 · 6.4kWh",
+        "tableRows": 24,
+        "topHasRawModel": false,
+        "homeCta": "예측 결과 보기",
+        "homeTarget": "dashboard",
+        "newCsvVisible": true,
+        "aiEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "chart_axes_peak_and_table",
+      "status": "PASS",
+      "details": {
+        "period": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "narrative": "11월 1일 예상 사용량은 108.3kWh입니다. 직전 24시간보다 약 5.6% 많으며, 가장 많이 사용할 것으로 예상되는 시간은 오후 1시입니다.",
+        "total": "108.3 kWh",
+        "change": "↑ 직전 24시간보다 5.6% 증가 예상",
+        "peakTime": "오후 1시",
+        "peakValue": "6.4 kWh 예상",
+        "wape": "5.1%",
+        "lastObservation": "데이터 마지막 시점: 2026.10.31 (토) 23:00",
+        "timezone": "시간대: Asia/Seoul",
+        "metricCards": 3,
+        "yAxis": true,
+        "xTicks": 5,
+        "peakLabel": "13시 · 6.4kWh",
+        "tableRows": 24,
+        "topHasRawModel": false,
+        "homeCta": "예측 결과 보기",
+        "homeTarget": "dashboard",
+        "newCsvVisible": true,
+        "aiEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "result_cta_and_ai_contract",
+      "status": "PASS",
+      "details": {
+        "period": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "narrative": "11월 1일 예상 사용량은 108.3kWh입니다. 직전 24시간보다 약 5.6% 많으며, 가장 많이 사용할 것으로 예상되는 시간은 오후 1시입니다.",
+        "total": "108.3 kWh",
+        "change": "↑ 직전 24시간보다 5.6% 증가 예상",
+        "peakTime": "오후 1시",
+        "peakValue": "6.4 kWh 예상",
+        "wape": "5.1%",
+        "lastObservation": "데이터 마지막 시점: 2026.10.31 (토) 23:00",
+        "timezone": "시간대: Asia/Seoul",
+        "metricCards": 3,
+        "yAxis": true,
+        "xTicks": 5,
+        "peakLabel": "13시 · 6.4kWh",
+        "tableRows": 24,
+        "topHasRawModel": false,
+        "homeCta": "예측 결과 보기",
+        "homeTarget": "dashboard",
+        "newCsvVisible": true,
+        "aiEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "desktop_no_horizontal_overflow",
+      "status": "PASS",
+      "details": 0
+    },
+    {
+      "name": "wape_help_disclosure",
+      "status": "PASS",
+      "details": {
+        "open": true,
+        "text": "학습에 사용하지 않은 과거 Test 구간에서, 총 실제 사용량 대비 절대 오차 합계가 5.1%였습니다. 이번 예측값의 ±5.1% 범위를 보장하는 수치는 아닙니다."
+      }
+    },
+    {
+      "name": "previous_day_toggle_and_hover",
+      "status": "PASS",
+      "details": {
+        "checked": true,
+        "historyLegendVisible": true,
+        "aria": "24시간 전력 예측 그래프. 최고 예상 사용량은 2026.11.01 (일) 13:00 6.4 kWh입니다. 직전 24시간 실측을 회색 실선으로 함께 표시합니다.",
+        "tooltipVisible": true,
+        "tooltip": "2026.11.01 (일) 11:00\n예측 사용량 6.3 kWh\n직전 24시간 (2026.10.31 (토) 11:00) 6.1 kWh",
+        "guideX": "489.4782608695652"
+      }
+    },
+    {
+      "name": "keyboard_and_touch_slider",
+      "status": "PASS",
+      "details": {
+        "value": "11",
+        "output": "2026.11.01 (일) 11:00 · 예상 6.3 kWh · 직전 24시간 6.1 kWh",
+        "ariaValue": "2026.11.01 (일) 11:00, 예상 6.3 kWh",
+        "focused": "forecast-hour-slider"
+      }
+    },
+    {
+      "name": "validation_details",
+      "status": "PASS",
+      "details": {
+        "open": true,
+        "model": "XGBoost",
+        "rows": 3,
+        "selectedCopy": "XGBoostMAE 0.298 kWh · WAPE 3.7%이번 예측에 사용"
+      }
+    },
+    {
+      "name": "mobile_390_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "cards": 3,
+        "chartHeight": 240,
+        "sliderHeight": 44,
+        "toggleHeight": 44,
+        "svgWidth": 560,
+        "headingVisible": true
+      }
+    },
+    {
+      "name": "mobile_320_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "cards": 3,
+        "chartHeight": 220,
+        "sliderHeight": 44,
+        "toggleHeight": 44,
+        "svgWidth": 560,
+        "headingVisible": true
+      }
+    },
+    {
+      "name": "new_csv_navigation_preserves_completed_result",
+      "status": "PASS",
+      "details": {
+        "hash": "#upload",
+        "total": "108.3 kWh",
+        "resultsVisible": true
+      }
+    },
+    {
+      "name": "runtime_console_clean",
+      "status": "PASS",
+      "details": {
+        "runtimeErrors": [],
+        "consoleErrors": []
+      }
+    }
+  ]
+}
