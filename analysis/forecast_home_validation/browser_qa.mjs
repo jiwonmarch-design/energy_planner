@@ -162,7 +162,7 @@ const quality = await evaluate(`({
   workflowBorderBottom: getComputedStyle(document.getElementById('quality')).borderBottomWidth,
   heroAccentLine: getComputedStyle(document.querySelector('.hero'), '::after').content
 })`);
-record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS" && quality.metricCards === 4 && quality.detailRows === 4 && quality.passIcons === 4 && quality.detailLabels.join('|') === "통과|통과|통과|가능" && quality.stepBarBorderTop === "0px" && quality.stepBarBorderBottom === "0px" && quality.completedStepShadow === "none" && quality.workflowBorderBottom === "0px" && quality.heroAccentLine === "none", quality);
+record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS" && quality.metricCards === 4 && quality.detailRows === 4 && quality.passIcons === 4 && quality.detailLabels.join('|') === "통과|통과|통과|가능" && quality.stepBarBorderTop === "0px" && quality.stepBarBorderBottom === "1px" && quality.completedStepShadow === "none" && quality.workflowBorderBottom === "0px" && quality.heroAccentLine === "none", quality);
 await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('quality').scrollIntoView({ block: 'start' }); true");
 await pause(350);
 await screenshot("forecast-quality-1440.png");
