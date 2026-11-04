@@ -663,7 +663,7 @@ function renderJob(job) {
   });
   const selectedTest = job.test_metrics?.[job.selected_model];
   $("test-evaluation-note").textContent = selectedTest
-    ? `선택 모델 ${job.selected_model} · Test 최종 평가 ${metricText(selectedTest)}`
+    ? `Validation 선택 모델 ${job.selected_model} · Test는 모델 선택에 사용하지 않으며 최종 평가만 수행 · ${metricText(selectedTest)}`
     : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
   $("model-state").textContent = "모델 준비 완료";
   $("selected-model").textContent = job.selected_model || "—";
@@ -1091,8 +1091,53 @@ function initHeroWave() {
   wave.innerHTML = markup;
 }
 
+function initBrandCurve() {
+  const hero = $("landing-home");
+  const energy = $("brand-energy-toggle");
+  if (!hero || !energy) return;
+
+  let pinned = false;
+  let hovered = false;
+  let focused = false;
+  const render = () => {
+    hero.classList.toggle("brand-curve-on", pinned || hovered || focused);
+    energy.setAttribute("aria-pressed", String(pinned));
+  };
+
+  energy.addEventListener("pointerenter", (event) => {
+    if (event.pointerType === "touch") return;
+    hovered = true;
+    render();
+  });
+  energy.addEventListener("pointerleave", () => {
+    hovered = false;
+    render();
+  });
+  energy.addEventListener("focus", () => {
+    focused = energy.matches(":focus-visible");
+    render();
+  });
+  energy.addEventListener("blur", () => {
+    focused = false;
+    render();
+  });
+  energy.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    pinned = !pinned;
+    focused = false;
+    render();
+  });
+  energy.addEventListener("click", () => {
+    pinned = !pinned;
+    focused = false;
+    render();
+  });
+}
+
 drawEmptyChart();
 initHeroWave();
+initBrandCurve();
 initIntegratedNavigation();
 renderWorkspaceSteps();
 if (location.hash) {

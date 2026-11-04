@@ -27,18 +27,32 @@
   </header>
 
   <main id="top">
-    <section id="landing-home" class="landing-hero" aria-labelledby="hero-title">
-        <svg id="landing-wave" class="landing-wave" width="500" height="310" viewBox="0 0 500 310" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
-        <div class="landing-hero-body">
-          <p class="landing-eyebrow">ELECTRICITY INTELLIGENCE / XGBOOST</p>
-          <h1 id="hero-title">전력 사용량을<br>미리 예측하고,<br><span>더 나은 결정을.</span></h1>
-          <p>시간별 전력 데이터를 업로드하면 품질을 진단하고, XGBoost로 향후 24시간 사용량을 예측합니다.</p>
-          <div class="landing-button-row">
-            <a id="home-primary-cta" class="landing-button primary" href="#upload" data-scroll-target="upload"><span id="home-cta-label">전력 분석 시작</span><span aria-hidden="true">↗</span></a>
-            <a class="landing-button secondary" href="#dashboard" data-scroll-target="dashboard">결과 화면 보기 <span aria-hidden="true">↓</span></a>
-          </div>
+    <section id="landing-home" class="landing-hero brand-hero" aria-labelledby="hero-title">
+      <div class="landing-hero-body brand-hero-inner">
+        <h1 id="hero-title" class="brand-title" aria-label="Energy Planner mini">
+          <button id="brand-energy-toggle" class="brand-energy" type="button" aria-label="예측 곡선 켜기 또는 끄기. 커서를 올리면 미리보기, 클릭하면 고정됩니다." aria-pressed="false">Energy</button>
+          <span class="brand-planner">Planner</span><sup class="brand-mini">mini</sup>
+        </h1>
+        <p class="brand-tagline">전력 사용량을 미리 예측하고, 더 나은 결정을.</p>
+        <p class="brand-description">시간별 전력 데이터를 업로드하면 품질을 진단하고, XGBoost로 향후 24시간 사용량을 예측합니다.</p>
+        <div class="landing-button-row">
+          <a id="home-primary-cta" class="landing-button primary" href="#upload" data-scroll-target="upload"><span id="home-cta-label">전력 분석 시작</span><span aria-hidden="true">↗</span></a>
+          <a class="landing-button secondary" href="#dashboard" data-scroll-target="dashboard">결과 화면 보기 <span aria-hidden="true">↓</span></a>
         </div>
-        <p class="landing-wave-hint" hidden>Wave Halftone</p>
+        <div class="brand-curve" role="img" aria-label="인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다.">
+          <svg viewBox="0 0 850 72" preserveAspectRatio="none" aria-hidden="true">
+            <path class="brand-curve-baseline" d="M0 64H850"/>
+            <path class="brand-curve-past" pathLength="1" d="M0 46 C35 46 45 59 75 50 S120 15 150 29 S198 58 232 39 S280 4 310 22 S360 57 395 35 S445 6 475 24 S530 38 562 23"/>
+            <path class="brand-curve-future" d="M562 23 C590 10 607 7 630 19 S672 48 700 28 S742 3 770 18 S818 41 850 14"/>
+            <circle class="brand-curve-dot" cx="562" cy="23" r="4"/>
+          </svg>
+          <span class="brand-curve-divider" aria-hidden="true"></span>
+          <span class="brand-curve-labels" aria-hidden="true"><span>관측 패턴 · 연출용</span><span class="brand-curve-now">지금</span><span>향후 24시간 · 예측 연출</span></span>
+        </div>
+      </div>
+      <div class="brand-legacy-wave" hidden aria-hidden="true">
+        <svg id="landing-wave" class="landing-wave" width="500" height="310" viewBox="0 0 500 310" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
     </section>
 
     <nav class="integrated-steps" aria-label="전력 분석 단계">

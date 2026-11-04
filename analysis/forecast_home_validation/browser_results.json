@@ -1,0 +1,250 @@
+{
+  "executed_at": "2026-11-04T00:44:30.775Z",
+  "browser": "Chrome 156 headless via CDP",
+  "fixture": "synthetic_180_days.csv",
+  "checks": [
+    {
+      "name": "hero_1440_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_1440_brand",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_1440_accessibility",
+      "status": "PASS",
+      "details": {
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_390_layout",
+      "status": "FAIL",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_390_brand",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_390_accessibility",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_390_touch_target",
+      "status": "PASS",
+      "details": {
+        "buttonHeight": 44
+      }
+    },
+    {
+      "name": "hero_320_layout",
+      "status": "FAIL",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_320_brand",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_320_accessibility",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 443,
+        "titleOverflow": false,
+        "title": "Energy Plannermini",
+        "energyColor": "rgb(40, 85, 218)",
+        "plannerColor": "rgb(25, 41, 67)",
+        "mini": "mini",
+        "buttonHeight": 44,
+        "energyTag": "BUTTON",
+        "curveDisclosure": "인터랙션 연출용 곡선입니다. Energy에 커서를 올리거나 탭하면 관측 패턴을 나타내는 실선이 그려지고 미래 구간은 점선으로 이어집니다. 실제 데이터 또는 모델 예측값이 아닙니다."
+      }
+    },
+    {
+      "name": "hero_320_touch_target",
+      "status": "PASS",
+      "details": {
+        "buttonHeight": 44
+      }
+    },
+    {
+      "name": "hero_click_pins_curve",
+      "status": "PASS",
+      "details": {
+        "pressed": "true",
+        "active": true
+      }
+    },
+    {
+      "name": "hero_keyboard_toggles_curve",
+      "status": "FAIL",
+      "details": {
+        "pressed": "true",
+        "active": true
+      }
+    },
+    {
+      "name": "hero_reduced_motion",
+      "status": "PASS",
+      "details": {
+        "past": "0s",
+        "future": "0s"
+      }
+    },
+    {
+      "name": "hero_primary_cta",
+      "status": "FAIL",
+      "details": {
+        "hash": "#dashboard",
+        "target": "dashboard"
+      }
+    },
+    {
+      "name": "header_dashboard_navigation",
+      "status": "PASS",
+      "details": {
+        "hash": "#dashboard"
+      }
+    },
+    {
+      "name": "csv_file_selected",
+      "status": "PASS",
+      "details": {
+        "fixture": "C:\\Users\\aicam\\Desktop\\energy-planner-mini\\analysis\\forecast_home_validation\\synthetic_180_days.csv"
+      }
+    },
+    {
+      "name": "real_csv_quality_flow",
+      "status": "PASS",
+      "details": {
+        "status": "PASS",
+        "eligibility": "모델 학습을 시작할 수 있습니다.",
+        "trainEnabled": true
+      }
+    },
+    {
+      "name": "xgboost_training_and_evaluation",
+      "status": "PASS",
+      "details": {
+        "status": "COMPLETED",
+        "resultsVisible": true,
+        "testPolicy": "Validation 선택 모델 last_168h · Test는 모델 선택에 사용하지 않으며 최종 평가만 수행 · MAE 0 kWh · WAPE 0%",
+        "predictionVisible": true
+      }
+    },
+    {
+      "name": "saved_model_prediction_dashboard",
+      "status": "PASS",
+      "details": {
+        "total": "574 kWh",
+        "model": "last_168h",
+        "tag": "실제 예측 결과",
+        "points": 25,
+        "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다."
+      }
+    },
+    {
+      "name": "runtime_console_errors",
+      "status": "PASS",
+      "details": []
+    }
+  ],
+  "summary": {
+    "pass": 17,
+    "fail": 4
+  }
+}

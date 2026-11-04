@@ -148,3 +148,14 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - Sticky 단계 이동·URL hash·뒤로 가기와 모바일 44px 이상 주요 CTA를 검증
 - 전체 Python 회귀 49/49 PASS, JavaScript 문법·Python compileall PASS
 - 검증 스크린샷: `analysis/single_page_validation/`
+
+## 2026-11-04 Forecast Home Hero 적용
+
+- `energy_planner_forecast_home.html`을 기준으로 홈 Hero만 교체하고 CSV 업로드 이후 기존 UI·API 연결은 유지
+- 파란 `Energy`, 남색 `Planner`, 작은 `mini`, 한글 설명과 아이보리 배경 적용
+- 실선 관측 곡선과 점선 미래 곡선을 장식용으로 명시하고 hover·탭·키보드 토글 및 reduced motion 지원
+- 180일 합성 CSV를 실제 브라우저 파일 입력으로 연결해 품질 진단 → XGBoost 학습·baseline 비교 → Test 평가 → 저장 모델 24시간 예측 완료
+- 최종 Chrome 1440px·390px·320px Hero/반응형/접근성 16/16 PASS, 콘솔 오류 0
+- 전체 Python 테스트 49/49, compileall, JavaScript 문법 검사 PASS
+- 검증 결과: `analysis/forecast_home_validation/`
+- OpenAI 분석은 서버 키 미설정으로 비활성 상태만 검증했으며 실제 외부 호출은 미검증

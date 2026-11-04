@@ -1182,6 +1182,8 @@ footer {
 }
 
 @media (max-width: 450px) {
+  .integrated-steps { overflow-x: hidden; }
+
   .primary-nav,
   .prototype { display: none; }
   .topbar-inner {
@@ -1203,6 +1205,8 @@ footer {
   .landing-button-row { flex-direction: column; }
   .landing-button { width: 100%; }
   .integrated-steps-inner {
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scrollbar-width: none;
@@ -1220,4 +1224,239 @@ footer {
   .dashboard-grid .summary-panel { grid-template-columns: 1fr; }
   .summary-panel .summary-total,
   .summary-panel .summary-details > div { min-height: 105px; }
+
+  #dashboard .section-heading {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #dashboard .dashboard-actions {
+    width: 100%;
+    max-width: 100%;
+    align-items: stretch;
+  }
+
+  #dashboard .dashboard-actions .button,
+  #dashboard .dashboard-actions .job-chip {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+}
+
+/* Forecast home reference — scoped to the Hero so the analysis flow stays unchanged. */
+.brand-hero {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--integrated-line);
+  background: var(--integrated-bg);
+}
+
+.brand-hero-inner {
+  width: 100%;
+  max-width: none;
+  min-height: 500px;
+  padding: 76px clamp(20px, 5vw, 90px) 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.brand-hero .brand-title {
+  display: flex;
+  max-width: 100%;
+  margin: 0 0 20px;
+  align-items: baseline;
+  color: var(--integrated-ink);
+  font-family: "Arial Black", Arial, Helvetica, sans-serif;
+  font-size: clamp(40px, 7.4vw, 96px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.075em;
+  white-space: nowrap;
+  text-wrap: nowrap;
+  text-shadow: 0 3px 2px rgba(16, 33, 61, 0.08);
+}
+
+.brand-hero .brand-energy {
+  display: inline-block;
+  min-width: 0;
+  min-height: 0;
+  margin-right: 0.16em;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--integrated-blue);
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-shadow: inherit;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.brand-hero .brand-energy:hover,
+.brand-hero .brand-energy[aria-pressed="true"] { color: #1d45bb; }
+
+.brand-hero .brand-energy:focus-visible {
+  outline: 3px solid rgba(40, 85, 218, 0.42);
+  outline-offset: 7px;
+}
+
+.brand-hero .brand-planner { color: var(--integrated-ink); }
+
+.brand-hero .brand-mini {
+  position: relative;
+  top: -0.06em;
+  align-self: flex-start;
+  margin-left: 0.09em;
+  color: var(--integrated-ink);
+  font-family: Arial, sans-serif;
+  font-size: 0.43em;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.075em;
+  text-shadow: none;
+}
+
+.brand-hero .brand-tagline {
+  max-width: none;
+  margin: 0 0 18px;
+  color: var(--integrated-ink);
+  font-size: clamp(16px, 1.65vw, 23px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.045em;
+  text-wrap: pretty;
+}
+
+.brand-hero .brand-description {
+  max-width: 620px;
+  margin: 0 0 30px;
+  color: var(--integrated-sub);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.brand-hero .brand-curve {
+  position: relative;
+  width: 100%;
+  margin-top: 38px;
+  color: var(--integrated-blue);
+}
+
+.brand-hero .brand-curve svg {
+  display: block;
+  width: 100%;
+  height: 72px;
+  overflow: visible;
+}
+
+.brand-hero .brand-curve-baseline {
+  fill: none;
+  stroke: var(--integrated-line);
+  stroke-width: 1;
+}
+
+.brand-hero .brand-curve-past {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 650ms ease;
+}
+
+.brand-hero .brand-curve-future {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-dasharray: 5 5;
+  opacity: 0.15;
+  transition: opacity 450ms 200ms;
+}
+
+.brand-hero .brand-curve-dot {
+  fill: currentColor;
+  opacity: 0.2;
+  transition: opacity 350ms;
+}
+
+.brand-hero.brand-curve-on .brand-curve-past { stroke-dashoffset: 0; }
+.brand-hero.brand-curve-on .brand-curve-future,
+.brand-hero.brand-curve-on .brand-curve-dot { opacity: 1; }
+
+.brand-hero .brand-curve-divider {
+  position: absolute;
+  top: 0;
+  left: 66.12%;
+  width: 1px;
+  height: 76px;
+  background: var(--integrated-line);
+}
+
+.brand-hero .brand-curve-labels {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--integrated-sub);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.brand-hero .brand-curve-now {
+  position: absolute;
+  left: 66.12%;
+  transform: translateX(-50%);
+}
+
+.brand-legacy-wave[hidden] { display: none !important; }
+
+@media (max-width: 700px) {
+  .brand-hero-inner {
+    min-height: 430px;
+    padding: 60px 20px 34px;
+  }
+
+  .brand-hero .brand-title {
+    margin-bottom: 18px;
+    font-size: clamp(28px, 8vw, 55px);
+  }
+
+  .brand-hero .brand-tagline {
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  .brand-hero .brand-description {
+    margin-bottom: 26px;
+    font-size: 14px;
+  }
+
+  .brand-hero .brand-curve {
+    margin-top: 32px;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand-hero .brand-title { font-size: 8vw; }
+  .brand-hero .brand-mini { font-size: 0.4em; }
+  .brand-hero .brand-curve-now { top: -20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-hero .brand-energy,
+  .brand-hero .brand-curve-past,
+  .brand-hero .brand-curve-future,
+  .brand-hero .brand-curve-dot { transition: none !important; }
 }

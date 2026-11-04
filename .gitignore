@@ -11,6 +11,8 @@ node_modules/
 dist/
 __pycache__/
 *.py[cod]
+**/chrome-profile/
+analysis/*/synthetic_*.csv
 
 # Runtime ML artifacts and user data
 artifacts/
