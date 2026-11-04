@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T00:44:30.775Z",
+  "executed_at": "2026-11-04T01:07:27.921Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -11,8 +11,8 @@
         "scrollWidth": 1425,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -27,8 +27,8 @@
         "scrollWidth": 1425,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -43,8 +43,8 @@
         "scrollWidth": 1425,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -53,14 +53,14 @@
     },
     {
       "name": "hero_390_layout",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 443,
+        "scrollWidth": 390,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -72,11 +72,11 @@
       "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 443,
+        "scrollWidth": 390,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -88,11 +88,11 @@
       "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 443,
+        "scrollWidth": 390,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -108,14 +108,14 @@
     },
     {
       "name": "hero_320_layout",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 443,
+        "scrollWidth": 320,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -127,11 +127,11 @@
       "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 443,
+        "scrollWidth": 320,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -143,11 +143,11 @@
       "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 443,
+        "scrollWidth": 320,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
         "buttonHeight": 44,
         "energyTag": "BUTTON",
@@ -171,10 +171,10 @@
     },
     {
       "name": "hero_keyboard_toggles_curve",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
-        "pressed": "true",
-        "active": true
+        "pressed": "false",
+        "active": false
       }
     },
     {
@@ -187,7 +187,7 @@
     },
     {
       "name": "hero_primary_cta",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
         "hash": "#dashboard",
         "target": "dashboard"
@@ -244,7 +244,7 @@
     }
   ],
   "summary": {
-    "pass": 17,
-    "fail": 4
+    "pass": 21,
+    "fail": 0
   }
 }

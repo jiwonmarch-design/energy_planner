@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T00:48:30.520Z",
+  "executed_at": "2026-11-04T01:04:47.758Z",
   "browser": "Chrome 156 headless via CDP",
   "checks": [
     {
@@ -11,8 +11,8 @@
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -27,8 +27,8 @@
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -43,8 +43,8 @@
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -55,12 +55,12 @@
       "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 426,
+        "scrollWidth": 390,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -71,12 +71,12 @@
       "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 426,
+        "scrollWidth": 390,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -87,12 +87,12 @@
       "status": "PASS",
       "details": {
         "viewport": 390,
-        "scrollWidth": 426,
+        "scrollWidth": 390,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -103,12 +103,12 @@
       "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 426,
+        "scrollWidth": 320,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -119,12 +119,12 @@
       "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 426,
+        "scrollWidth": 320,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -135,12 +135,12 @@
       "status": "PASS",
       "details": {
         "viewport": 320,
-        "scrollWidth": 426,
+        "scrollWidth": 320,
         "horizontalScroll": 0,
         "titleOverflow": false,
         "title": "Energy Plannermini",
-        "energyColor": "rgb(40, 85, 218)",
-        "plannerColor": "rgb(25, 41, 67)",
+        "energyColor": "rgb(31, 79, 219)",
+        "plannerColor": "rgb(16, 33, 61)",
         "primaryHeight": 44,
         "energyTag": "BUTTON",
         "tabIndex": 0
@@ -194,13 +194,23 @@
       }
     },
     {
+      "name": "dashboard_layout",
+      "status": "PASS",
+      "details": {
+        "sectionTop": 385,
+        "viewport": 1425,
+        "scrollWidth": 1425,
+        "cards": 6
+      }
+    },
+    {
       "name": "runtime_errors",
       "status": "PASS",
       "details": []
     }
   ],
   "summary": {
-    "pass": 16,
+    "pass": 17,
     "fail": 0
   }
 }

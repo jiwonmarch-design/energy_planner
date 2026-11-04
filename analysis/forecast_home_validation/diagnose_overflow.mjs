@@ -18,7 +18,8 @@ const send = (method, params = {}) => new Promise((resolve) => {
   pending.set(next, resolve);
   socket.send(JSON.stringify({ id: next, method, params }));
 });
-await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+const width = Number(process.argv[2] || 390);
+await send("Emulation.setDeviceMetricsOverride", { width, height: 844, deviceScaleFactor: 1, mobile: true });
 await send("Page.navigate", { url: "http://127.0.0.1:8765/" });
 await new Promise((resolve) => setTimeout(resolve, 1200));
 const result = await send("Runtime.evaluate", {

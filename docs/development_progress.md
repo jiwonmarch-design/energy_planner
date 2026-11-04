@@ -1,6 +1,6 @@
 # Energy Planner 개발 진행 기록
 
-최종 갱신: 2026-11-03
+최종 갱신: 2026-11-04
 
 ## 완료한 작업
 
@@ -159,3 +159,14 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 전체 Python 테스트 49/49, compileall, JavaScript 문법 검사 PASS
 - 검증 결과: `analysis/forecast_home_validation/`
 - OpenAI 분석은 서버 키 미설정으로 비활성 상태만 검증했으며 실제 외부 호출은 미검증
+
+## 2026-11-04 Forecast Home 전체 디자인 시스템 적용
+
+- `energy_planner_forecast_home.html`의 아이보리·블루 운영 콘솔 형식을 홈부터 업로드, 품질 진단, XGBoost 학습, 예측 대시보드, AI 해석까지 전체 화면에 적용
+- 기존 다중 CSS 레이어 대신 `frontend/reference-system.css` 단일 디자인 시스템으로 색상, 타이포그래피, 직선형 패널, 상태 표시, 반응형 규칙을 통합
+- 기존 CSV 품질 진단, 학습 작업, 저장 모델 예측, OpenAI 선택 기능의 DOM ID와 `/api/*` 계약을 유지하고 실제 서버 연결 확인
+- 품질 진단 결과를 섹션 헤더 상태에도 동기화하고, 긴 학습 상태 문구가 320px 화면을 넘지 않도록 줄바꿈 처리
+- Chrome 1440px·390px·320px 반응형, 키보드, 44px 터치 영역, reduced motion, 대시보드 6개 패널, 콘솔 오류 0을 UI 17/17 PASS로 확인
+- 합성 180일 CSV로 실제 품질 진단, XGBoost·baseline 평가, Validation 선택/Test 독립, 저장 모델 24시간 예측과 25개 그래프 점 렌더링을 확인
+- 전체 브라우저·백엔드 연결 검증 21/21 PASS
+- 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `analysis/forecast_home_validation/hero_recheck_results.json`, `analysis/forecast_home_validation/reference-dashboard-empty-1440.png`

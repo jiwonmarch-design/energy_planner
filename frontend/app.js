@@ -163,6 +163,8 @@ function resetQualityPanel(message) {
   $("quality-preview-file").textContent = state.fileName || "확인 전";
   $("quality-preview-file").title = state.fileName || "";
   $("warning-approval").hidden = !state.warningRequired;
+  $("quality-heading-status").textContent = "진단 대기";
+  $("quality-heading-status").className = "status";
   $("train").disabled = true;
 }
 
@@ -459,6 +461,9 @@ function renderQuality(result) {
   const badge = $("status-badge");
   badge.textContent = quality.status;
   badge.className = `status ${quality.status.toLowerCase()}`;
+  const headingBadge = $("quality-heading-status");
+  headingBadge.textContent = quality.status;
+  headingBadge.className = `status ${quality.status.toLowerCase()}`;
   $("eligibility").textContent = result.training_eligible
     ? "모델 학습을 시작할 수 있습니다."
     : quality.status === "WARNING"
