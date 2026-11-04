@@ -151,9 +151,14 @@ const diagnosed = await waitFor("!document.getElementById('quality-result').hidd
 const quality = await evaluate(`({
   status: document.getElementById('status-badge').textContent,
   eligibility: document.getElementById('eligibility').textContent,
-  trainEnabled: !document.getElementById('train').disabled
+  trainEnabled: !document.getElementById('train').disabled,
+  metricCards: document.querySelectorAll('#quality-cards .metric-card').length,
+  detailRows: document.querySelectorAll('#quality-detail-list .detail-row').length
 })`);
-record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS", quality);
+record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS" && quality.metricCards === 4 && quality.detailRows === 4, quality);
+await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('quality').scrollIntoView({ block: 'start' }); true");
+await pause(350);
+await screenshot("forecast-quality-1440.png");
 
 let trainingCompleted = await waitFor("document.getElementById('workspace-job-status').dataset.status === 'COMPLETED'", 5_000);
 if (!trainingCompleted) {

@@ -151,10 +151,17 @@ a { color: inherit; }
 .metric-card, .metric { min-width: 0; border: 1px solid var(--line); border-radius: 2px; background: var(--paper); padding: 18px; }
 .metric-card span, .metric .label { color: #77879b; font-size: 11px; }
 .metric-card strong, .metric .value { display: block; margin: 7px 0; overflow-wrap: anywhere; font-size: clamp(20px, 2vw, 29px); font-weight: 850; letter-spacing: -.04em; }
+.metric-card small { display: block; color: #8696aa; font-size: 10px; line-height: 1.5; }
 .metric .value.compact { font-size: clamp(17px, 1.55vw, 23px); }
 .metric .foot { color: #8696aa; font-size: 10px; }
 .ok { color: var(--success) !important; }
 .detail-panel { margin-top: 18px; }
+.quality-detail-list { border-top: 1px solid var(--line); }
+.detail-state { text-align: right; }
+.detail-state[data-state="pass"] { color: var(--success); }
+.detail-state[data-state="warning"] { color: var(--warning); }
+.detail-state[data-state="fail"] { color: var(--danger); }
+.quality-notice { margin-top: 18px; }
 .section-text { margin: 0 0 12px; font-size: 15px; font-weight: 800; }
 .notice { border-left: 3px solid var(--blue); background: #edf2ff; color: #506686; padding: 13px 15px; font-size: 12px; line-height: 1.75; }
 .notice ul { margin: 8px 0 0; padding-left: 18px; }

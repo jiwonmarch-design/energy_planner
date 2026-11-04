@@ -181,3 +181,5 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 실제 Chrome UI 검증 17/17 PASS, 합성 180일 CSV 전체 백엔드 연결과 1440px·390px·320px 실제 예측 대시보드 검증 23/23 PASS, 콘솔 오류 0
 - 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `analysis/forecast_home_validation/hero_recheck_results.json`, `analysis/forecast_home_validation/forecast-dashboard-1440.png`, `forecast-dashboard-390.png`, `forecast-dashboard-320.png`
 - 입력 흐름을 건물 시간대 선택 → CSV 업로드 순서로 변경하고 데스크톱 좌측·모바일 상단 배치와 키보드 탐색 순서를 일치시킴
+- 데이터 품질 진단 상단을 관측 기간·결측률·시간 연속성·학습 적합성 4개 핵심 지표로 정리하고, 하단에 필수 컬럼 및 형식·최소 관측 기간·입력용 168시간 구간·시간순 Train/Validation/Test 분리 상세 판정을 배치
+- 실제 Chrome에서 합성 180일 CSV 품질 진단과 전체 백엔드 흐름 23/23 PASS, 품질 진단 전용 스크린샷 `analysis/forecast_home_validation/forecast-quality-1440.png` 확인

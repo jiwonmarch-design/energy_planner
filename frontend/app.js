@@ -469,16 +469,33 @@ function renderQuality(result) {
     : quality.status === "WARNING"
       ? "학습은 가능하지만 제한 실험 동의와 재진단이 필요합니다."
       : "현재 데이터로는 모델을 학습할 수 없습니다.";
+  const continuityRate = quality.expected_hours > 0
+    ? quality.observed_hours / quality.expected_hours
+    : 0;
+  const eligibilityLabel = result.training_eligible
+    ? quality.status === "WARNING" ? "확인 필요" : "적합"
+    : "부적합";
   const cards = [
-    ["관측 기간", `${fmt(quality.elapsed_days, 0)}일`],
-    ["누락된 시간 비율", `${fmt(quality.missing_rate * 100, 2)}%`],
-    ["가장 긴 연속 누락", `${fmt(quality.max_consecutive_missing_hours, 0)}시간`],
-    ["학습 가능한 168+24시간 조합", fmt(quality.complete_168_plus_24_pairs, 0)],
-    ["최장 상수 구간", `${fmt(quality.longest_constant_run_hours, 0)}시간`],
-    ["최신 168시간 입력", quality.latest_168_complete ? "완전" : "불완전"],
+    ["관측 기간", `${fmt(quality.elapsed_days, 0)}일`, quality.elapsed_days >= 180 ? "권장 기간 충족" : "최소 90일"],
+    ["결측률", `${fmt(quality.missing_rate * 100, 2)}%`, `연속 누락 최대 ${fmt(quality.max_consecutive_missing_hours, 0)}시간`],
+    ["시간 연속성", `${fmt(continuityRate * 100, 2)}%`, `${fmt(quality.observed_hours, 0)} / ${fmt(quality.expected_hours, 0)}시간`],
+    ["학습 적합성", eligibilityLabel, result.training_eligible ? "시간순 학습 가능" : "차단 사유 확인"],
   ];
   $("quality-cards").innerHTML = cards
-    .map(([label, value]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong></div>`)
+    .map(([label, value, foot]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong><small>${foot}</small></div>`)
+    .join("");
+  const observationState = quality.elapsed_days >= 180 ? "pass" : quality.elapsed_days >= 90 ? "warning" : "fail";
+  const observationText = quality.elapsed_days >= 180 ? "권장 기간 충족" : quality.elapsed_days >= 90 ? "최소 기간 충족 · 확인 필요" : "90일 미만";
+  const inputWindowState = quality.latest_168_complete ? "pass" : "fail";
+  const splitState = result.split ? "pass" : "fail";
+  const details = [
+    ["필수 컬럼 및 형식", result.contract_status === "PASS" ? "통과" : "확인 필요", result.contract_status === "PASS" ? "pass" : "fail"],
+    ["최소 관측 기간", observationText, observationState],
+    ["입력용 168시간 구간", quality.latest_168_complete ? "최신 구간 확보" : "최신 구간 불완전", inputWindowState],
+    ["시간순 Train / Validation / Test 분리", result.split ? "분리 가능" : "분리 불가", splitState],
+  ];
+  $("quality-detail-list").innerHTML = details
+    .map(([label, value, detailState]) => `<div class="detail-row"><span>${label}</span><strong class="detail-state" data-state="${detailState}">${value}</strong></div>`)
     .join("");
   const reasons = [...quality.reason_codes, ...result.training_blockers];
   $("reason-list").innerHTML = (reasons.length ? reasons : ["필수 품질 기준을 충족했습니다."])
