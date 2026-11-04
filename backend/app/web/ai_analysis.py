@@ -1,17 +1,17 @@
-"""Optional OpenAI-powered explanation of already-computed forecasts.
+"""Optional OpenAI narrative for a locally calculated forecast report.
 
-The numerical forecast always comes from the selected local model. This module
-sends only a small forecast summary to the Responses API and never receives the
-uploaded CSV or trains a model.
+The numerical forecast and every displayed fact are computed by Python. This
+module sends only structured aggregates to the Responses API; it never receives
+the uploaded CSV, API key, or a prompt that asks it to calculate a value.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
-from statistics import fmean
 from typing import Any, Callable, Mapping
 
 
@@ -31,11 +31,34 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
-        "peak_interpretation": {"type": "string"},
-        "patterns": {"type": "array", "items": {"type": "string"}},
-        "cautions": {"type": "array", "items": {"type": "string"}},
+        "peak_analysis": {"type": "string"},
+        "comparison": {"type": "string"},
+        "recommendations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "action": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "evidence_ids": {"type": "array", "items": {"type": "string"}},
+                    "caveat": {"type": "string"},
+                },
+                "required": ["title", "action", "reason", "evidence_ids", "caveat"],
+                "additionalProperties": False,
+            },
+        },
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "model_quality": {"type": "string"},
     },
-    "required": ["summary", "peak_interpretation", "patterns", "cautions"],
+    "required": [
+        "summary",
+        "peak_analysis",
+        "comparison",
+        "recommendations",
+        "limitations",
+        "model_quality",
+    ],
     "additionalProperties": False,
 }
 
@@ -61,10 +84,7 @@ def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> di
     request = urllib.request.Request(
         OPENAI_RESPONSES_URL,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -82,42 +102,29 @@ def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> di
         raise AIAnalysisUpstreamError("OpenAI API 응답을 해석하지 못했습니다.") from exc
 
 
-def _forecast_context(prediction: Mapping[str, Any]) -> dict[str, Any]:
-    values = [float(value) for value in prediction.get("predictions_kwh", [])]
-    timestamps = [str(value) for value in prediction.get("timestamps", [])]
-    history = [float(value) for value in prediction.get("history_kwh", [])]
-    if len(values) != 24 or len(timestamps) != 24:
-        raise ValueError("AI 분석에는 완전한 24시간 예측이 필요합니다.")
-    if not history:
-        raise ValueError("AI 분석에는 최근 실측 요약이 필요합니다.")
-    peak_index = max(range(24), key=values.__getitem__)
-    low_index = min(range(24), key=values.__getitem__)
-    periods = []
-    for start in range(0, 24, 6):
-        segment = values[start : start + 6]
-        periods.append(
-            {
-                "forecast_hours": f"+{start + 1}~+{start + 6}",
-                "average_kwh": round(fmean(segment), 4),
-            }
-        )
+def _report_context(report: Mapping[str, Any]) -> dict[str, Any]:
+    chart = report.get("chart", {})
+    timestamps = chart.get("timestamps", [])
+    forecast = chart.get("forecast_kwh", [])
+    baseline = chart.get("same_weekday_baseline_kwh", [])
+    if len(timestamps) != 24 or len(forecast) != 24:
+        raise ValueError("AI 분석에는 완전한 24시간 정량 보고서가 필요합니다.")
+    evidence = report.get("evidence", [])
     return {
-        "forecast_origin": prediction.get("forecast_origin"),
-        "model_kind": prediction.get("model_kind"),
-        "total_kwh": round(sum(values), 4),
-        "average_hourly_kwh": round(fmean(values), 4),
-        "peak": {"timestamp": timestamps[peak_index], "kwh": round(values[peak_index], 4)},
-        "minimum": {"timestamp": timestamps[low_index], "kwh": round(values[low_index], 4)},
-        "recent_history_12h": {
-            "count": len(history),
-            "average_kwh": round(fmean(history), 4),
-            "minimum_kwh": round(min(history), 4),
-            "maximum_kwh": round(max(history), 4),
-        },
-        "six_hour_periods": periods,
-        "hourly_forecast": [
-            {"timestamp": timestamp, "kwh": round(value, 4)}
-            for timestamp, value in zip(timestamps, values, strict=True)
+        "metadata": report.get("metadata"),
+        "quantitative": report.get("quantitative"),
+        "evidence": evidence,
+        "allowed_evidence_ids": [item.get("id") for item in evidence],
+        "peak_analysis": report.get("peak_analysis"),
+        "comparison": report.get("comparison"),
+        "model_quality": report.get("model_quality"),
+        "hourly_comparison": [
+            {
+                "timestamp": timestamp,
+                "forecast_kwh": value,
+                "same_weekday_baseline_kwh": baseline[index] if len(baseline) == 24 else None,
+            }
+            for index, (timestamp, value) in enumerate(zip(timestamps, forecast, strict=True))
         ],
     }
 
@@ -141,17 +148,32 @@ def _parse_structured_response(response: Mapping[str, Any]) -> dict[str, Any]:
         value = json.loads(text)
     except json.JSONDecodeError as exc:
         raise AIAnalysisUpstreamError("OpenAI API 분석 결과가 올바른 JSON이 아닙니다.") from exc
-    if set(value) != set(ANALYSIS_SCHEMA["required"]):
+    if not isinstance(value, dict) or set(value) != set(ANALYSIS_SCHEMA["required"]):
         raise AIAnalysisUpstreamError("OpenAI API 분석 결과의 필드가 올바르지 않습니다.")
-    if not isinstance(value["summary"], str) or not isinstance(value["peak_interpretation"], str):
+    scalar_fields = ("summary", "peak_analysis", "comparison", "model_quality")
+    if not all(isinstance(value[field], str) for field in scalar_fields):
         raise AIAnalysisUpstreamError("OpenAI API 분석 문구의 형식이 올바르지 않습니다.")
-    if not all(isinstance(item, str) for item in value["patterns"] + value["cautions"]):
+    if not isinstance(value["limitations"], list) or not all(
+        isinstance(item, str) for item in value["limitations"]
+    ):
         raise AIAnalysisUpstreamError("OpenAI API 분석 목록의 형식이 올바르지 않습니다.")
+    if not isinstance(value["recommendations"], list) or len(value["recommendations"]) > 3:
+        raise AIAnalysisUpstreamError("OpenAI API 권고 목록은 최대 3개여야 합니다.")
+    fields = {"title", "action", "reason", "evidence_ids", "caveat"}
+    for item in value["recommendations"]:
+        if not isinstance(item, dict) or set(item) != fields:
+            raise AIAnalysisUpstreamError("OpenAI API 권고 형식이 올바르지 않습니다.")
+        if not all(isinstance(item[field], str) for field in fields - {"evidence_ids"}):
+            raise AIAnalysisUpstreamError("OpenAI API 권고 문구의 형식이 올바르지 않습니다.")
+        if not isinstance(item["evidence_ids"], list) or not all(
+            isinstance(evidence_id, str) for evidence_id in item["evidence_ids"]
+        ):
+            raise AIAnalysisUpstreamError("OpenAI API 권고 근거의 형식이 올바르지 않습니다.")
     return value
 
 
 def analyze_prediction(
-    prediction: Mapping[str, Any],
+    report: Mapping[str, Any],
     *,
     environ: Mapping[str, str] | None = None,
     transport: Callable[[dict[str, Any], str, float], dict[str, Any]] | None = None,
@@ -163,29 +185,33 @@ def analyze_prediction(
             "OPENAI_API_KEY가 설정되지 않아 AI 분석을 사용할 수 없습니다. 기본 예측은 정상적으로 사용할 수 있습니다."
         )
     model = values.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    context = _forecast_context(prediction)
+    context = _report_context(report)
+    allowed_evidence_ids = set(context["allowed_evidence_ids"])
     prompt = (
-        "다음 JSON은 건물 전력 예측 모델이 만든 관측 가능한 수치입니다. "
-        "제공된 수치만 사용해 한국어로 설명하세요. 날씨, 설비 가동, 요금제, 원인처럼 "
-        "제공되지 않은 사실은 단정하지 마세요. 관찰과 가능한 해석을 분리하고, "
-        "예측은 불확실하다는 주의사항을 포함하세요.\n\n"
+        "다음 JSON은 서버가 계산한 건물 전력 예측의 구조화된 정량 결과입니다. "
+        "숫자를 새로 계산하거나 추정하지 말고, 제공된 evidence의 id만 근거로 사용하세요. "
+        "문장에는 새로운 금액·비율·정확도·피크 수치를 만들지 마세요. "
+        "수치 정보는 화면의 서버 근거가 별도로 표시하므로 문장에는 아라비아 숫자를 전혀 쓰지 마세요. "
+        "설비별 데이터가 없으므로 특정 설비나 원인을 단정하지 말고 절약을 보장하지 마세요. "
+        "실행 권고는 중요도 순 최대 3개로 작성하고 evidence_ids에는 allowed_evidence_ids만 넣으세요. "
+        "확인할 수 없는 내용은 limitations에 명시하세요. 모든 문장은 한국어로 작성하세요.\n\n"
         + json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     )
     payload = {
         "model": model,
         "store": False,
-        "max_output_tokens": 700,
+        "max_output_tokens": 1200,
         "input": [
             {
                 "role": "system",
-                "content": "전력 예측 수치를 과장 없이 설명하는 데이터 분석가입니다.",
+                "content": "제공된 근거 ID만 인용하고 수치를 재계산하지 않는 전력 운영 분석가입니다.",
             },
             {"role": "user", "content": prompt},
         ],
         "text": {
             "format": {
                 "type": "json_schema",
-                "name": "energy_forecast_analysis",
+                "name": "energy_operations_report",
                 "strict": True,
                 "schema": ANALYSIS_SCHEMA,
             }
@@ -193,9 +219,70 @@ def analyze_prediction(
     }
     response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
     analysis = _parse_structured_response(response)
+    for item in analysis["recommendations"]:
+        if not set(item["evidence_ids"]).issubset(allowed_evidence_ids):
+            raise AIAnalysisUpstreamError("OpenAI API 권고에 확인되지 않은 근거가 포함되었습니다.")
+
+    contains_number = lambda text: bool(re.search(r"[0-9０-９]", text))
+    filtered_numeric = any(
+        contains_number(text)
+        for text in [
+            analysis["summary"],
+            analysis["peak_analysis"],
+            analysis["comparison"],
+            analysis["model_quality"],
+            *analysis["limitations"],
+            *(
+                item[field]
+                for item in analysis["recommendations"]
+                for field in ("title", "action", "reason", "caveat")
+            ),
+        ]
+    )
+    safe_limitations = [item for item in analysis["limitations"] if not contains_number(item)]
+    limitations = list(dict.fromkeys([*report.get("limitations", []), *safe_limitations]))
+    safe_recommendations = [
+        item
+        for item in analysis["recommendations"]
+        if not any(contains_number(item[field]) for field in ("title", "action", "reason", "caveat"))
+    ]
+    recommendations = [
+        {**item, "priority": index + 1}
+        for index, item in enumerate(safe_recommendations[:3])
+    ]
     return {
-        **analysis,
-        "model": model,
-        "source": "openai",
-        "forecast_run_id": prediction.get("run_id"),
+        **report,
+        "summary": analysis["summary"] if not contains_number(analysis["summary"]) else report["summary"],
+        "peak_analysis": {
+            **report.get("peak_analysis", {}),
+            "ai_interpretation": (
+                analysis["peak_analysis"]
+                if not contains_number(analysis["peak_analysis"])
+                else report.get("peak_analysis", {}).get("finding")
+            ),
+        },
+        "comparison": {
+            **report.get("comparison", {}),
+            "ai_interpretation": (
+                analysis["comparison"]
+                if not contains_number(analysis["comparison"])
+                else report.get("comparison", {}).get("finding")
+            ),
+        },
+        "recommendations": recommendations or report.get("recommendations", []),
+        "limitations": limitations,
+        "model_quality": {
+            **report.get("model_quality", {}),
+            "ai_interpretation": (
+                analysis["model_quality"]
+                if not contains_number(analysis["model_quality"])
+                else report.get("model_quality", {}).get("note")
+            ),
+        },
+        "ai": {
+            "status": "completed",
+            "model": model,
+            "source": "openai",
+            "numeric_filter_applied": filtered_numeric,
+        },
     }

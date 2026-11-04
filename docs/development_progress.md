@@ -221,3 +221,12 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 시간별 차트에 y축 눈금, 날짜·시간 x축, 최고점 상시 라벨, 호버 가이드, 전날 비교 토글, 키보드·터치 시간 선택 슬라이더와 표 대체 표현 적용
 - 모델명·Validation 비교·학습 기록은 상세 결과로 이동하고 내부 용어를 사용자 문구로 정리
 - 완료 job 복구를 사용한 실제 Chrome 검증에서 초기·완료 상태, 상호작용과 1440px·390px·320px 반응형 19/19 PASS
+
+## 2026-11-04 AI 전력 운영 분석 보고서·다운로드
+
+- 외부 호출 없는 `/api/analysis-report/{job_id}`를 추가하고 24시간 합계·피크·직전 24시간 비교·최근 최대 8주 동일 요일/시간 실측 기준선·모델 품질을 Python에서 계산
+- OpenAI 응답을 summary/evidence/peak_analysis/comparison/recommendations/limitations/model_quality 구조로 통합하고, 서버 evidence ID 외 근거 및 숫자 생성 응답을 거부하도록 제한
+- 보고서 UI에 실제 동일 요일 비교 그래프, 호버·클릭·터치·키보드 슬라이더, 근거 기반 운영 제안, 가상 단가 시간 이동 시뮬레이터, 신뢰도·한계 표시 구현
+- 원본 CSV·API 키·로컬 서버 의존성을 제외한 독립 HTML 다운로드와 A4 브라우저 PDF 저장/인쇄 구현
+- 실제 완료 job과 OpenAI 호출 검증 성공, 전체 54/54 및 브라우저 14/14 PASS; 독립 HTML 상호작용·모바일 무가로 스크롤·PDF 3페이지 생성 확인
+- 검증 산출물: `analysis/ai_report_validation/`

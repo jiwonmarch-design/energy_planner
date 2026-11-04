@@ -120,6 +120,13 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = path.rsplit("/", 1)[-1]
                 self._json(HTTPStatus.OK, MANAGER.predict(job_id, value.get("csv_text", "")))
                 return
+            if path.startswith("/api/analysis-report/"):
+                job_id = path.rsplit("/", 1)[-1]
+                self._json(
+                    HTTPStatus.OK,
+                    MANAGER.analysis_report(job_id, value.get("csv_text", "")),
+                )
+                return
             if path.startswith("/api/ai-analysis/"):
                 job_id = path.rsplit("/", 1)[-1]
                 self._json(

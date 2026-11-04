@@ -30,10 +30,47 @@ from backend.app.ml.quality import (
 from backend.app.ml.split import make_split_plan
 from backend.app.ml.train import run_training_pipeline
 from backend.app.web.ai_analysis import analyze_prediction
+from backend.app.web.analysis_report import build_analysis_report
 
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 BUILDING_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
+
+
+def same_weekday_baseline(
+    local_data: pd.DataFrame,
+    forecast_timestamps: list[str],
+    *,
+    max_weeks: int = 8,
+    minimum_samples: int = 2,
+) -> dict[str, Any]:
+    """Return actual historical means for matching local weekday and hour."""
+    values: list[float | None] = []
+    sample_counts: list[int] = []
+    for raw_timestamp in forecast_timestamps:
+        forecast_time = pd.Timestamp(raw_timestamp)
+        if forecast_time.tzinfo is None:
+            raise ValueError("예측 시각에는 시간대 정보가 필요합니다.")
+        forecast_time = forecast_time.tz_convert(local_data.index.tz)
+        mask = (
+            (local_data.index < forecast_time)
+            & (local_data.index.weekday == forecast_time.weekday())
+            & (local_data.index.hour == forecast_time.hour)
+            & (local_data.index.minute == forecast_time.minute)
+        )
+        samples = local_data.loc[mask, "kwh"].tail(max_weeks)
+        sample_counts.append(int(len(samples)))
+        values.append(float(samples.mean()) if len(samples) >= minimum_samples else None)
+    available = len(values) == 24 and all(value is not None for value in values)
+    complete_values = [float(value) for value in values if value is not None]
+    return {
+        "status": "available" if available else "insufficient",
+        "method": f"최근 최대 {max_weeks}주 동일 요일·시간 실측 평균",
+        "values_kwh": complete_values if available else [],
+        "sample_counts": sample_counts,
+        "minimum_samples_per_hour": minimum_samples,
+        "total_kwh": float(sum(complete_values)) if available else None,
+    }
 
 
 def parse_csv_text(csv_text: str) -> pd.DataFrame:
@@ -356,6 +393,8 @@ class TrainingJobManager:
         for timestamp, amount in local_data.kwh.iloc[-168:].items():
             period_totals[min(timestamp.hour // 6, 3)] += float(amount)
         period_total = sum(period_totals)
+        forecast_timestamps = [str(value) for value in result.timestamps]
+        weekday_baseline = same_weekday_baseline(local_data, forecast_timestamps)
         return {
             **asdict(result),
             "building_timezone": job.building_timezone,
@@ -365,6 +404,12 @@ class TrainingJobManager:
             "average_kwh": float(sum(values) / len(values)),
             "peak_kwh": float(values[peak_index]),
             "peak_timestamp": result.timestamps[peak_index],
+            "data_period": {
+                "start": local_data.index[0].isoformat(),
+                "end": local_data.index[-1].isoformat(),
+                "rows": int(len(local_data)),
+            },
+            "same_weekday_baseline": weekday_baseline,
             "actual_summary": {
                 "total_24h_kwh": float(recent_actual.sum()),
                 "average_hourly_kwh": float(recent_actual.mean()),
@@ -388,6 +433,12 @@ class TrainingJobManager:
             ],
         }
 
+    def analysis_report(self, job_id: str, csv_text: str) -> dict[str, Any]:
+        """Calculate a complete local report without calling an external API."""
+        job = self.get(job_id)
+        prediction = self.predict(job_id, csv_text)
+        return build_analysis_report(prediction, job)
+
     def analyze_prediction(self, job_id: str, csv_text: str) -> dict[str, Any]:
         """Explain a fresh local forecast without changing model or prediction state."""
         with self._lock:
@@ -399,7 +450,8 @@ class TrainingJobManager:
             self._analysis_counts[job_id] = self._analysis_counts.get(job_id, 0) + 1
         try:
             prediction = self.predict(job_id, csv_text)
-            return self.ai_analyzer(prediction)
+            report = build_analysis_report(prediction, self.get(job_id))
+            return self.ai_analyzer(report)
         finally:
             with self._lock:
                 self._analysis_in_progress.discard(job_id)

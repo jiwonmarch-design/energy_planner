@@ -1,0 +1,181 @@
+{
+  "generatedAt": "2026-11-04T07:04:51.210Z",
+  "total": 15,
+  "passed": 15,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "initial_report_state",
+      "status": "PASS",
+      "details": {
+        "reportHidden": true,
+        "aiDisabled": true,
+        "htmlDisabled": true,
+        "printDisabled": true,
+        "status": "24시간 예측을 실행하면 AI 호출 없이도 정량 보고서를 확인할 수 있습니다."
+      }
+    },
+    {
+      "name": "completed_job_recovered",
+      "status": "PASS",
+      "details": "학습 완료 · 학습과 모델 선택을 완료했습니다."
+    },
+    {
+      "name": "local_report_without_ai_dependency",
+      "status": "PASS",
+      "details": "로컬 정량 보고서가 준비되었습니다. 필요하면 AI 운영 분석을 보강할 수 있습니다 · gpt-4o-mini."
+    },
+    {
+      "name": "report_structure_and_real_metrics",
+      "status": "PASS",
+      "details": {
+        "source": "로컬 정량 분석",
+        "total": "108.3 kWh",
+        "peak": "오후 1시",
+        "comparison": "↑ 5.9%",
+        "dataPeriod": "2026.04.01 (수) 00:00–2026.10.31 (토) 23:00 · 5,136시간",
+        "forecastPeriod": "2026.11.01 (일) 00:00–23:00",
+        "recommendations": 3,
+        "limitations": 3,
+        "chartLines": 2,
+        "baselineVisible": true,
+        "validationMae": "0.3 kWh",
+        "testWape": "5.1%",
+        "htmlEnabled": true,
+        "printEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "same_weekday_real_baseline",
+      "status": "PASS",
+      "details": {
+        "source": "로컬 정량 분석",
+        "total": "108.3 kWh",
+        "peak": "오후 1시",
+        "comparison": "↑ 5.9%",
+        "dataPeriod": "2026.04.01 (수) 00:00–2026.10.31 (토) 23:00 · 5,136시간",
+        "forecastPeriod": "2026.11.01 (일) 00:00–23:00",
+        "recommendations": 3,
+        "limitations": 3,
+        "chartLines": 2,
+        "baselineVisible": true,
+        "validationMae": "0.3 kWh",
+        "testWape": "5.1%",
+        "htmlEnabled": true,
+        "printEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "download_controls_and_desktop_layout",
+      "status": "PASS",
+      "details": {
+        "source": "로컬 정량 분석",
+        "total": "108.3 kWh",
+        "peak": "오후 1시",
+        "comparison": "↑ 5.9%",
+        "dataPeriod": "2026.04.01 (수) 00:00–2026.10.31 (토) 23:00 · 5,136시간",
+        "forecastPeriod": "2026.11.01 (일) 00:00–23:00",
+        "recommendations": 3,
+        "limitations": 3,
+        "chartLines": 2,
+        "baselineVisible": true,
+        "validationMae": "0.3 kWh",
+        "testWape": "5.1%",
+        "htmlEnabled": true,
+        "printEnabled": true,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "chart_hover_click_and_toggle",
+      "status": "PASS",
+      "details": {
+        "hover": {
+          "visible": true,
+          "text": "2026.11.01 (일) 12:00 · 예측 6.4 kWh · 동일 요일 6.1 kWh · 차이 +0.4 kWh"
+        },
+        "off": {
+          "checked": false,
+          "lines": 1
+        },
+        "onLines": 2
+      }
+    },
+    {
+      "name": "chart_keyboard_slider",
+      "status": "PASS",
+      "details": {
+        "value": "9",
+        "output": "2026.11.01 (일) 09:00 · 예측 5.8 kWh · 동일 요일 5.4 kWh · 차이 +0.4 kWh",
+        "focused": "report-hour-slider"
+      }
+    },
+    {
+      "name": "simulator_calculation",
+      "status": "PASS",
+      "details": {
+        "amount": 1.5890659093856812,
+        "before": "191원",
+        "after": "127원",
+        "saving": "↓ 64원",
+        "effect": "시간당 예상 피크는 6.4kWh에서 6.4kWh로 변합니다. 실제 최대수요전력 요금 계산은 아닙니다.",
+        "errorHidden": true
+      }
+    },
+    {
+      "name": "mobile_390_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "buttons": true,
+        "chart": 290,
+        "simulatorColumns": "328px"
+      }
+    },
+    {
+      "name": "mobile_320_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "buttons": true,
+        "chart": 290,
+        "simulatorColumns": "258px"
+      }
+    },
+    {
+      "name": "standalone_html_privacy",
+      "status": "PASS",
+      "details": {
+        "bytes": 33632,
+        "rawCsvMarkers": false
+      }
+    },
+    {
+      "name": "pdf_generated",
+      "status": "PASS",
+      "details": 384061
+    },
+    {
+      "name": "standalone_html_interactive",
+      "status": "PASS",
+      "details": {
+        "off": 1,
+        "amount": "1",
+        "cost": "80원",
+        "overflow": 0
+      }
+    },
+    {
+      "name": "runtime_console_clean",
+      "status": "PASS",
+      "details": {
+        "runtimeErrors": [],
+        "consoleErrors": []
+      }
+    }
+  ]
+}
