@@ -84,6 +84,16 @@ for (const [width, height] of [[1440, 900], [390, 844], [320, 844]]) {
 }
 
 await load(1440, 900);
+const uploadOrder = await evaluate(`(() => {
+  const panels = [...document.querySelector('.upload-input-grid').children];
+  return {
+    first: panels[0]?.className || '',
+    second: panels[1]?.className || '',
+    firstLeft: Math.round(panels[0]?.getBoundingClientRect().left || 0),
+    secondLeft: Math.round(panels[1]?.getBoundingClientRect().left || 0)
+  };
+})()`);
+record("timezone_before_upload", uploadOrder.first.includes("timezone-panel") && uploadOrder.second.includes("upload-panel") && uploadOrder.firstLeft < uploadOrder.secondLeft, uploadOrder);
 const clickState = await evaluate(`(() => {
   const control = document.getElementById('brand-energy-toggle');
   control.click();

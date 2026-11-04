@@ -180,3 +180,4 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 원본의 42px 버튼은 접근성 최소 조작 영역을 위해 시각 차이 없이 44px로 보정하고 키보드 포커스·reduced motion을 유지
 - 실제 Chrome UI 검증 17/17 PASS, 합성 180일 CSV 전체 백엔드 연결과 1440px·390px·320px 실제 예측 대시보드 검증 23/23 PASS, 콘솔 오류 0
 - 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `analysis/forecast_home_validation/hero_recheck_results.json`, `analysis/forecast_home_validation/forecast-dashboard-1440.png`, `forecast-dashboard-390.png`, `forecast-dashboard-320.png`
+- 입력 흐름을 건물 시간대 선택 → CSV 업로드 순서로 변경하고 데스크톱 좌측·모바일 상단 배치와 키보드 탐색 순서를 일치시킴

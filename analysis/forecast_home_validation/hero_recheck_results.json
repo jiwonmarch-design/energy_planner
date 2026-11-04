@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T01:28:51.532Z",
+  "executed_at": "2026-11-04T01:40:46.050Z",
   "browser": "Chrome 156 headless via CDP",
   "checks": [
     {
@@ -147,6 +147,16 @@
       }
     },
     {
+      "name": "timezone_before_upload",
+      "status": "PASS",
+      "details": {
+        "first": "panel timezone-panel",
+        "second": "panel upload-panel",
+        "firstLeft": 457,
+        "secondLeft": 816
+      }
+    },
+    {
       "name": "click_toggle",
       "status": "PASS",
       "details": {
@@ -197,7 +207,7 @@
       "name": "dashboard_layout",
       "status": "PASS",
       "details": {
-        "sectionTop": 315,
+        "sectionTop": 294,
         "viewport": 1425,
         "scrollWidth": 1425,
         "cards": 11
@@ -210,7 +220,7 @@
     }
   ],
   "summary": {
-    "pass": 17,
+    "pass": 18,
     "fail": 0
   }
 }
