@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T02:00:14.191Z",
+  "executed_at": "2026-11-04T02:22:35.536Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -226,12 +226,26 @@
       }
     },
     {
+      "name": "determinate_training_progress",
+      "status": "PASS",
+      "details": {
+        "visible": true,
+        "value": 10,
+        "percent": "10%",
+        "buttons": 1
+      }
+    },
+    {
       "name": "xgboost_training_and_evaluation",
       "status": "PASS",
       "details": {
         "status": "COMPLETED",
         "resultsVisible": true,
         "testPolicy": "Validation 선택 모델 last_168h · Test는 모델 선택에 사용하지 않으며 최종 평가만 수행 · MAE 0 kWh · WAPE 0%",
+        "progressVisible": true,
+        "progressValue": 100,
+        "progressPercent": "100%",
+        "trainingButtons": 1,
         "predictionVisible": true
       }
     },
@@ -273,7 +287,7 @@
     }
   ],
   "summary": {
-    "pass": 23,
+    "pass": 24,
     "fail": 0
   }
 }

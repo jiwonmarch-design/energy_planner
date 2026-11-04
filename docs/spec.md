@@ -157,11 +157,11 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 | `GET /api/health` | 상태 확인 |
 | `POST /api/quality` | 계약·품질·학습/예측 자격 |
 | `POST /api/training-jobs` | 별도 학습 작업 생성 |
-| `GET /api/training-jobs/{job_id}` | 작업 상태·지표 조회 |
+| `GET /api/training-jobs/{job_id}` | 작업 상태·단계 기반 `progress_percent`·지표 조회 |
 | `POST /api/predictions/{job_id}` | 완료 run 재사용 예측 |
 | `POST /api/ai-analysis/{job_id}` | 저장 예측 결과의 선택형 AI 해석 |
 
-동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. 공개 job 메타데이터는 `artifacts/web_jobs/_jobs/`에 저장하며 원본 CSV는 저장하지 않습니다. 완료 job은 재시작 후 복구하고, 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구합니다.
+동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. `progress_percent`는 데이터 준비, 24개 예측 시점별 XGBoost 학습, Validation, Test, 산출물 저장의 실제 완료 단계를 0~100 정수로 제공합니다. 공개 job 메타데이터는 `artifacts/web_jobs/_jobs/`에 저장하며 원본 CSV는 저장하지 않습니다. 완료 job은 재시작 후 복구하고, 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구합니다.
 
 ## 13. 화면 동작
 

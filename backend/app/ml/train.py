@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -49,6 +49,7 @@ def train_xgboost(
     train: SequenceBatch,
     validation: SequenceBatch,
     config: TrainingConfig = TrainingConfig(),
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> TrainingOutcome:
     """Train one deterministic regressor for each of the 24 forecast hours."""
     if len(train.x) == 0 or len(validation.x) == 0:
@@ -94,6 +95,8 @@ def train_xgboost(
                 "best_validation_mae": best_loss,
             }
         )
+        if progress_callback is not None:
+            progress_callback(horizon + 1, HORIZON)
     return TrainingOutcome(
         models=models,
         best_epoch=max(best_iterations),
@@ -124,6 +127,7 @@ def run_training_pipeline(
     config: TrainingConfig = TrainingConfig(),
     source_timezone_mode="iana_civil_time",
     source_timezone_metadata: str | None = None,
+    progress_callback: Callable[[int, str], None] | None = None,
 ) -> PipelineOutcome:
     """Train and evaluate an XGBoost candidate without promotion or retraining."""
     from .artifacts import save_run_artifacts
@@ -140,7 +144,12 @@ def run_training_pipeline(
     from .sequences import make_sequences, validate_minimum_samples
     from .split import frozen_evaluation_origins, make_split_plan
 
+    def report_progress(percent: int, message: str) -> None:
+        if progress_callback is not None:
+            progress_callback(percent, message)
+
     total_started = perf_counter()
+    report_progress(10, "입력 데이터와 시간대를 검증하고 있습니다.")
     data = validate_and_normalize_frame(
         frame, building_timezone, source_timezone_mode=source_timezone_mode
     )
@@ -161,11 +170,21 @@ def run_training_pipeline(
     test_eval = make_sequences(features, data.kwh, plan, "test", origins=test_origins)
     validate_minimum_samples(train_dense, validation_dense, validation_eval, test_eval)
     data_preparation_seconds = perf_counter() - total_started
+    report_progress(25, "학습·Validation·Test 데이터를 준비했습니다.")
 
     training_started = perf_counter()
-    outcome = train_xgboost(train_dense, validation_dense, config)
+    outcome = train_xgboost(
+        train_dense,
+        validation_dense,
+        config,
+        progress_callback=lambda completed, total: report_progress(
+            25 + round(completed / total * 50),
+            f"24개 예측 시점별 XGBoost 모델을 학습하고 있습니다. ({completed}/{total})",
+        ),
+    )
     training_seconds = perf_counter() - training_started
 
+    report_progress(80, "Validation 성능으로 후보 모델을 비교하고 있습니다.")
     validation_predictions = {
         "xgboost": predict_xgboost(outcome.models, validation_eval.x),
         LAST_24H: baseline_predictions(data.kwh, validation_eval.origins, LAST_24H),
@@ -181,6 +200,7 @@ def run_training_pipeline(
         validation_metrics_objects[LAST_168H],
     )
 
+    report_progress(88, "선택 모델의 Test 성능을 최종 평가하고 있습니다.")
     test_predictions = {
         "xgboost": predict_xgboost(outcome.models, test_eval.x),
         LAST_24H: baseline_predictions(data.kwh, test_eval.origins, LAST_24H),
@@ -210,6 +230,7 @@ def run_training_pipeline(
     canonical_input["timestamp"] = canonical_input["timestamp"].map(
         lambda value: value.isoformat()
     )
+    report_progress(95, "모델과 평가 산출물을 저장하고 있습니다.")
     artifact_started = perf_counter()
     run_dir = save_run_artifacts(
         artifact_root,

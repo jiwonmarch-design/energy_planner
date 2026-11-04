@@ -127,6 +127,7 @@ class WebServiceCases(unittest.TestCase):
 
         def fake_pipeline(*args, **kwargs):
             calls.append((args, kwargs))
+            kwargs["progress_callback"](50, "테스트 학습 진행 중")
             run = Path(kwargs["artifact_root"]) / kwargs["building_id"] / kwargs["run_id"]
             return SimpleNamespace(run_dir=run, selected_model="last_24h")
 
@@ -143,6 +144,8 @@ class WebServiceCases(unittest.TestCase):
             manager._run(job.job_id, warning_approved=False)
             completed = manager.get(job.job_id)
             self.assertEqual(completed.status, "COMPLETED")
+            self.assertEqual(completed.progress_mode, "determinate")
+            self.assertEqual(completed.progress_percent, 100)
             self.assertEqual(completed.selected_model, "last_24h")
             self.assertEqual(len(calls), 1)
             self.assertEqual(calls[0][1]["source_timezone_mode"], "explicit_offset")

@@ -184,3 +184,6 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 데이터 품질 진단 상단을 관측 기간·결측률·시간 연속성·학습 적합성 4개 핵심 지표로 정리하고, 하단에 필수 컬럼 및 형식·최소 관측 기간·입력용 168시간 구간·시간순 Train/Validation/Test 분리 상세 판정을 배치
 - 실제 Chrome에서 합성 180일 CSV 품질 진단과 전체 백엔드 흐름 23/23 PASS, 품질 진단 전용 스크린샷 `analysis/forecast_home_validation/forecast-quality-1440.png` 확인
 - 상세 진단의 성공 상태를 SVG 체크 아이콘과 `통과` 3개·`가능` 1개로 통일하고, 경고·실패 상태 문구는 기존대로 유지
+- XGBoost 학습 영역의 재시도·예측 실행·대시보드 이동 버튼을 제거해 `XGBoost 학습 시작` 단일 버튼으로 정리
+- 왕복 애니메이션 진행 막대를 실제 데이터 준비·24개 예측 시점별 학습·Validation·Test·저장 단계 기반 퍼센트 진행률로 교체하고, API에 `progress_percent`를 추가
+- 실제 Chrome에서 중간 10%와 완료 100%, 단일 학습 버튼, 전체 백엔드 흐름 24/24 PASS 확인; 스크린샷 `analysis/forecast_home_validation/forecast-training-1440.png`

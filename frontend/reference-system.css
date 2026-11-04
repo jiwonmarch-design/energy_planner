@@ -177,7 +177,8 @@ a { color: inherit; }
 .training-placeholder { min-height: 64px; }
 .training-actions { margin-top: 20px; }
 .train-track { height: 8px; margin-block: 14px; overflow: hidden; background: #e4e6e5; }
-.train-fill { width: 38%; height: 100%; background: var(--blue); animation: train-progress 1.2s ease-in-out infinite alternate; }
+.train-fill { width: 0; height: 100%; background: var(--blue); transition: width .3s ease; }
+.progress-note { margin: 0; }
 .split { height: 24px; display: flex; overflow: hidden; margin-top: 20px; color: #fff; font-size: 10px; font-weight: 700; text-align: center; }
 .split span { display: grid; place-items: center; }
 .train-split { width: 66.67%; background: #2855da; }
@@ -230,8 +231,6 @@ a { color: inherit; }
 .model-dl dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-weight: 700; }
 .error { color: var(--danger); font-size: 12px; }
 .disclaimer { border-top: 1px solid var(--line); padding: 30px; color: #8c94a0; font-size: 11px; text-align: center; }
-
-@keyframes train-progress { to { transform: translateX(165%); } }
 
 @media (max-width: 900px) {
   .section { grid-template-columns: 190px minmax(0, 1fr); gap: 0 30px; }

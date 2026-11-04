@@ -165,18 +165,33 @@ await screenshot("forecast-quality-1440.png");
 let trainingCompleted = await waitFor("document.getElementById('workspace-job-status').dataset.status === 'COMPLETED'", 5_000);
 if (!trainingCompleted) {
   await evaluate("document.getElementById('train').click(); true");
+  const progressObserved = await waitFor("Number(document.getElementById('training-progressbar').getAttribute('aria-valuenow')) > 5 && Number(document.getElementById('training-progressbar').getAttribute('aria-valuenow')) < 100", 30_000);
+  const activeProgress = await evaluate(`({
+    visible: !document.getElementById('training-progress').hidden,
+    value: Number(document.getElementById('training-progressbar').getAttribute('aria-valuenow')),
+    percent: document.getElementById('training-percent').textContent,
+    buttons: document.querySelectorAll('#training-actions button').length
+  })`);
+  record("determinate_training_progress", progressObserved && activeProgress.visible && activeProgress.value > 5 && activeProgress.value < 100 && activeProgress.buttons === 1, activeProgress);
   trainingCompleted = await waitFor("document.getElementById('workspace-job-status').dataset.status === 'COMPLETED'", 240_000);
 }
 const training = await evaluate(`({
   status: document.getElementById('workspace-job-status').dataset.status || '',
   resultsVisible: !document.getElementById('workspace-model-results').hidden,
   testPolicy: document.getElementById('test-evaluation-note').textContent,
-  predictionVisible: !document.getElementById('workspace-run-prediction').hidden
+  progressVisible: !document.getElementById('training-progress').hidden,
+  progressValue: Number(document.getElementById('training-progressbar').getAttribute('aria-valuenow')),
+  progressPercent: document.getElementById('training-percent').textContent,
+  trainingButtons: document.querySelectorAll('#training-actions button').length,
+  predictionVisible: !document.getElementById('run-prediction').hidden
 })`);
-record("xgboost_training_and_evaluation", trainingCompleted && training.resultsVisible && training.testPolicy.includes("Test는 모델 선택에 사용하지 않으며") && training.predictionVisible, training);
+record("xgboost_training_and_evaluation", trainingCompleted && training.resultsVisible && training.testPolicy.includes("Test는 모델 선택에 사용하지 않으며") && training.progressVisible && training.progressValue === 100 && training.progressPercent === "100%" && training.trainingButtons === 1 && training.predictionVisible, training);
+await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('training').scrollIntoView({ block: 'start' }); true");
+await pause(350);
+await screenshot("forecast-training-1440.png");
 
 if (trainingCompleted) {
-  await evaluate("document.getElementById('workspace-run-prediction').click(); true");
+  await evaluate("document.getElementById('run-prediction').click(); true");
   const predicted = await waitFor("document.getElementById('total-forecast').textContent !== '—'", 45_000);
   const dashboard = await evaluate(`({
     total: document.getElementById('total-forecast').textContent,

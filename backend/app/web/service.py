@@ -128,7 +128,8 @@ class TrainingJob:
     test_metrics: dict[str, Any] | None = None
     error: str | None = None
     progress_message: str = "학습 대기 중"
-    progress_mode: str = "indeterminate"
+    progress_mode: str = "determinate"
+    progress_percent: int = 0
     csv_text: str = field(default="", repr=False)
     building_timezone: str = field(default="", repr=False)
     source_timezone_mode: str = field(default="", repr=False)
@@ -199,6 +200,9 @@ class TrainingJobManager:
                         job.error = "ArtifactMissing: 저장된 모델 경로를 확인할 수 없습니다."
                         job.progress_message = "저장된 모델을 다시 연결할 수 없습니다."
                         self._persist_job(job)
+                    else:
+                        job.progress_mode = "determinate"
+                        job.progress_percent = 100
                 self._jobs[job.job_id] = job
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 continue
@@ -260,8 +264,16 @@ class TrainingJobManager:
         job = self._jobs[job_id]
         job.status = "RUNNING"
         job.started_at_utc = datetime.now(UTC).isoformat()
-        job.progress_message = "XGBoost와 기준 모델을 평가하고 있습니다."
+        job.progress_mode = "determinate"
+        job.progress_percent = 5
+        job.progress_message = "학습 작업을 시작하고 있습니다."
         self._persist_job(job)
+
+        def update_progress(percent: int, message: str) -> None:
+            job.progress_percent = max(job.progress_percent, min(99, max(0, int(percent))))
+            job.progress_message = message
+            self._persist_job(job)
+
         try:
             run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}_{job_id[:8]}"
             outcome = self.pipeline(
@@ -273,6 +285,7 @@ class TrainingJobManager:
                 warning_approved=warning_approved,
                 source_timezone_mode=job.source_timezone_mode,
                 source_timezone_metadata=job.building_timezone,
+                progress_callback=update_progress,
             )
             job.run_dir = str(outcome.run_dir)
             job.selected_model = outcome.selected_model
@@ -287,6 +300,7 @@ class TrainingJobManager:
                 if metrics_path.exists():
                     job.test_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
             job.status = "COMPLETED"
+            job.progress_percent = 100
             job.progress_message = "후보 모델 평가와 저장을 완료했습니다. 자동 승격은 하지 않았습니다."
         except Exception as exc:  # surfaced to the local user, not silently retried
             job.status = "FAILED"
