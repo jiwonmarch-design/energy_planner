@@ -244,12 +244,26 @@ if (trainingCompleted) {
     aiStatus: document.getElementById('ai-analysis-status').textContent,
     gateHidden: document.getElementById('dashboard-gate').hidden,
     resultsVisible: !document.getElementById('dashboard-results').hidden,
-    redundantModelPanels: document.querySelectorAll('.model-detail-grid').length
+    redundantModelPanels: document.querySelectorAll('.model-detail-grid').length,
+    completedStepColor: getComputedStyle(document.querySelector('.step-button[data-status="complete"]')).color,
+    successColor: (() => {
+      const reference = document.createElement('span');
+      reference.style.color = 'var(--success)';
+      document.body.append(reference);
+      const color = getComputedStyle(reference).color;
+      reference.remove();
+      return color;
+    })(),
+    uploadReturnTag: document.getElementById('dashboard-upload-return').tagName,
+    uploadReturnHeight: Math.round(document.getElementById('dashboard-upload-return').getBoundingClientRect().height)
   })`);
-  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제") && dashboard.gateHidden && dashboard.resultsVisible && dashboard.redundantModelPanels === 0, dashboard);
+  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제") && dashboard.gateHidden && dashboard.resultsVisible && dashboard.redundantModelPanels === 0 && dashboard.completedStepColor !== dashboard.successColor && dashboard.uploadReturnTag === "A" && dashboard.uploadReturnHeight >= 44, dashboard);
   await evaluate("document.getElementById('dashboard').scrollIntoView({ behavior: 'auto', block: 'start' }); true");
   await pause(350);
   await screenshot("forecast-dashboard-1440.png");
+  await evaluate("document.getElementById('ai-analysis-title').scrollIntoView({ behavior: 'auto', block: 'start' }); true");
+  await pause(250);
+  await screenshot("forecast-dashboard-ai-1440.png");
   for (const width of [390, 320]) {
     await viewport(width, 844);
     await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('dashboard').scrollIntoView({ block: 'start' }); true");
@@ -263,6 +277,9 @@ if (trainingCompleted) {
     record(`dashboard_${width}_layout`, mobileDashboard.viewport === mobileDashboard.scrollWidth && mobileDashboard.total !== "—" && mobileDashboard.cards >= 6, mobileDashboard);
     await screenshot(`forecast-dashboard-${width}.png`);
   }
+  await evaluate("document.getElementById('dashboard-upload-return').click(); true");
+  const returnedToUpload = await waitFor("location.hash === '#upload'");
+  record("dashboard_return_to_upload", returnedToUpload, { hash: await evaluate("location.hash") });
 }
 
 record("runtime_console_errors", runtimeErrors.length === 0, runtimeErrors);

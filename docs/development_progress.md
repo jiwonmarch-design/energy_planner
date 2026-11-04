@@ -199,3 +199,4 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 합성 180일 CSV로 품질 진단 → XGBoost·baseline 평가 → Test 독립 평가 → 저장 모델 예측 전체 흐름 25/25 PASS, 콘솔 오류 0
 - 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `forecast-dashboard-empty-1440.png`, `forecast-training-empty-1440.png`, `forecast-dashboard-1440.png`
 - 예측 대시보드 하단의 중복 `모델 성능 비교`·`모델 상세 정보` 패널을 제거하고, 모델 평가는 STEP 03 Validation 결과 표와 선택 모델 KPI에서만 제공
+- 상단 단계 바의 완료 상태를 초록색 성공 표현 대신 짙은 본문색·파란 단계 번호로 변경하고, AI 분석 하단에 `CSV 업로드로 돌아가기` 보조 이동 링크 추가

@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T03:20:06.368Z",
+  "executed_at": "2026-11-04T03:26:55.449Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -279,7 +279,11 @@
         "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다.",
         "gateHidden": true,
         "resultsVisible": true,
-        "redundantModelPanels": 0
+        "redundantModelPanels": 0,
+        "completedStepColor": "rgb(16, 33, 61)",
+        "successColor": "rgb(8, 122, 85)",
+        "uploadReturnTag": "A",
+        "uploadReturnHeight": 44
       }
     },
     {
@@ -303,13 +307,20 @@
       }
     },
     {
+      "name": "dashboard_return_to_upload",
+      "status": "PASS",
+      "details": {
+        "hash": "#upload"
+      }
+    },
+    {
       "name": "runtime_console_errors",
       "status": "PASS",
       "details": []
     }
   ],
   "summary": {
-    "pass": 25,
+    "pass": 26,
     "fail": 0
   }
 }
