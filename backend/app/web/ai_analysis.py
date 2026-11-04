@@ -33,21 +33,29 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         "summary": {"type": "string"},
         "peak_analysis": {"type": "string"},
         "comparison": {"type": "string"},
-        "recommendations": {
+        "findings": {
             "type": "array",
+            "maxItems": 3,
             "items": {
                 "type": "object",
                 "properties": {
                     "title": {"type": "string"},
-                    "action": {"type": "string"},
-                    "reason": {"type": "string"},
+                    "operational_meaning": {"type": "string"},
+                    "recommended_action": {"type": "string"},
                     "evidence_ids": {"type": "array", "items": {"type": "string"}},
-                    "caveat": {"type": "string"},
+                    "limitation": {"type": "string"},
                 },
-                "required": ["title", "action", "reason", "evidence_ids", "caveat"],
+                "required": [
+                    "title",
+                    "operational_meaning",
+                    "recommended_action",
+                    "evidence_ids",
+                    "limitation",
+                ],
                 "additionalProperties": False,
             },
         },
+        "no_action_reason": {"type": "string"},
         "limitations": {"type": "array", "items": {"type": "string"}},
         "model_quality": {"type": "string"},
     },
@@ -55,7 +63,8 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         "summary",
         "peak_analysis",
         "comparison",
-        "recommendations",
+        "findings",
+        "no_action_reason",
         "limitations",
         "model_quality",
     ],
@@ -110,19 +119,41 @@ def _report_context(report: Mapping[str, Any]) -> dict[str, Any]:
     if len(timestamps) != 24 or len(forecast) != 24:
         raise ValueError("AI 분석에는 완전한 24시간 정량 보고서가 필요합니다.")
     evidence = report.get("evidence", [])
+    operational_candidates = report.get("operational_candidates", [])
+    actionable_evidence_ids = list(
+        dict.fromkeys(
+            evidence_id
+            for candidate in operational_candidates
+            for evidence_id in candidate.get("evidence_ids", [])
+        )
+    )
     return {
         "metadata": report.get("metadata"),
         "quantitative": report.get("quantitative"),
         "evidence": evidence,
         "allowed_evidence_ids": [item.get("id") for item in evidence],
+        "actionable_evidence_ids": actionable_evidence_ids,
         "peak_analysis": report.get("peak_analysis"),
         "comparison": report.get("comparison"),
+        "previous_24h_comparison": report.get("previous_24h_comparison"),
         "model_quality": report.get("model_quality"),
+        "operational_candidates": operational_candidates,
+        "no_action_reason": report.get("no_action_reason"),
         "hourly_comparison": [
             {
                 "timestamp": timestamp,
                 "forecast_kwh": value,
                 "same_weekday_baseline_kwh": baseline[index] if len(baseline) == 24 else None,
+                "difference_kwh": (
+                    report.get("comparison", {}).get("hourly_differences", [])[index].get("difference_kwh")
+                    if len(report.get("comparison", {}).get("hourly_differences", [])) == 24
+                    else None
+                ),
+                "difference_percent": (
+                    report.get("comparison", {}).get("hourly_differences", [])[index].get("difference_percent")
+                    if len(report.get("comparison", {}).get("hourly_differences", [])) == 24
+                    else None
+                ),
             }
             for index, (timestamp, value) in enumerate(zip(timestamps, forecast, strict=True))
         ],
@@ -150,25 +181,37 @@ def _parse_structured_response(response: Mapping[str, Any]) -> dict[str, Any]:
         raise AIAnalysisUpstreamError("OpenAI API 분석 결과가 올바른 JSON이 아닙니다.") from exc
     if not isinstance(value, dict) or set(value) != set(ANALYSIS_SCHEMA["required"]):
         raise AIAnalysisUpstreamError("OpenAI API 분석 결과의 필드가 올바르지 않습니다.")
-    scalar_fields = ("summary", "peak_analysis", "comparison", "model_quality")
+    scalar_fields = (
+        "summary",
+        "peak_analysis",
+        "comparison",
+        "no_action_reason",
+        "model_quality",
+    )
     if not all(isinstance(value[field], str) for field in scalar_fields):
         raise AIAnalysisUpstreamError("OpenAI API 분석 문구의 형식이 올바르지 않습니다.")
     if not isinstance(value["limitations"], list) or not all(
         isinstance(item, str) for item in value["limitations"]
     ):
         raise AIAnalysisUpstreamError("OpenAI API 분석 목록의 형식이 올바르지 않습니다.")
-    if not isinstance(value["recommendations"], list) or len(value["recommendations"]) > 3:
-        raise AIAnalysisUpstreamError("OpenAI API 권고 목록은 최대 3개여야 합니다.")
-    fields = {"title", "action", "reason", "evidence_ids", "caveat"}
-    for item in value["recommendations"]:
+    if not isinstance(value["findings"], list) or len(value["findings"]) > 3:
+        raise AIAnalysisUpstreamError("OpenAI API 핵심 발견 목록은 최대 3개여야 합니다.")
+    fields = {
+        "title",
+        "operational_meaning",
+        "recommended_action",
+        "evidence_ids",
+        "limitation",
+    }
+    for item in value["findings"]:
         if not isinstance(item, dict) or set(item) != fields:
-            raise AIAnalysisUpstreamError("OpenAI API 권고 형식이 올바르지 않습니다.")
+            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견 형식이 올바르지 않습니다.")
         if not all(isinstance(item[field], str) for field in fields - {"evidence_ids"}):
-            raise AIAnalysisUpstreamError("OpenAI API 권고 문구의 형식이 올바르지 않습니다.")
+            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견 문구의 형식이 올바르지 않습니다.")
         if not isinstance(item["evidence_ids"], list) or not all(
             isinstance(evidence_id, str) for evidence_id in item["evidence_ids"]
         ):
-            raise AIAnalysisUpstreamError("OpenAI API 권고 근거의 형식이 올바르지 않습니다.")
+            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견 근거의 형식이 올바르지 않습니다.")
     return value
 
 
@@ -187,13 +230,18 @@ def analyze_prediction(
     model = values.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
     context = _report_context(report)
     allowed_evidence_ids = set(context["allowed_evidence_ids"])
+    actionable_evidence_ids = set(context["actionable_evidence_ids"])
     prompt = (
         "다음 JSON은 서버가 계산한 건물 전력 예측의 구조화된 정량 결과입니다. "
-        "숫자를 새로 계산하거나 추정하지 말고, 제공된 evidence의 id만 근거로 사용하세요. "
+        "당신은 일반적인 절전 조언자가 아니라 전력 운영 의사결정 분석가입니다. "
+        "숫자를 새로 계산하거나 추정하지 말고 Python이 만든 operational_candidates만 검토하세요. "
         "문장에는 새로운 금액·비율·정확도·피크 수치를 만들지 마세요. "
         "수치 정보는 화면의 서버 근거가 별도로 표시하므로 문장에는 아라비아 숫자를 전혀 쓰지 마세요. "
-        "설비별 데이터가 없으므로 특정 설비나 원인을 단정하지 말고 절약을 보장하지 마세요. "
-        "실행 권고는 중요도 순 최대 3개로 작성하고 evidence_ids에는 allowed_evidence_ids만 넣으세요. "
+        "설비별 데이터가 없으므로 특정 설비·원인·절감 효과·비용을 단정하거나 보장하지 마세요. "
+        "findings는 중요도 순 최대 세 개이며 각 항목에 정량 근거 ID, 운영상 의미, 확인 또는 실행할 조치, 한계를 포함하세요. "
+        "evidence_ids에는 actionable_evidence_ids만 넣고 최소 한 개의 근거를 사용하세요. "
+        "operational_candidates가 비어 있거나 의미 있는 변화가 없으면 findings를 빈 배열로 두고 no_action_reason에 불필요한 조치를 권고하지 않는 이유를 작성하세요. "
+        "실제 요금제가 없으므로 경제적 효과를 확정적으로 표현하지 마세요. "
         "확인할 수 없는 내용은 limitations에 명시하세요. 모든 문장은 한국어로 작성하세요.\n\n"
         + json.dumps(context, ensure_ascii=False, separators=(",", ":"))
     )
@@ -204,7 +252,7 @@ def analyze_prediction(
         "input": [
             {
                 "role": "system",
-                "content": "제공된 근거 ID만 인용하고 수치를 재계산하지 않는 전력 운영 분석가입니다.",
+                "content": "서버가 확인한 운영 신호만 선별하고 일반론을 배제하는 전력 운영 의사결정 분석가입니다.",
             },
             {"role": "user", "content": prompt},
         ],
@@ -219,9 +267,12 @@ def analyze_prediction(
     }
     response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
     analysis = _parse_structured_response(response)
-    for item in analysis["recommendations"]:
-        if not set(item["evidence_ids"]).issubset(allowed_evidence_ids):
-            raise AIAnalysisUpstreamError("OpenAI API 권고에 확인되지 않은 근거가 포함되었습니다.")
+    for item in analysis["findings"]:
+        evidence_ids = set(item["evidence_ids"])
+        if not evidence_ids or not evidence_ids.issubset(actionable_evidence_ids):
+            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견에 조치 후보가 아닌 근거가 포함되었습니다.")
+        if not evidence_ids.issubset(allowed_evidence_ids):
+            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견에 확인되지 않은 근거가 포함되었습니다.")
 
     contains_number = lambda text: bool(re.search(r"[0-9０-９]", text))
     filtered_numeric = any(
@@ -230,26 +281,55 @@ def analyze_prediction(
             analysis["summary"],
             analysis["peak_analysis"],
             analysis["comparison"],
+            analysis["no_action_reason"],
             analysis["model_quality"],
             *analysis["limitations"],
             *(
                 item[field]
-                for item in analysis["recommendations"]
-                for field in ("title", "action", "reason", "caveat")
+                for item in analysis["findings"]
+                for field in (
+                    "title",
+                    "operational_meaning",
+                    "recommended_action",
+                    "limitation",
+                )
             ),
         ]
     )
     safe_limitations = [item for item in analysis["limitations"] if not contains_number(item)]
     limitations = list(dict.fromkeys([*report.get("limitations", []), *safe_limitations]))
-    safe_recommendations = [
+    safe_findings = [
         item
-        for item in analysis["recommendations"]
-        if not any(contains_number(item[field]) for field in ("title", "action", "reason", "caveat"))
+        for item in analysis["findings"]
+        if not any(
+            contains_number(item[field])
+            for field in (
+                "title",
+                "operational_meaning",
+                "recommended_action",
+                "limitation",
+            )
+        )
     ]
     recommendations = [
-        {**item, "priority": index + 1}
-        for index, item in enumerate(safe_recommendations[:3])
+        {
+            "priority": index + 1,
+            "title": item["title"],
+            "action": item["recommended_action"],
+            "reason": item["operational_meaning"],
+            "evidence_ids": item["evidence_ids"],
+            "caveat": item["limitation"],
+        }
+        for index, item in enumerate(safe_findings[:3])
     ]
+    local_recommendations = report.get("recommendations", [])
+    if not recommendations and actionable_evidence_ids:
+        recommendations = local_recommendations
+    safe_no_action_reason = (
+        analysis["no_action_reason"]
+        if not contains_number(analysis["no_action_reason"])
+        else report.get("no_action_reason", "")
+    )
     return {
         **report,
         "summary": analysis["summary"] if not contains_number(analysis["summary"]) else report["summary"],
@@ -270,6 +350,10 @@ def analyze_prediction(
             ),
         },
         "recommendations": recommendations or report.get("recommendations", []),
+        "ai_findings": safe_findings,
+        "no_action_reason": (
+            "" if recommendations else safe_no_action_reason or report.get("no_action_reason", "")
+        ),
         "limitations": limitations,
         "model_quality": {
             **report.get("model_quality", {}),

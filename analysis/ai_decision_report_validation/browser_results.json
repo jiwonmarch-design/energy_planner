@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-11-04T08:59:11.911Z",
+  "checks": [
+    {
+      "name": "completed_job_recovered",
+      "status": "PASS",
+      "details": "학습 완료 · 학습과 모델 선택을 완료했습니다."
+    },
+    {
+      "name": "prediction_ready",
+      "status": "PASS",
+      "details": "예측 대상 2026.11.01 (일) 00:00–23:00"
+    },
+    {
+      "name": "quantitative_decision_report",
+      "status": "PASS",
+      "details": {
+        "version": 2,
+        "aiStatus": "completed",
+        "findings": 2,
+        "recommendations": 2,
+        "candidates": 2,
+        "comparisonHours": 24,
+        "varianceStatus": "available",
+        "previousHours": 24,
+        "highSegments": 1,
+        "peakShare": 34.412658060289715,
+        "heading": "핵심 발견 및 운영 결정",
+        "testMae": "0.4 kWh",
+        "tags": [
+          "동일 요일 기준 최대 시간별 편차 · 2026.11.01 (일) 13:00 · +0.4 kWh · 기준 대비 +7.3% · 과거 범위 5.5–6.3 kWh",
+          "예상 피크 · 2026.11.01 (일) 13:00 · 6.4 kWh",
+          "연속 고사용 구간 비중 · 34.4%"
+        ],
+        "quantitativeTags": 3,
+        "evidenceCounts": [
+          1,
+          2
+        ],
+        "overflow": 0
+      }
+    },
+    {
+      "name": "standalone_report_preserves_security_and_content",
+      "status": "PASS",
+      "details": {
+        "hasKey": false,
+        "hasCsv": false,
+        "hasHeading": true,
+        "hasTestMae": true,
+        "bytes": 60708
+      }
+    },
+    {
+      "name": "mobile_report_layout",
+      "status": "PASS",
+      "details": {
+        "overflow": 0,
+        "previewVisible": true,
+        "minButton": 44
+      }
+    },
+    {
+      "name": "no_console_or_runtime_errors",
+      "status": "PASS",
+      "details": {
+        "runtimeErrors": [],
+        "consoleErrors": []
+      }
+    }
+  ],
+  "pass": 6,
+  "fail": 0
+}

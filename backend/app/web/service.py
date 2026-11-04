@@ -47,6 +47,7 @@ def same_weekday_baseline(
     """Return actual historical means for matching local weekday and hour."""
     values: list[float | None] = []
     sample_counts: list[int] = []
+    statistics_by_hour: list[dict[str, Any]] = []
     for raw_timestamp in forecast_timestamps:
         forecast_time = pd.Timestamp(raw_timestamp)
         if forecast_time.tzinfo is None:
@@ -59,8 +60,23 @@ def same_weekday_baseline(
             & (local_data.index.minute == forecast_time.minute)
         )
         samples = local_data.loc[mask, "kwh"].tail(max_weeks)
-        sample_counts.append(int(len(samples)))
-        values.append(float(samples.mean()) if len(samples) >= minimum_samples else None)
+        sample_count = int(len(samples))
+        available_sample = sample_count >= minimum_samples
+        mean = float(samples.mean()) if available_sample else None
+        sample_counts.append(sample_count)
+        values.append(mean)
+        statistics_by_hour.append(
+            {
+                "timestamp": forecast_time.isoformat(),
+                "sample_count": sample_count,
+                "mean_kwh": mean,
+                "variance_kwh2": float(samples.var(ddof=0)) if available_sample else None,
+                "standard_deviation_kwh": float(samples.std(ddof=0)) if available_sample else None,
+                "minimum_kwh": float(samples.min()) if available_sample else None,
+                "maximum_kwh": float(samples.max()) if available_sample else None,
+                "range_kwh": float(samples.max() - samples.min()) if available_sample else None,
+            }
+        )
     available = len(values) == 24 and all(value is not None for value in values)
     complete_values = [float(value) for value in values if value is not None]
     return {
@@ -68,6 +84,7 @@ def same_weekday_baseline(
         "method": f"최근 최대 {max_weeks}주 동일 요일·시간 실측 평균",
         "values_kwh": complete_values if available else [],
         "sample_counts": sample_counts,
+        "statistics_by_hour": statistics_by_hour,
         "minimum_samples_per_hour": minimum_samples,
         "total_kwh": float(sum(complete_values)) if available else None,
     }

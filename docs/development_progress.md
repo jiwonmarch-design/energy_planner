@@ -249,3 +249,14 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 실제 Chrome에서 합성 180일 CSV 품질 API 연결, 1440px·390px·320px 반응형, 44px 조작 영역, 콘솔 오류 0을 6/6 PASS로 확인
 - 전체 Python 회귀 55 PASS·3 subtests PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
 - 검증 산출물: `analysis/data_preparation_validation/`
+
+## 2026-11-04 AI 전력 운영 의사결정 보고서 강화
+
+- 동일 요일·시간 평균 대비 시간별 절대/상대 편차와 과거 표본 분산·표준편차·최소/최대 범위를 Python에서 계산
+- 예측 상위 사분위 기준 연속 고사용 구간, 피크 구간의 24시간 사용량 비중, 직전 24시간 대비 주요 변화 구간과 Validation/Test MAE·WAPE를 구조화
+- Python이 과거 범위 이탈·피크 집중·직전 실측 대비 유의미한 변화만 운영 후보로 만들고 변화가 작으면 일반 절전 권고를 생성하지 않도록 처리
+- OpenAI Structured Outputs를 핵심 발견 최대 3개 구조로 변경하고 서버 조치 후보의 evidence ID만 사용할 수 있도록 검증
+- 보고서 미리보기·독립 HTML·PDF 인쇄에 정량 근거 태그와 Test MAE를 추가하고 기존 5단계 디자인과 다운로드 보안 유지
+- 전체 Python 회귀 59 PASS·3 subtests PASS, JavaScript 문법·Python compileall PASS
+- 저장된 실제 XGBoost 완료 run과 `gpt-4o-mini` 연동으로 보고서 버전 2, 핵심 발견 2개, 정량 근거 표시, 1440px·390px 반응형을 Chrome 6/6 PASS로 확인
+- 검증 산출물: `analysis/ai_decision_report_validation/`

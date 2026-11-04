@@ -324,6 +324,15 @@ class WebServiceCases(unittest.TestCase):
             self.assertEqual(result["same_weekday_baseline"]["status"], "available")
             self.assertEqual(len(result["same_weekday_baseline"]["values_kwh"]), 24)
             self.assertTrue(all(count >= 2 for count in result["same_weekday_baseline"]["sample_counts"]))
+            self.assertEqual(len(result["same_weekday_baseline"]["statistics_by_hour"]), 24)
+            self.assertTrue(
+                all(
+                    item["variance_kwh2"] is not None
+                    and item["minimum_kwh"] is not None
+                    and item["maximum_kwh"] is not None
+                    for item in result["same_weekday_baseline"]["statistics_by_hour"]
+                )
+            )
             self.assertEqual(result["data_period"]["rows"], 180 * 24)
             self.assertEqual(len(result["recent_daily_usage"]), 7)
             self.assertGreaterEqual(len(result["recent_monthly_usage"]), 1)
@@ -338,6 +347,9 @@ class WebServiceCases(unittest.TestCase):
             self.assertEqual(report["source"], "local_quantitative_analysis")
             self.assertEqual(len(report["chart"]["forecast_kwh"]), 24)
             self.assertEqual(len(report["chart"]["same_weekday_baseline_kwh"]), 24)
+            self.assertEqual(len(report["comparison"]["hourly_differences"]), 24)
+            self.assertEqual(report["comparison"]["variability"]["status"], "available")
+            self.assertEqual(len(report["previous_24h_comparison"]["hourly_differences"]), 24)
             self.assertLessEqual(len(report["recommendations"]), 3)
             self.assertNotIn("csv_text", json.dumps(report))
             recovered_manager = TrainingJobManager(temporary, pipeline=artifact_pipeline)

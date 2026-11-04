@@ -1225,12 +1225,46 @@ function metricValue(metric, key, unit) {
 }
 
 function evidenceLabel(report, evidenceId) {
-  return report.evidence?.find((item) => item.id === evidenceId)?.label || evidenceId;
+  const item = report.evidence?.find((value) => value.id === evidenceId);
+  if (!item) return evidenceId;
+  const parts = [item.label];
+  if (item.timestamp) {
+    parts.push(formatLocalDateTime(item.timestamp, report.metadata?.building_timezone || "UTC"));
+  }
+  if (item.value !== null && item.value !== undefined && Number.isFinite(Number(item.value))) {
+    const value = Number(item.value);
+    const signed = ["same_weekday_largest_deviation", "previous_24h_largest_change"].includes(item.id)
+      && value > 0 ? "+" : "";
+    parts.push(`${signed}${fmt(value, 1)}${item.unit === "%" ? "%" : ` ${item.unit || ""}`.trimEnd()}`);
+  }
+  if (item.relative_percent !== null && item.relative_percent !== undefined && Number.isFinite(Number(item.relative_percent))) {
+    const relative = Number(item.relative_percent);
+    parts.push(`기준 대비 ${relative > 0 ? "+" : ""}${fmt(relative, 1)}%`);
+  }
+  if (item.historical_minimum_kwh !== null && item.historical_minimum_kwh !== undefined
+    && item.historical_maximum_kwh !== null && item.historical_maximum_kwh !== undefined
+    && Number.isFinite(Number(item.historical_minimum_kwh)) && Number.isFinite(Number(item.historical_maximum_kwh))) {
+    parts.push(`과거 범위 ${fmt(item.historical_minimum_kwh, 1)}–${fmt(item.historical_maximum_kwh, 1)} kWh`);
+  }
+  return parts.join(" · ");
 }
 
 function renderRecommendations(report) {
   const fragment = document.createDocumentFragment();
-  (report.recommendations || []).slice(0, 3).forEach((recommendation) => {
+  const recommendations = (report.recommendations || []).slice(0, 3);
+  if (!recommendations.length) {
+    const item = document.createElement("li");
+    const copy = document.createElement("div");
+    const title = document.createElement("h6");
+    const reason = document.createElement("p");
+    copy.className = "recommendation-copy recommendation-no-action";
+    title.textContent = "추가 조치 권고 없음";
+    reason.textContent = report.no_action_reason || "현재 데이터에서 우선 조치가 필요한 뚜렷한 변화를 확인하지 못했습니다.";
+    copy.append(title, reason);
+    item.append(copy);
+    fragment.append(item);
+  }
+  recommendations.forEach((recommendation) => {
     const item = document.createElement("li");
     const copy = document.createElement("div");
     copy.className = "recommendation-copy";
@@ -1405,12 +1439,15 @@ function renderAnalysisReport(report) {
   $("report-comparison-basis").textContent = report.chart.baseline_status === "available"
     ? report.chart.baseline_method
     : "동일 요일 실제 표본 부족";
-  $("report-priority-action").textContent = report.recommendations?.[0]?.action || "예상 피크 시간의 운영 일정을 확인하세요.";
+  $("report-priority-action").textContent = report.recommendations?.[0]?.action
+    || report.no_action_reason
+    || "현재 데이터에서 우선 조치가 필요한 뚜렷한 변화를 확인하지 못했습니다.";
 
   renderRecommendations(report);
   renderTextList($("report-limitations"), report.limitations || []);
   $("report-validation-mae").textContent = metricValue(quality.validation, "mae", " kWh");
   $("report-validation-wape").textContent = metricValue(quality.validation, "wape", "%");
+  $("report-test-mae").textContent = metricValue(quality.test, "mae", " kWh");
   $("report-test-wape").textContent = metricValue(quality.test, "wape", "%");
   $("report-baseline-performance").textContent = quality.mae_improvement_vs_best_baseline_percent !== null && quality.mae_improvement_vs_best_baseline_percent !== undefined && Number.isFinite(Number(quality.mae_improvement_vs_best_baseline_percent))
     ? `Validation MAE ${percentText(-quality.mae_improvement_vs_best_baseline_percent)} 개선`
