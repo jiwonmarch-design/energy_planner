@@ -737,7 +737,6 @@ function renderJob(job) {
     setTrainingProgress(job.progress_percent, job.progress_message);
     $("workspace-model-results").hidden = true;
     $("train").disabled = true;
-    $("model-state").textContent = "학습 진행 중";
     setWorkspaceState({ 1: "complete", 2: "complete", 3: "in-progress" }, 3);
     updateNextAction();
     return;
@@ -747,7 +746,6 @@ function renderJob(job) {
     setTrainingProgress(job.progress_percent ?? 0, job.error || "학습에 실패했습니다. 입력과 서버 로그를 확인해 주세요.");
     $("train").disabled = !analysisIsCurrent();
     error.textContent = job.error ? `모델 학습을 완료하지 못했습니다: ${job.error}` : "모델 학습을 완료하지 못했습니다. 입력 데이터와 서버 로그를 확인한 뒤 다시 시도하세요.";
-    $("model-state").textContent = "학습 실패";
     setWorkspaceState({ 1: "complete", 2: "complete", 3: "fail" }, 3);
     updateNextAction();
   }
@@ -761,9 +759,6 @@ function renderJob(job) {
   const names = { xgboost: "xgboost", last_24h: "last-24h", last_168h: "last-168h" };
   Object.entries(names).forEach(([key, id]) => {
     const metric = job.validation_metrics?.[key];
-    const testMetric = job.test_metrics?.[key];
-    $("metric-" + id).textContent = `Validation ${metricText(metric)} · Test ${metricText(testMetric)}`;
-    $("model-" + id).classList.toggle("selected", job.selected_model === key);
     $("workspace-metric-" + id).textContent = metricText(metric);
     $("workspace-model-" + id).classList.toggle("selected", job.selected_model === key);
   });
@@ -771,9 +766,7 @@ function renderJob(job) {
   $("test-evaluation-note").textContent = selectedTest
     ? `Validation 선택 모델 ${job.selected_model} · Test는 모델 선택에 사용하지 않으며 최종 평가만 수행 · ${metricText(selectedTest)}`
     : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
-  $("model-state").textContent = "모델 준비 완료";
   $("selected-model").textContent = job.selected_model || "—";
-  $("run-id").textContent = job.run_dir ? job.run_dir.split(/[\\/]/).at(-1) : "—";
   updateNextAction();
 }
 

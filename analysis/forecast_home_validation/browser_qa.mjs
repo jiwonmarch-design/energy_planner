@@ -243,9 +243,10 @@ if (trainingCompleted) {
     points: document.querySelectorAll('#forecast-chart circle').length,
     aiStatus: document.getElementById('ai-analysis-status').textContent,
     gateHidden: document.getElementById('dashboard-gate').hidden,
-    resultsVisible: !document.getElementById('dashboard-results').hidden
+    resultsVisible: !document.getElementById('dashboard-results').hidden,
+    redundantModelPanels: document.querySelectorAll('.model-detail-grid').length
   })`);
-  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제") && dashboard.gateHidden && dashboard.resultsVisible, dashboard);
+  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제") && dashboard.gateHidden && dashboard.resultsVisible && dashboard.redundantModelPanels === 0, dashboard);
   await evaluate("document.getElementById('dashboard').scrollIntoView({ behavior: 'auto', block: 'start' }); true");
   await pause(350);
   await screenshot("forecast-dashboard-1440.png");

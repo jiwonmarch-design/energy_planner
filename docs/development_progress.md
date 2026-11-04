@@ -198,3 +198,4 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - `aria-live`, `aria-busy`, `progressbar` 값을 상태와 동기화하고 1440px·390px·320px 수평 오버플로와 결과 전환을 실제 Chrome에서 확인
 - 합성 180일 CSV로 품질 진단 → XGBoost·baseline 평가 → Test 독립 평가 → 저장 모델 예측 전체 흐름 25/25 PASS, 콘솔 오류 0
 - 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `forecast-dashboard-empty-1440.png`, `forecast-training-empty-1440.png`, `forecast-dashboard-1440.png`
+- 예측 대시보드 하단의 중복 `모델 성능 비교`·`모델 상세 정보` 패널을 제거하고, 모델 평가는 STEP 03 Validation 결과 표와 선택 모델 KPI에서만 제공
