@@ -107,6 +107,7 @@
 
 ### PRD-F10 로컬 웹 화면 — 부분 구현
 
+- 단일 페이지 `/`에서 Hero → CSV 업로드 → 품질 진단 → 모델 학습 → 예측 대시보드 순서로 이동하며, URL hash로 각 섹션을 직접 연결합니다.
 - CSV 선택, 건물 ID·시간대 입력과 품질 결과를 제공합니다.
 - 학습 작업의 QUEUED/RUNNING/COMPLETED/FAILED 상태를 표현합니다.
 - Validation MAE, 선택 모델과 run ID를 표시합니다.
