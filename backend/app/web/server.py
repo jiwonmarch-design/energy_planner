@@ -12,6 +12,11 @@ from urllib.parse import urlparse
 
 from backend.app.ml.contracts import PipelineError
 from backend.app.web.service import TrainingJobManager, analyze_csv
+from backend.app.web.ai_analysis import (
+    AIAnalysisUnavailable,
+    AIAnalysisUpstreamError,
+    analysis_status,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -34,6 +39,14 @@ def resolve_frontend_target(path: str) -> Path | None:
 class Handler(BaseHTTPRequestHandler):
     server_version = "EnergyPlannerLocal/0.1"
 
+    def _write_body(self, body: bytes) -> None:
+        """Ignore a browser closing a local connection after headers were sent."""
+
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError):
+            return
+
     def _json(self, status: int, value: dict) -> None:
         body = json.dumps(value, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -41,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def _request_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
@@ -59,7 +72,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.NOT_FOUND, {"error": str(exc)})
             return
         if path == "/api/health":
-            self._json(HTTPStatus.OK, {"status": "ok", "service": "energy-planner-local"})
+            self._json(
+                HTTPStatus.OK,
+                {
+                    "status": "ok",
+                    "service": "energy-planner-local",
+                    "ai_analysis": analysis_status(),
+                },
+            )
             return
         target = resolve_frontend_target(path)
         if target is None:
@@ -70,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", mimetypes.guess_type(target.name)[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
@@ -99,9 +119,20 @@ class Handler(BaseHTTPRequestHandler):
                 job_id = path.rsplit("/", 1)[-1]
                 self._json(HTTPStatus.OK, MANAGER.predict(job_id, value.get("csv_text", "")))
                 return
+            if path.startswith("/api/ai-analysis/"):
+                job_id = path.rsplit("/", 1)[-1]
+                self._json(
+                    HTTPStatus.OK,
+                    MANAGER.analyze_prediction(job_id, value.get("csv_text", "")),
+                )
+                return
             self._json(HTTPStatus.NOT_FOUND, {"error": "지원하지 않는 API입니다."})
         except (PipelineError, ValueError, KeyError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc), "type": type(exc).__name__})
+        except AIAnalysisUnavailable as exc:
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": str(exc), "type": type(exc).__name__})
+        except AIAnalysisUpstreamError as exc:
+            self._json(HTTPStatus.BAD_GATEWAY, {"error": str(exc), "type": type(exc).__name__})
         except Exception as exc:
             self._json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,

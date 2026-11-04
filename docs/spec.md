@@ -14,8 +14,10 @@
 | baseline·평가 | `baselines.py`, `evaluate.py` | 구현됨 |
 | 산출물·추론 | `artifacts.py`, `inference.py` | 구현됨 |
 | 웹 서비스 | `backend/app/web/service.py`, `server.py` | 로컬 MVP 구현 |
-| 화면 | `frontend/` | 구현됨, 실제 브라우저 QA 미검증 |
-| 영속 job·인증 | 없음 | 미구현 |
+| 화면 | `frontend/` | 구현됨, 실제 Chrome QA 완료 |
+| job 메타데이터 영속화 | `backend/app/web/service.py` | 구현됨 |
+| 선택형 AI 해석 | `backend/app/web/ai_analysis.py` | 구현됨, 실제 외부 호출 미검증 |
+| 인증·사용자 격리 | 없음 | 미구현 |
 
 ## 3. 입력 계약
 
@@ -157,8 +159,9 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 | `POST /api/training-jobs` | 별도 학습 작업 생성 |
 | `GET /api/training-jobs/{job_id}` | 작업 상태·지표 조회 |
 | `POST /api/predictions/{job_id}` | 완료 run 재사용 예측 |
+| `POST /api/ai-analysis/{job_id}` | 저장 예측 결과의 선택형 AI 해석 |
 
-동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. job registry는 메모리 전용입니다.
+동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. 공개 job 메타데이터는 `artifacts/web_jobs/_jobs/`에 저장하며 원본 CSV는 저장하지 않습니다. 완료 job은 재시작 후 복구하고, 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구합니다.
 
 ## 13. 화면 동작
 
@@ -168,13 +171,21 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 - 예측 대시보드는 과거 실측을 실선, 미래 예측을 점선으로 구분하고 24행 표 대체 표현을 제공합니다.
 - 별도 Guide 화면 없이 CSV 계약, 품질 진단, 학습·예측과 선택형 AI 해석을 각 단계의 도움말로 제공합니다.
 - 오류는 임의 복구하지 않고 API 사유를 사용자에게 표시합니다.
-- 실제 Chrome에서 1440px·390px·320px 단일 페이지 섹션 이동과 반응형을 검증했습니다.
+- 실제 Chrome에서 1440px·390px·320px 단일 페이지 섹션 이동, 학습 중 이동, 완료 job 복구와 저장 예측을 검증했습니다.
+
+### 13.1 OpenAI 해석 경계
+
+- `OPENAI_API_KEY`는 서버 환경변수에서만 읽고 public 응답에는 enabled 상태와 모델명만 제공합니다.
+- Responses API의 strict JSON schema 출력만 허용하며 거부·불완전·비정상 JSON을 실패로 분리합니다.
+- 한 로컬 프로세스에서 job당 최대 3회, 동시 중복 호출은 1회로 제한합니다.
+- `store: false`, timeout, 출력 토큰 상한을 적용하며 원본 CSV는 전송하지 않습니다.
+- 해석 실패는 XGBoost·baseline 수치와 저장 run을 변경하지 않습니다.
 
 ## 14. 보안·운영 제한
 
 - 서버 기본 bind: `127.0.0.1`
 - public job 응답에서 CSV와 내부 시간대 상태를 제외합니다.
-- 인증, CSRF, 영속 queue, 사용자별 권한은 미구현입니다.
+- 인증, CSRF, 영속 실행 queue, 사용자별 권한은 미구현입니다.
 - 운영 승격, 배포와 외부 데이터 전송은 별도 승인 대상입니다.
 
 ## 15. 검증 요구사항
@@ -185,4 +196,4 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 - 시간대 필드 추가 전후 피처·예측 계산 결과 동일성
 - 전체 ML·웹 회귀 테스트
 - Python compileall과 JavaScript 구문 검사
-- 실제 브라우저 QA는 별도 환경에서 수행
+- 실제 브라우저 QA 결과와 스크린샷 보존

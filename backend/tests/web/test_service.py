@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -200,6 +201,47 @@ class WebServiceCases(unittest.TestCase):
             self.assertNotIn("csv_text", job.public())
             self.assertNotIn("building_timezone", job.public())
 
+    def test_completed_job_metadata_survives_restart_without_csv(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            job = manager.submit(
+                building_id="building-persisted",
+                csv_text=csv_for(180),
+                building_timezone="Asia/Seoul",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            run_dir = Path(temporary) / "building-persisted" / "run-a"
+            run_dir.mkdir(parents=True)
+            job.status = "COMPLETED"
+            job.run_dir = str(run_dir)
+            job.selected_model = "last_24h"
+            job.csv_text = ""
+            manager._persist_job(job)
+
+            state_path = Path(temporary) / "_jobs" / f"{job.job_id}.json"
+            persisted = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertNotIn("csv_text", persisted)
+
+            recovered = TrainingJobManager(temporary, pipeline=lambda *a, **k: None).get(job.job_id)
+            self.assertEqual(recovered.status, "COMPLETED")
+            self.assertEqual(recovered.run_dir, str(run_dir))
+            self.assertEqual(recovered.building_timezone, "Asia/Seoul")
+
+    def test_incomplete_job_is_marked_failed_after_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manager = TrainingJobManager(temporary, pipeline=lambda *a, **k: None)
+            job = manager.submit(
+                building_id="building-interrupted",
+                csv_text=csv_for(180),
+                building_timezone="UTC",
+                source_timezone_mode="explicit_offset",
+                start_background=False,
+            )
+            recovered = TrainingJobManager(temporary, pipeline=lambda *a, **k: None).get(job.job_id)
+            self.assertEqual(recovered.status, "FAILED")
+            self.assertIn("서버 재시작", recovered.error)
+
     def test_warning_period_requires_and_accepts_explicit_approval(self):
         without = analyze_csv(
             csv_for(90),
@@ -250,6 +292,7 @@ class WebServiceCases(unittest.TestCase):
                 data_hash="synthetic-web-test",
                 source_timezone_mode=kwargs["source_timezone_mode"],
                 source_timezone_metadata=kwargs["source_timezone_metadata"],
+                derived_input_csv=frame.to_csv(index=False).encode("utf-8"),
             )
             return SimpleNamespace(
                 run_dir=run,
@@ -273,9 +316,20 @@ class WebServiceCases(unittest.TestCase):
             self.assertEqual(result["model_kind"], LAST_24H)
             self.assertEqual(tuple(result["output_shape"]), (1, 24))
             self.assertEqual(len(result["predictions_kwh"]), 24)
-            self.assertEqual(len(result["history_kwh"]), 12)
+            self.assertEqual(len(result["history_kwh"]), 24)
+            self.assertEqual(len(result["recent_daily_usage"]), 7)
+            self.assertGreaterEqual(len(result["recent_monthly_usage"]), 1)
+            self.assertEqual(len(result["period_composition"]), 4)
+            self.assertAlmostEqual(
+                sum(period["share"] for period in result["period_composition"]), 1.0
+            )
+            self.assertAlmostEqual(result["average_kwh"], result["total_kwh"] / 24)
             self.assertFalse(result["retrained"])
             self.assertEqual(manager.get(job.job_id).validation_metrics, validation_metrics)
+            recovered_manager = TrainingJobManager(temporary, pipeline=artifact_pipeline)
+            recovered_result = recovered_manager.predict(job.job_id, "")
+            self.assertEqual(recovered_result["model_kind"], LAST_24H)
+            self.assertEqual(len(recovered_result["predictions_kwh"]), 24)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import json
 import re
 import threading
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields as dataclass_fields
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -29,6 +29,7 @@ from backend.app.ml.quality import (
 )
 from backend.app.ml.split import make_split_plan
 from backend.app.ml.train import run_training_pipeline
+from backend.app.web.ai_analysis import analyze_prediction
 
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -140,18 +141,67 @@ class TrainingJob:
 
 
 class TrainingJobManager:
-    """In-memory local prototype registry; it never auto-promotes a model."""
+    """Local job registry with metadata-only restart recovery and no auto-promotion."""
 
     def __init__(
         self,
         artifact_root: str | Path,
         *,
         pipeline: Callable[..., Any] = run_training_pipeline,
+        ai_analyzer: Callable[[dict[str, Any]], dict[str, Any]] = analyze_prediction,
     ) -> None:
         self.artifact_root = Path(artifact_root)
         self.pipeline = pipeline
+        self.ai_analyzer = ai_analyzer
         self._jobs: dict[str, TrainingJob] = {}
         self._lock = threading.Lock()
+        self._analysis_in_progress: set[str] = set()
+        self._analysis_counts: dict[str, int] = {}
+        self._job_state_root = self.artifact_root / "_jobs"
+        self._load_persisted_jobs()
+
+    def _job_state_path(self, job_id: str) -> Path:
+        if not re.fullmatch(r"[0-9a-f]{32}", job_id):
+            raise ValueError("job_id 형식이 올바르지 않습니다.")
+        return self._job_state_root / f"{job_id}.json"
+
+    def _persist_job(self, job: TrainingJob) -> None:
+        self._job_state_root.mkdir(parents=True, exist_ok=True)
+        value = asdict(job)
+        value.pop("csv_text", None)
+        target = self._job_state_path(job.job_id)
+        temporary = target.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        temporary.replace(target)
+
+    def _load_persisted_jobs(self) -> None:
+        if not self._job_state_root.is_dir():
+            return
+        allowed = {field.name for field in dataclass_fields(TrainingJob)} - {"csv_text"}
+        for path in sorted(self._job_state_root.glob("*.json")):
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+                filtered = {key: value[key] for key in allowed if key in value}
+                job = TrainingJob(**filtered, csv_text="")
+                if job.status in {"QUEUED", "RUNNING"}:
+                    job.status = "FAILED"
+                    job.error = "ServerRestarted: 서버 재시작으로 진행 중 작업을 복구할 수 없습니다. 다시 학습해 주세요."
+                    job.progress_message = "서버 재시작으로 학습이 중단되었습니다."
+                    job.completed_at_utc = datetime.now(UTC).isoformat()
+                    self._persist_job(job)
+                elif job.status == "COMPLETED":
+                    run_dir = Path(job.run_dir or "").resolve()
+                    artifact_root = self.artifact_root.resolve()
+                    if artifact_root not in run_dir.parents or not run_dir.is_dir():
+                        job.status = "FAILED"
+                        job.error = "ArtifactMissing: 저장된 모델 경로를 확인할 수 없습니다."
+                        job.progress_message = "저장된 모델을 다시 연결할 수 없습니다."
+                        self._persist_job(job)
+                self._jobs[job.job_id] = job
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
 
     def submit(
         self,
@@ -196,6 +246,7 @@ class TrainingJobManager:
             ):
                 raise EligibilityError("같은 건물의 학습 작업이 이미 진행 중입니다.")
             self._jobs[job_id] = job
+            self._persist_job(job)
         if start_background:
             threading.Thread(
                 target=self._run,
@@ -210,6 +261,7 @@ class TrainingJobManager:
         job.status = "RUNNING"
         job.started_at_utc = datetime.now(UTC).isoformat()
         job.progress_message = "XGBoost와 기준 모델을 평가하고 있습니다."
+        self._persist_job(job)
         try:
             run_id = f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}_{job_id[:8]}"
             outcome = self.pipeline(
@@ -242,6 +294,8 @@ class TrainingJobManager:
             job.progress_message = "학습이 중단되었습니다. 원인을 확인하세요."
         finally:
             job.completed_at_utc = datetime.now(UTC).isoformat()
+            job.csv_text = ""
+            self._persist_job(job)
 
     def get(self, job_id: str) -> TrainingJob:
         try:
@@ -253,10 +307,21 @@ class TrainingJobManager:
         job = self.get(job_id)
         if job.status != "COMPLETED" or not job.run_dir:
             raise EligibilityError("완료된 학습 작업만 예측에 사용할 수 있습니다.")
+        if isinstance(csv_text, str) and csv_text.strip():
+            prediction_frame = parse_csv_text(csv_text)
+            prediction_timezone_mode = job.source_timezone_mode
+        else:
+            derived_path = Path(job.run_dir) / "derived_input_utc.csv"
+            if not derived_path.is_file():
+                raise EligibilityError(
+                    "저장된 예측 입력을 찾을 수 없습니다. 원본 CSV를 다시 선택해 주세요."
+                )
+            prediction_frame = pd.read_csv(derived_path)
+            prediction_timezone_mode = SourceTimezoneMode.EXPLICIT_OFFSET.value
         data = validate_and_normalize_frame(
-            parse_csv_text(csv_text),
+            prediction_frame,
             job.building_timezone,
-            source_timezone_mode=job.source_timezone_mode,
+            source_timezone_mode=prediction_timezone_mode,
         )
         result = predict_from_run(
             job.run_dir,
@@ -265,11 +330,61 @@ class TrainingJobManager:
         )
         values = result.predictions_kwh
         peak_index = max(range(len(values)), key=values.__getitem__)
+        local_data = data.copy()
+        local_data.index = local_data.index.tz_convert(job.building_timezone)
+        recent_actual = local_data.kwh.iloc[-24:]
+        actual_peak_timestamp = recent_actual.idxmax()
+        daily = local_data.kwh.groupby(local_data.index.date).sum().tail(7)
+        monthly_periods = local_data.index.tz_localize(None).to_period("M")
+        monthly = local_data.kwh.groupby(monthly_periods).sum().tail(6)
+        period_labels = ("00–05시", "06–11시", "12–17시", "18–23시")
+        period_totals = [0.0, 0.0, 0.0, 0.0]
+        for timestamp, amount in local_data.kwh.iloc[-168:].items():
+            period_totals[min(timestamp.hour // 6, 3)] += float(amount)
+        period_total = sum(period_totals)
         return {
             **asdict(result),
-            "history_timestamps": [value.isoformat() for value in data.index[-12:]],
-            "history_kwh": data.kwh.iloc[-12:].astype(float).tolist(),
+            "history_timestamps": [value.isoformat() for value in data.index[-24:]],
+            "history_kwh": data.kwh.iloc[-24:].astype(float).tolist(),
             "total_kwh": float(sum(values)),
+            "average_kwh": float(sum(values) / len(values)),
             "peak_kwh": float(values[peak_index]),
             "peak_timestamp": result.timestamps[peak_index],
+            "actual_summary": {
+                "total_24h_kwh": float(recent_actual.sum()),
+                "average_hourly_kwh": float(recent_actual.mean()),
+                "peak_kwh": float(recent_actual.max()),
+                "peak_timestamp": actual_peak_timestamp.isoformat(),
+            },
+            "recent_daily_usage": [
+                {"date": str(date), "kwh": float(amount)} for date, amount in daily.items()
+            ],
+            "recent_monthly_usage": [
+                {"month": str(month), "kwh": float(amount)}
+                for month, amount in monthly.items()
+            ],
+            "period_composition": [
+                {
+                    "label": label,
+                    "kwh": amount,
+                    "share": amount / period_total if period_total else 0.0,
+                }
+                for label, amount in zip(period_labels, period_totals, strict=True)
+            ],
         }
+
+    def analyze_prediction(self, job_id: str, csv_text: str) -> dict[str, Any]:
+        """Explain a fresh local forecast without changing model or prediction state."""
+        with self._lock:
+            if job_id in self._analysis_in_progress:
+                raise EligibilityError("이 학습 기록의 AI 분석이 이미 진행 중입니다.")
+            if self._analysis_counts.get(job_id, 0) >= 3:
+                raise EligibilityError("한 학습 기록의 AI 분석은 로컬 실행당 최대 3회까지 가능합니다.")
+            self._analysis_in_progress.add(job_id)
+            self._analysis_counts[job_id] = self._analysis_counts.get(job_id, 0) + 1
+        try:
+            prediction = self.predict(job_id, csv_text)
+            return self.ai_analyzer(prediction)
+        finally:
+            with self._lock:
+                self._analysis_in_progress.discard(job_id)
