@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T02:22:35.536Z",
+  "executed_at": "2026-11-04T02:33:14.126Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -222,7 +222,12 @@
           "통과",
           "가능"
         ],
-        "passIcons": 4
+        "passIcons": 4,
+        "stepBarBorderTop": "0px",
+        "stepBarBorderBottom": "0px",
+        "completedStepShadow": "none",
+        "workflowBorderBottom": "0px",
+        "heroAccentLine": "none"
       }
     },
     {

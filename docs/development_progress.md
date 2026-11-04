@@ -187,3 +187,4 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - XGBoost 학습 영역의 재시도·예측 실행·대시보드 이동 버튼을 제거해 `XGBoost 학습 시작` 단일 버튼으로 정리
 - 왕복 애니메이션 진행 막대를 실제 데이터 준비·24개 예측 시점별 학습·Validation·Test·저장 단계 기반 퍼센트 진행률로 교체하고, API에 `progress_percent`를 추가
 - 실제 Chrome에서 중간 10%와 완료 100%, 단일 학습 버튼, 전체 백엔드 흐름 24/24 PASS 확인; 스크린샷 `analysis/forecast_home_validation/forecast-training-1440.png`
+- 상단 4단계 바의 위·아래 테두리와 완료 단계 밑줄, Hero 파란 장식선, 작업 섹션 경계선을 제거하고 활성 단계 배경·세로 구분만 유지
