@@ -36,11 +36,12 @@ python -m pip install -r backend/requirements.txt
 
 브라우저에서 `http://127.0.0.1:8765`를 엽니다. 이 서버는 로컬 프로토타입이며 인증·다중 사용자 격리·운영 배포 기능을 제공하지 않습니다.
 
-사용방법은 통합 페이지의 CSV 업로드·품질 진단·학습·예측 단계별 도움말에서 확인할 수 있습니다. OpenAI 해석을 실제로 사용하려면 서버 실행 전에 키를 환경변수로만 설정합니다. 키를 코드·문서·브라우저에 넣지 않습니다.
+사용방법은 통합 페이지의 CSV 업로드·품질 진단·학습·예측 단계별 도움말에서 확인할 수 있습니다. OpenAI 해석을 실제로 사용하려면 프로젝트 루트의 Git 제외 파일 `.env`에서 `OPENAI_API_KEY=` 뒤에 키를 붙여 넣고 서버를 다시 시작합니다. `.env.example`은 공유 가능한 형식 예시이며 실제 키를 입력하지 않습니다. 서버 프로세스에 이미 설정된 환경변수는 `.env`보다 우선합니다. 키를 코드·문서·브라우저에 넣지 않습니다.
 
-```powershell
-$env:OPENAI_API_KEY = '<your-api-key>'
-$env:OPENAI_MODEL = 'gpt-4o-mini' # 선택 사항
+```dotenv
+OPENAI_API_KEY=여기에_키를_붙여넣기
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_TIMEOUT_SECONDS=20
 ```
 
 ## 테스트

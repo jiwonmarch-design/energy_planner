@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from backend.app.ml.contracts import PipelineError
+from backend.app.web.local_env import load_env_file
 from backend.app.web.service import TrainingJobManager, analyze_csv
 from backend.app.web.ai_analysis import (
     AIAnalysisUnavailable,
@@ -148,6 +149,10 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
+    try:
+        load_env_file(PROJECT_ROOT / ".env")
+    except ValueError as exc:
+        parser.error(str(exc))
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"Energy Planner local URL: http://{args.host}:{args.port}", flush=True)
     try:

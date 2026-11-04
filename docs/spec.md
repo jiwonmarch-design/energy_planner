@@ -184,6 +184,7 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 ### 13.1 OpenAI 해석 경계
 
 - `OPENAI_API_KEY`는 서버 환경변수에서만 읽고 public 응답에는 enabled 상태와 모델명만 제공합니다.
+- 로컬 서버 시작 시 Git에서 제외된 루트 `.env`를 선택적으로 읽으며, 프로세스 환경변수가 같은 이름의 `.env` 값보다 우선합니다. `.env.example`에는 형식만 유지하고 실제 키를 저장하지 않습니다.
 - Responses API의 strict JSON schema 출력만 허용하며 거부·불완전·비정상 JSON을 실패로 분리합니다.
 - 한 로컬 프로세스에서 job당 최대 3회, 동시 중복 호출은 1회로 제한합니다.
 - `store: false`, timeout, 출력 토큰 상한을 적용하며 원본 CSV는 전송하지 않습니다.
