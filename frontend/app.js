@@ -485,17 +485,18 @@ function renderQuality(result) {
     .map(([label, value, foot]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong><small>${foot}</small></div>`)
     .join("");
   const observationState = quality.elapsed_days >= 180 ? "pass" : quality.elapsed_days >= 90 ? "warning" : "fail";
-  const observationText = quality.elapsed_days >= 180 ? "권장 기간 충족" : quality.elapsed_days >= 90 ? "최소 기간 충족 · 확인 필요" : "90일 미만";
+  const observationText = quality.elapsed_days >= 180 ? "통과" : quality.elapsed_days >= 90 ? "최소 기간 충족 · 확인 필요" : "90일 미만";
   const inputWindowState = quality.latest_168_complete ? "pass" : "fail";
   const splitState = result.split ? "pass" : "fail";
   const details = [
     ["필수 컬럼 및 형식", result.contract_status === "PASS" ? "통과" : "확인 필요", result.contract_status === "PASS" ? "pass" : "fail"],
     ["최소 관측 기간", observationText, observationState],
-    ["입력용 168시간 구간", quality.latest_168_complete ? "최신 구간 확보" : "최신 구간 불완전", inputWindowState],
-    ["시간순 Train / Validation / Test 분리", result.split ? "분리 가능" : "분리 불가", splitState],
+    ["입력용 168시간 구간", quality.latest_168_complete ? "통과" : "최신 구간 불완전", inputWindowState],
+    ["시간순 Train / Validation / Test 분리", result.split ? "가능" : "분리 불가", splitState],
   ];
+  const checkIcon = '<svg class="detail-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m4 10.5 3.5 3.5L16 5.5"/></svg>';
   $("quality-detail-list").innerHTML = details
-    .map(([label, value, detailState]) => `<div class="detail-row"><span>${label}</span><strong class="detail-state" data-state="${detailState}">${value}</strong></div>`)
+    .map(([label, value, detailState]) => `<div class="detail-row"><span>${label}</span><strong class="detail-state" data-state="${detailState}">${detailState === "pass" ? checkIcon : ""}<span>${value}</span></strong></div>`)
     .join("");
   const reasons = [...quality.reason_codes, ...result.training_blockers];
   $("reason-list").innerHTML = (reasons.length ? reasons : ["필수 품질 기준을 충족했습니다."])

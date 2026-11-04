@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T01:50:28.247Z",
+  "executed_at": "2026-11-04T02:00:14.191Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -215,7 +215,14 @@
         "eligibility": "모델 학습을 시작할 수 있습니다.",
         "trainEnabled": true,
         "metricCards": 4,
-        "detailRows": 4
+        "detailRows": 4,
+        "detailLabels": [
+          "통과",
+          "통과",
+          "통과",
+          "가능"
+        ],
+        "passIcons": 4
       }
     },
     {

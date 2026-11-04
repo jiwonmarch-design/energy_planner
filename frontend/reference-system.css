@@ -157,7 +157,8 @@ a { color: inherit; }
 .ok { color: var(--success) !important; }
 .detail-panel { margin-top: 18px; }
 .quality-detail-list { border-top: 1px solid var(--line); }
-.detail-state { text-align: right; }
+.detail-state { display: inline-flex; align-items: center; justify-content: flex-end; gap: 5px; text-align: right; }
+.detail-state-icon { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .detail-state[data-state="pass"] { color: var(--success); }
 .detail-state[data-state="warning"] { color: var(--warning); }
 .detail-state[data-state="fail"] { color: var(--danger); }

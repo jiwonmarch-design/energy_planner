@@ -153,9 +153,11 @@ const quality = await evaluate(`({
   eligibility: document.getElementById('eligibility').textContent,
   trainEnabled: !document.getElementById('train').disabled,
   metricCards: document.querySelectorAll('#quality-cards .metric-card').length,
-  detailRows: document.querySelectorAll('#quality-detail-list .detail-row').length
+  detailRows: document.querySelectorAll('#quality-detail-list .detail-row').length,
+  detailLabels: [...document.querySelectorAll('#quality-detail-list .detail-state')].map((node) => node.textContent.trim()),
+  passIcons: document.querySelectorAll('#quality-detail-list .detail-state[data-state="pass"] .detail-state-icon').length
 })`);
-record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS" && quality.metricCards === 4 && quality.detailRows === 4, quality);
+record("real_csv_quality_flow", diagnosed && quality.trainEnabled && quality.status === "PASS" && quality.metricCards === 4 && quality.detailRows === 4 && quality.passIcons === 4 && quality.detailLabels.join('|') === "통과|통과|통과|가능", quality);
 await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('quality').scrollIntoView({ block: 'start' }); true");
 await pause(350);
 await screenshot("forecast-quality-1440.png");
