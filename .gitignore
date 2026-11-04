@@ -9,6 +9,7 @@ node_modules/
 
 # Generated output and caches
 dist/
+tmp/
 __pycache__/
 *.py[cod]
 **/chrome-profile/
