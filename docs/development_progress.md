@@ -189,3 +189,12 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 실제 Chrome에서 중간 10%와 완료 100%, 단일 학습 버튼, 전체 백엔드 흐름 24/24 PASS 확인; 스크린샷 `analysis/forecast_home_validation/forecast-training-1440.png`
 - 상단 4단계 바의 위·아래 테두리와 완료 단계 밑줄, Hero 파란 장식선, 작업 섹션 경계선을 제거하고 활성 단계 배경·세로 구분만 유지
 - 단계 바와 본문을 구분하는 중립색 1px 하단 테두리만 복원해 외곽 경계를 명확히 하고, 중복 상단선·파란 장식선·완료 밑줄은 제외
+
+## 2026-11-04 예측 대시보드 준비 상태 개편
+
+- 예측 실행 전의 빈 KPI·차트·모델 패널을 숨기고 CSV 업로드 → 품질 진단 → 모델 학습 → 24시간 예측의 실제 준비 상태와 다음 행동만 표시
+- 품질 진단, 학습 진행·실패, 예측 준비 완료에 따라 안내 제목·상태·이동 버튼이 동적으로 바뀌며 실제 예측 성공 후에만 결과 대시보드를 공개
+- XGBoost 학습 진행 바를 학습 전부터 0%로 고정 노출하고 진행 중·실패·완료까지 동일 위치에서 서버 진행률을 유지
+- `aria-live`, `aria-busy`, `progressbar` 값을 상태와 동기화하고 1440px·390px·320px 수평 오버플로와 결과 전환을 실제 Chrome에서 확인
+- 합성 180일 CSV로 품질 진단 → XGBoost·baseline 평가 → Test 독립 평가 → 저장 모델 예측 전체 흐름 25/25 PASS, 콘솔 오류 0
+- 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `forecast-dashboard-empty-1440.png`, `forecast-training-empty-1440.png`, `forecast-dashboard-1440.png`

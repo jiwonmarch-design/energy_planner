@@ -133,15 +133,13 @@ function updateAnalyzeAvailability() {
 }
 
 function resetTrainingView(message = "STEP 02 품질 진단을 통과하면 학습을 시작할 수 있습니다.") {
-  $("training-progress").hidden = true;
+  $("training-progress").hidden = false;
   $("workspace-model-results").hidden = true;
-  $("training-placeholder").hidden = false;
-  $("training-placeholder").textContent = message;
   $("workspace-job-status").textContent = "학습 대기";
   $("workspace-job-status").removeAttribute("data-status");
   $("train").disabled = true;
   $("train").textContent = "XGBoost 학습 시작 ↗";
-  setTrainingProgress(0, "학습 작업을 준비하고 있습니다.");
+  setTrainingProgress(0, message);
   $("workspace-prediction-summary").textContent = "24시간 예측 실행 전입니다.";
 }
 
@@ -177,6 +175,8 @@ function resetAIAnalysis() {
 }
 
 function resetDashboardPrediction() {
+  $("dashboard-gate").hidden = false;
+  $("dashboard-results").hidden = true;
   $("total-forecast").textContent = "—";
   $("average-forecast").textContent = "예측 실행 전";
   $("peak-forecast").textContent = "예측 실행 전";
@@ -215,11 +215,22 @@ function invalidateAnalysis(message = "입력이 변경되어 재검증이 필�
   if (hadAnalysis) error.textContent = "입력 설정이 변경되어 이전 품질 진단 결과를 사용할 수 없습니다. 다시 진단해 주세요.";
 }
 
+function setDashboardReadiness(key, status, label, description) {
+  const item = document.querySelector(`[data-readiness-key="${key}"]`);
+  if (!item) return;
+  item.dataset.state = status;
+  item.querySelector(".readiness-state").textContent = label;
+  if (description) item.querySelector(".readiness-copy small").textContent = description;
+}
+
 function updateNextAction() {
   const completed = state.job?.status === "COMPLETED";
   const running = ["QUEUED", "RUNNING"].includes(state.job?.status);
+  const failed = state.job?.status === "FAILED";
   const currentAnalysis = analysisIsCurrent();
   const contextMatches = contextsMatch(state.jobContext, currentContext());
+  const hasInput = Boolean(state.csvText) || state.jobRecovered;
+  const qualityReady = currentAnalysis || state.jobRecovered;
   const canPredict = completed && (
     (Boolean(state.csvText) && currentAnalysis && contextMatches)
     || (!state.csvText && state.jobRecovered)
@@ -246,11 +257,94 @@ function updateNextAction() {
   homeCta.href = `#${homeTarget}`;
   homeCta.dataset.scrollTarget = homeTarget;
   homeLabel.textContent = homeText;
-  $("dashboard-empty-action").hidden = completed;
-  $("dashboard-empty-action").textContent = running ? "데이터 분석에서 학습 상태 확인" : "CSV 업로드하러 가기";
-  $("return-workspace").hidden = !completed;
-  $("run-prediction").hidden = !completed;
+
+  setDashboardReadiness(
+    "upload",
+    hasInput ? "complete" : "current",
+    hasInput ? "완료" : "현재 단계",
+    state.jobRecovered ? "저장된 학습 입력을 사용합니다." : hasInput ? "선택된 시간별 CSV가 준비되었습니다." : "시간별 전력 사용량 CSV를 선택해 주세요.",
+  );
+  setDashboardReadiness(
+    "quality",
+    qualityReady ? "complete" : state.csvText ? "current" : "waiting",
+    qualityReady ? "완료" : state.csvText ? "다음 단계" : "대기",
+    qualityReady ? "예측에 필요한 데이터 품질 기준을 확인했습니다." : state.csvText ? "업로드한 CSV의 품질을 진단해 주세요." : "CSV 업로드 후 진단할 수 있습니다.",
+  );
+  setDashboardReadiness(
+    "training",
+    completed ? "complete" : running ? "in-progress" : failed ? "fail" : currentAnalysis && state.analysis?.training_eligible ? "current" : "waiting",
+    completed ? "완료" : running ? "진행 중" : failed ? "확인 필요" : currentAnalysis && state.analysis?.training_eligible ? "다음 단계" : "대기",
+    completed ? "저장된 모델과 평가 결과가 준비되었습니다." : running ? "XGBoost와 기준 모델을 평가하고 있습니다." : failed ? "오류를 확인한 뒤 같은 버튼으로 다시 시작할 수 있습니다." : currentAnalysis && state.analysis?.training_eligible ? "XGBoost 모델 학습을 시작해 주세요." : "품질 진단 통과 후 학습할 수 있습니다.",
+  );
+  setDashboardReadiness(
+    "prediction",
+    state.predictionComplete ? "complete" : canPredict ? "ready" : "waiting",
+    state.predictionComplete ? "완료" : canPredict ? "실행 가능" : "대기",
+    state.predictionComplete ? "실제 24시간 예측 결과를 생성했습니다." : canPredict ? "준비된 모델로 24시간 예측을 실행할 수 있습니다." : "모델 학습 완료 후 실행할 수 있습니다.",
+  );
+
+  let gateTitle = "예측 결과를 만들기 위한 준비가 필요합니다.";
+  let gateDescription = "CSV 업로드부터 모델 학습까지 순서대로 완료하면 실제 예측 결과가 표시됩니다.";
+  let gateActionTarget = "upload";
+  let gateActionText = "CSV 업로드 시작";
+  if (running) {
+    gateTitle = "모델 학습이 진행 중입니다.";
+    gateDescription = "학습이 완료되면 이 화면에서 24시간 예측을 실행할 수 있습니다.";
+    gateActionTarget = "training";
+    gateActionText = "학습 진행 상태 보기";
+  } else if (failed) {
+    gateTitle = "모델 학습 상태를 확인해 주세요.";
+    gateDescription = "학습 오류 안내를 확인한 뒤 XGBoost 학습을 다시 시작할 수 있습니다.";
+    gateActionTarget = "training";
+    gateActionText = "학습 상태 확인";
+  } else if (completed && canPredict) {
+    gateTitle = "24시간 예측을 실행할 준비가 완료되었습니다.";
+    gateDescription = "저장된 모델과 최신 168시간 입력으로 실제 예측 결과를 생성합니다.";
+  } else if (completed) {
+    gateTitle = "예측 입력을 다시 확인해 주세요.";
+    gateDescription = "저장된 모델은 준비됐지만 현재 CSV 입력을 다시 진단해야 합니다.";
+    gateActionText = "예측 입력 준비";
+  } else if (currentAnalysis && state.analysis?.training_eligible) {
+    gateTitle = "XGBoost 모델 학습을 시작해 주세요.";
+    gateDescription = "데이터 품질 진단을 통과했습니다. 학습이 완료되면 예측을 실행할 수 있습니다.";
+    gateActionTarget = "training";
+    gateActionText = "모델 학습으로 이동";
+  } else if (state.csvText) {
+    gateTitle = "업로드한 CSV의 품질을 확인해 주세요.";
+    gateDescription = "필수 컬럼, 관측 기간과 시간 연속성을 확인한 뒤 모델을 학습합니다.";
+    gateActionTarget = "quality";
+    gateActionText = "품질 진단으로 이동";
+  }
+  $("dashboard-gate-title").textContent = gateTitle;
+  $("dashboard-gate-description").textContent = gateDescription;
+  const gateAction = $("dashboard-empty-action");
+  const showPredictionAction = completed && canPredict && !state.predictionComplete;
+  gateAction.hidden = showPredictionAction;
+  gateAction.dataset.target = gateActionTarget;
+  gateAction.textContent = gateActionText;
+  $("run-prediction").hidden = !showPredictionAction;
   $("run-prediction").disabled = !canPredict;
+  $("dashboard-gate").hidden = state.predictionComplete;
+  $("dashboard-results").hidden = !state.predictionComplete;
+
+  const dashboardStatus = $("job-status");
+  dashboardStatus.removeAttribute("data-status");
+  if (state.predictionComplete) {
+    dashboardStatus.textContent = "예측 완료";
+    dashboardStatus.dataset.status = "COMPLETED";
+  } else if (canPredict) {
+    dashboardStatus.textContent = "예측 준비 완료";
+    dashboardStatus.dataset.status = "READY";
+  } else if (running) {
+    dashboardStatus.textContent = "모델 학습 중";
+    dashboardStatus.dataset.status = "RUNNING";
+  } else if (failed) {
+    dashboardStatus.textContent = "학습 확인 필요";
+    dashboardStatus.dataset.status = "FAILED";
+  } else {
+    dashboardStatus.textContent = "준비 필요";
+  }
+
   $("ai-analyze").disabled = !state.predictionComplete || !state.aiAnalysisAvailable;
   if (!state.aiAnalysisAvailable) {
     $("ai-analysis-status").textContent = "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다.";
@@ -258,12 +352,6 @@ function updateNextAction() {
     $("ai-analysis-status").textContent = "24시간 예측을 먼저 실행해 주세요.";
   } else if (!state.aiAnalysisComplete) {
     $("ai-analysis-status").textContent = `AI 해석을 실행할 수 있습니다${state.aiAnalysisModel ? ` · ${state.aiAnalysisModel}` : ""}.`;
-  }
-  if (completed && !state.predictionComplete) {
-    $("sample-tag").textContent = canPredict ? "예측 실행 전" : "CSV 재검증 필요";
-    $("sample-note").textContent = canPredict
-      ? "저장된 모델이 준비되었습니다. ‘24시간 예측 실행’을 눌러 실제 결과를 생성하세요."
-      : "저장된 모델은 확인했지만 예측 입력이 없습니다. 데이터 분석에서 CSV를 다시 진단해 주세요.";
   }
 }
 
@@ -514,10 +602,9 @@ function renderQuality(result) {
     splitResults.innerHTML = "";
   }
   $("train").disabled = !result.training_eligible;
-  $("training-placeholder").hidden = false;
-  $("training-placeholder").textContent = result.training_eligible
+  setTrainingProgress(0, result.training_eligible
     ? "품질 진단을 통과했습니다. XGBoost 모델 학습을 시작할 수 있습니다."
-    : "품질 진단의 차단 사유를 해결한 뒤 다시 진단해 주세요.";
+    : "품질 진단의 차단 사유를 해결한 뒤 다시 진단해 주세요.");
   $("workspace-job-status").textContent = result.training_eligible ? "학습 준비 완료" : "학습 불가";
   $("workspace-job-status").dataset.status = result.training_eligible ? "READY" : "BLOCKED";
   const qualityStatus = quality.status.toLowerCase();
@@ -599,7 +686,6 @@ async function startTraining() {
     return;
   }
   $("train").disabled = true;
-  $("training-placeholder").hidden = true;
   $("training-progress").hidden = false;
   setTrainingProgress(2, "서버에 학습 작업을 등록하고 있습니다.");
   setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "in-progress" }, 3);
@@ -613,7 +699,7 @@ async function startTraining() {
   } catch (caught) {
     error.textContent = `모델 학습을 시작하지 못했습니다: ${caught.message} 품질 진단 결과와 제한 실험 동의를 확인해 주세요.`;
     setWorkspaceState({ 1: "complete", 2: state.stepStatuses[2], 3: "fail" }, 3);
-    $("training-progress").hidden = true;
+    setTrainingProgress(0, "학습을 시작하지 못했습니다. 입력과 서버 상태를 확인한 뒤 다시 시도해 주세요.");
     $("train").disabled = !analysisIsCurrent();
     $("workspace-job-status").textContent = "학습 시작 실패";
     $("workspace-job-status").dataset.status = "FAILED";
@@ -647,7 +733,6 @@ function renderJob(job) {
   workspaceChip.dataset.status = job.status;
   const completed = job.status === "COMPLETED";
   if (["QUEUED", "RUNNING"].includes(job.status)) {
-    $("training-placeholder").hidden = true;
     $("training-progress").hidden = false;
     setTrainingProgress(job.progress_percent, job.progress_message);
     $("workspace-model-results").hidden = true;
@@ -658,9 +743,8 @@ function renderJob(job) {
     return;
   }
   if (job.status === "FAILED") {
-    $("training-progress").hidden = true;
-    $("training-placeholder").hidden = false;
-    $("training-placeholder").textContent = job.error || "학습에 실패했습니다. 입력과 서버 로그를 확인해 주세요.";
+    $("training-progress").hidden = false;
+    setTrainingProgress(job.progress_percent ?? 0, job.error || "학습에 실패했습니다. 입력과 서버 로그를 확인해 주세요.");
     $("train").disabled = !analysisIsCurrent();
     error.textContent = job.error ? `모델 학습을 완료하지 못했습니다: ${job.error}` : "모델 학습을 완료하지 못했습니다. 입력 데이터와 서버 로그를 확인한 뒤 다시 시도하세요.";
     $("model-state").textContent = "학습 실패";
@@ -671,7 +755,6 @@ function renderJob(job) {
 
   setWorkspaceState({ 1: "complete", 2: "complete", 3: "complete" }, 3);
   $("training-progress").hidden = false;
-  $("training-placeholder").hidden = true;
   setTrainingProgress(job.progress_percent ?? 100, job.progress_message);
   $("train").disabled = true;
   $("workspace-model-results").hidden = false;
@@ -718,8 +801,7 @@ async function pollJob() {
   }
 }
 
-$("dashboard-empty-action").onclick = () => scrollToSection("upload");
-$("return-workspace").onclick = () => scrollToSection("upload");
+$("dashboard-empty-action").onclick = () => scrollToSection($("dashboard-empty-action").dataset.target || "upload");
 
 async function recoverJob() {
   let saved;
@@ -900,11 +982,15 @@ function renderMonthlyUsage(values) {
 async function runPrediction() {
   const dashboardButton = $("run-prediction");
   const sourceError = $("dashboard-error");
+  const dashboardGate = $("dashboard-gate");
   $("dashboard-error").hidden = true;
   $("dashboard-error").textContent = "";
   resetAIAnalysis();
   dashboardButton.disabled = true;
   dashboardButton.textContent = "예측 중…";
+  dashboardGate.setAttribute("aria-busy", "true");
+  $("dashboard-gate-title").textContent = "24시간 예측을 생성하고 있습니다.";
+  $("dashboard-gate-description").textContent = "저장된 모델과 최신 입력을 확인한 뒤 결과 화면으로 전환합니다.";
   try {
     const result = await api(`/api/predictions/${state.job.job_id}`, requestBody());
     drawPredictionChart(result.history_kwh, result.predictions_kwh, result.timestamps);
@@ -930,6 +1016,7 @@ async function runPrediction() {
     sourceError.textContent = message;
   } finally {
     dashboardButton.textContent = "24시간 예측 실행";
+    dashboardGate.removeAttribute("aria-busy");
     updateNextAction();
   }
 }

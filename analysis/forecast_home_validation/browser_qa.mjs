@@ -82,6 +82,9 @@ const record = (name, passed, details) => checks.push({ name, status: passed ? "
 await send("Page.enable");
 await send("Runtime.enable");
 await send("DOM.enable");
+await viewport(1440, 900);
+await goto(`${baseUrl}/`);
+await evaluate("sessionStorage.removeItem('energy-planner.active-job.v1'); true");
 
 for (const [width, height] of [[1440, 900], [390, 844], [320, 844]]) {
   await viewport(width, height);
@@ -112,6 +115,41 @@ for (const [width, height] of [[1440, 900], [390, 844], [320, 844]]) {
 
 await viewport(1440, 900);
 await goto(`${baseUrl}/`);
+const initialWorkspace = await evaluate(`(() => {
+  const gate = document.getElementById('dashboard-gate');
+  const results = document.getElementById('dashboard-results');
+  const progress = document.getElementById('training-progress');
+  const progressbar = document.getElementById('training-progressbar');
+  return {
+    gateVisible: !gate.hidden,
+    resultsHidden: results.hidden,
+    readinessRows: document.querySelectorAll('#dashboard-readiness > li').length,
+    actionTarget: document.getElementById('dashboard-empty-action').dataset.target,
+    progressVisible: !progress.hidden,
+    progressValue: Number(progressbar.getAttribute('aria-valuenow')),
+    progressPercent: document.getElementById('training-percent').textContent,
+    resultPanelsVisible: [...results.querySelectorAll('.panel')].filter((node) => node.getClientRects().length > 0).length
+  };
+})()`);
+record(
+  "initial_dashboard_gate_and_training_progress",
+  initialWorkspace.gateVisible
+    && initialWorkspace.resultsHidden
+    && initialWorkspace.readinessRows === 4
+    && initialWorkspace.actionTarget === "upload"
+    && initialWorkspace.progressVisible
+    && initialWorkspace.progressValue === 0
+    && initialWorkspace.progressPercent === "0%"
+    && initialWorkspace.resultPanelsVisible === 0,
+  initialWorkspace,
+);
+await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('training').scrollIntoView({ block: 'start' }); true");
+await pause(250);
+await screenshot("forecast-training-empty-1440.png");
+await evaluate("document.getElementById('dashboard').scrollIntoView({ block: 'start' }); true");
+await pause(250);
+await screenshot("forecast-dashboard-empty-1440.png");
+await evaluate("document.getElementById('landing-home').scrollIntoView({ block: 'start' }); true");
 const initialInteraction = await evaluate(`(() => {
   const button = document.getElementById('brand-energy-toggle');
   button.click();
@@ -203,9 +241,11 @@ if (trainingCompleted) {
     model: document.getElementById('selected-model').textContent,
     tag: document.getElementById('sample-tag').textContent,
     points: document.querySelectorAll('#forecast-chart circle').length,
-    aiStatus: document.getElementById('ai-analysis-status').textContent
+    aiStatus: document.getElementById('ai-analysis-status').textContent,
+    gateHidden: document.getElementById('dashboard-gate').hidden,
+    resultsVisible: !document.getElementById('dashboard-results').hidden
   })`);
-  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제"), dashboard);
+  record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제") && dashboard.gateHidden && dashboard.resultsVisible, dashboard);
   await evaluate("document.getElementById('dashboard').scrollIntoView({ behavior: 'auto', block: 'start' }); true");
   await pause(350);
   await screenshot("forecast-dashboard-1440.png");

@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T02:38:27.129Z",
+  "executed_at": "2026-11-04T02:58:31.583Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -162,6 +162,20 @@
       }
     },
     {
+      "name": "initial_dashboard_gate_and_training_progress",
+      "status": "PASS",
+      "details": {
+        "gateVisible": true,
+        "resultsHidden": true,
+        "readinessRows": 4,
+        "actionTarget": "upload",
+        "progressVisible": true,
+        "progressValue": 0,
+        "progressPercent": "0%",
+        "resultPanelsVisible": 0
+      }
+    },
+    {
       "name": "hero_click_pins_curve",
       "status": "PASS",
       "details": {
@@ -189,8 +203,8 @@
       "name": "hero_primary_cta",
       "status": "PASS",
       "details": {
-        "hash": "#dashboard",
-        "target": "dashboard"
+        "hash": "#upload",
+        "target": "upload"
       }
     },
     {
@@ -262,7 +276,9 @@
         "model": "last_168h",
         "tag": "실제 예측 결과",
         "points": 25,
-        "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다."
+        "aiStatus": "OPENAI_API_KEY가 설정되지 않아 AI 해석은 비활성화되어 있습니다. 기본 예측 기능은 정상적으로 사용할 수 있습니다.",
+        "gateHidden": true,
+        "resultsVisible": true
       }
     },
     {
@@ -272,7 +288,7 @@
         "viewport": 390,
         "scrollWidth": 390,
         "total": "574 kWh",
-        "cards": 11
+        "cards": 12
       }
     },
     {
@@ -282,7 +298,7 @@
         "viewport": 320,
         "scrollWidth": 320,
         "total": "574 kWh",
-        "cards": 11
+        "cards": 12
       }
     },
     {
@@ -292,7 +308,7 @@
     }
   ],
   "summary": {
-    "pass": 24,
+    "pass": 25,
     "fail": 0
   }
 }
