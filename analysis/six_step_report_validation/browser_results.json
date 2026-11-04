@@ -1,0 +1,131 @@
+{
+  "generated_at": "2026-11-04T07:49:13.789Z",
+  "checks": [
+    {
+      "name": "initial_six_step_state",
+      "status": "PASS",
+      "details": {
+        "steps": 6,
+        "sections": true,
+        "reportHidden": true,
+        "reportDisabled": true,
+        "simulatorGate": true,
+        "aiCalls": 0,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "completed_job_recovered",
+      "status": "PASS",
+      "details": "학습 완료 · 학습과 모델 선택을 완료했습니다."
+    },
+    {
+      "name": "prediction_enables_optional_steps",
+      "status": "PASS",
+      "details": {
+        "forecastPeriod": "예측 대상 2026.11.01 (일) 00:00–23:00",
+        "dashboardStatus": "예측 완료",
+        "reportStatus": "준비 완료",
+        "reportHidden": true,
+        "reportEnabled": true,
+        "simulatorStatus": "준비 완료",
+        "simulatorVisible": true,
+        "aiCalls": 0
+      }
+    },
+    {
+      "name": "simulator_independent_live_calculation",
+      "status": "PASS",
+      "details": {
+        "max": 3.1781318187713623,
+        "lines": 2,
+        "markers": 2,
+        "before": "120원",
+        "after": "80원",
+        "saving": "↓ 40원",
+        "peakBefore": "6.4 kWh",
+        "peakAfter": "6.4 kWh",
+        "status": "완료"
+      }
+    },
+    {
+      "name": "simulator_source_load_cap",
+      "status": "PASS",
+      "details": {
+        "max": 3.1781318187713623,
+        "errorHidden": false,
+        "error": "이동할 사용량은 기존 시간의 예상 사용량 3.2kWh를 넘을 수 없습니다."
+      }
+    },
+    {
+      "name": "real_ai_report_generation",
+      "status": "PASS",
+      "details": {
+        "generating": true,
+        "status": "완료",
+        "source": "로컬 수치 + AI 운영 해석",
+        "summary": "향후 24시간 예상 사용량은 108.3kWh이며, 가장 높은 시간의 예상 사용량은 6.4kWh입니다.",
+        "recommendations": 3,
+        "limitations": 5,
+        "lines": 2,
+        "htmlEnabled": true,
+        "printEnabled": true,
+        "model": "XGBoost",
+        "wape": "5.1%"
+      }
+    },
+    {
+      "name": "regeneration_keeps_previous_preview",
+      "status": "PASS",
+      "details": {
+        "visibleDuring": true,
+        "status": "완료",
+        "previewVisible": true
+      }
+    },
+    {
+      "name": "standalone_html_security",
+      "status": "PASS",
+      "details": {
+        "bytes": 28482,
+        "containsReportData": true
+      }
+    },
+    {
+      "name": "standalone_html_offline_interaction",
+      "status": "PASS",
+      "details": {
+        "lines": 2,
+        "summary": "향후 24시간 예상 사용량은 108.3kWh이며, 가장 높은 시간의 예상 사용량은 6.4kWh입니다.",
+        "overflow": 0
+      }
+    },
+    {
+      "name": "mobile_390_no_overflow",
+      "status": "PASS",
+      "details": {
+        "overflow": 0,
+        "steps": 6,
+        "minButton": 44
+      }
+    },
+    {
+      "name": "mobile_320_no_overflow",
+      "status": "PASS",
+      "details": {
+        "overflow": 0,
+        "minButton": 44
+      }
+    },
+    {
+      "name": "no_console_or_runtime_errors",
+      "status": "PASS",
+      "details": {
+        "runtimeErrors": [],
+        "consoleErrors": []
+      }
+    }
+  ],
+  "pass": 12,
+  "fail": 0
+}

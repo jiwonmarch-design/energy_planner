@@ -12,7 +12,7 @@ const state = {
   observationDays: null,
   qualityRequestId: 0,
   viewedStep: 1,
-  stepStatuses: { 1: "current", 2: "waiting", 3: "waiting" },
+  stepStatuses: { 1: "current", 2: "waiting", 3: "waiting", 4: "waiting", 5: "waiting", 6: "waiting" },
   aiAnalysisAvailable: false,
   aiAnalysisModel: "",
   aiAnalysisComplete: false,
@@ -21,6 +21,8 @@ const state = {
   selectedForecastIndex: 0,
   analysisReport: null,
   reportSelectedIndex: 0,
+  reportRequestInProgress: false,
+  reportError: "",
   simulatorSnapshot: null,
 };
 
@@ -129,7 +131,9 @@ function statusLabel(status) {
     waiting: "대기",
     current: "현재 단계",
     "in-progress": "진행 중",
+    ready: "준비 완료",
     complete: "완료",
+    error: "오류",
     warning: "WARNING",
     fail: "FAIL",
   }[status];
@@ -138,7 +142,6 @@ function statusLabel(status) {
 function renderWorkspaceSteps() {
   document.querySelectorAll("[data-workflow-step]").forEach((step) => {
     const number = Number(step.dataset.workflowStep);
-    if (number === 4) return;
     const status = state.stepStatuses[number] || "waiting";
     step.dataset.status = status;
     step.dataset.statusLabel = statusLabel(status);
@@ -237,19 +240,34 @@ function resetAIAnalysis() {
   state.aiAnalysisComplete = false;
   state.analysisReport = null;
   state.reportSelectedIndex = 0;
-  state.simulatorSnapshot = null;
+  state.reportRequestInProgress = false;
+  state.reportError = "";
   $("ai-report").hidden = true;
+  $("report-preview").hidden = true;
+  $("report-generation-progress").hidden = true;
   $("report-recommendations").replaceChildren();
   $("report-limitations").replaceChildren();
   $("download-report-html").disabled = true;
   $("print-report").disabled = true;
+  $("regenerate-report").disabled = true;
   $("report-hour-slider").value = "0";
   $("report-selected-value").textContent = "예측 결과를 선택해 확인하세요.";
+  $("report-target-period").textContent = "24시간 예측을 먼저 실행해 주세요.";
+  $("ai-analysis-status").textContent = "24시간 예측 결과가 준비되면 생성할 수 있습니다.";
+}
+
+function resetSimulator() {
+  state.simulatorSnapshot = null;
+  $("simulator-gate").hidden = false;
+  $("simulator-workspace").hidden = true;
   $("simulator-error").hidden = true;
   $("simulator-before").textContent = "단가 입력 필요";
   $("simulator-after").textContent = "단가 입력 필요";
   $("simulator-saving").textContent = "—";
+  $("simulator-peak-before").textContent = "—";
+  $("simulator-peak-after").textContent = "—";
   $("simulator-load-effect").textContent = "이동할 사용량과 단가를 입력하면 시간대별 부하 변화를 계산합니다.";
+  $("simulator-chart").replaceChildren();
 }
 
 function resetDashboardPrediction() {
@@ -283,6 +301,8 @@ function resetDashboardPrediction() {
   $("monthly-usage-list").replaceChildren();
   $("actual-summary-label").textContent = "예측 실행 후 표시";
   drawEmptyChart();
+  resetAIAnalysis();
+  resetSimulator();
 }
 
 function invalidateAnalysis(message = "입력이 변경되어 재검증이 필요합니다.") {
@@ -442,20 +462,51 @@ function updateNextAction() {
     dashboardStatus.textContent = "준비 필요";
   }
 
-  $("ai-analyze").disabled = !state.analysisReport || !state.aiAnalysisAvailable;
+  const reportReady = state.predictionComplete && state.aiAnalysisAvailable;
+  $("ai-analyze").disabled = !reportReady || state.reportRequestInProgress;
+  $("regenerate-report").disabled = !state.analysisReport || !reportReady || state.reportRequestInProgress;
   $("download-report-html").disabled = !state.analysisReport;
   $("print-report").disabled = !state.analysisReport;
-  if (!state.predictionComplete) {
-    $("ai-analysis-status").textContent = "24시간 예측을 실행하면 AI 호출 없이도 정량 보고서를 확인할 수 있습니다.";
-  } else if (!state.analysisReport) {
-    $("ai-analysis-status").textContent = "로컬 서버에서 정량 보고서를 계산하고 있습니다…";
+  $("report-generation-progress").hidden = !state.reportRequestInProgress;
+  $("report-target-period").textContent = state.predictionComplete
+    ? forecastPeriodText(state.predictionResult?.timestamps, state.predictionResult?.building_timezone || "UTC")
+    : "24시간 예측을 먼저 실행해 주세요.";
+  const reportStatus = $("report-status");
+  reportStatus.removeAttribute("data-status");
+  if (state.reportRequestInProgress) {
+    reportStatus.textContent = "진행 중";
+    reportStatus.dataset.status = "RUNNING";
+    $("ai-analysis-status").textContent = state.analysisReport
+      ? "기존 보고서를 유지한 채 새 보고서를 생성하고 있습니다."
+      : "정량 근거를 확인하고 AI 운영 해석을 생성하고 있습니다.";
+  } else if (state.reportError) {
+    reportStatus.textContent = "오류";
+    reportStatus.dataset.status = "FAILED";
+    $("ai-analysis-status").textContent = `${state.reportError} 예측 결과는 그대로 유지됩니다. 다시 시도할 수 있습니다.`;
   } else if (state.aiAnalysisComplete) {
-    $("ai-analysis-status").textContent = `AI 운영 분석 보강 완료${state.aiAnalysisModel ? ` · ${state.aiAnalysisModel}` : ""}`;
+    reportStatus.textContent = "완료";
+    reportStatus.dataset.status = "COMPLETED";
+    $("ai-analysis-status").textContent = `보고서 생성 완료${state.aiAnalysisModel ? ` · ${state.aiAnalysisModel}` : ""}`;
+  } else if (!state.predictionComplete) {
+    reportStatus.textContent = "대기";
+    $("ai-analysis-status").textContent = "24시간 예측 결과가 준비되면 생성할 수 있습니다.";
   } else if (!state.aiAnalysisAvailable) {
-    $("ai-analysis-status").textContent = "로컬 정량 보고서가 준비되었습니다. OPENAI_API_KEY가 없어 AI 문장 보강만 비활성화되었습니다.";
+    reportStatus.textContent = "설정 필요";
+    $("ai-analysis-status").textContent = "서버의 OPENAI_API_KEY를 확인한 뒤 서버를 다시 시작해 주세요.";
   } else {
-    $("ai-analysis-status").textContent = `로컬 정량 보고서가 준비되었습니다. 필요하면 AI 운영 분석을 보강할 수 있습니다${state.aiAnalysisModel ? ` · ${state.aiAnalysisModel}` : ""}.`;
+    reportStatus.textContent = "준비 완료";
+    reportStatus.dataset.status = "READY";
+    $("ai-analysis-status").textContent = "버튼을 누르면 현재 예측 결과로 보고서를 생성합니다. 페이지를 여는 것만으로 API를 호출하지 않습니다.";
   }
+
+  const simulatorStatus = $("simulator-status");
+  simulatorStatus.removeAttribute("data-status");
+  simulatorStatus.textContent = state.predictionComplete ? (state.simulatorSnapshot ? "완료" : "준비 완료") : "대기";
+  if (state.predictionComplete) simulatorStatus.dataset.status = state.simulatorSnapshot ? "COMPLETED" : "READY";
+  state.stepStatuses[4] = state.predictionComplete ? "complete" : canPredict ? "ready" : running ? "in-progress" : failed ? "error" : "waiting";
+  state.stepStatuses[5] = state.reportRequestInProgress ? "in-progress" : state.reportError ? "error" : state.aiAnalysisComplete ? "complete" : state.predictionComplete ? "ready" : "waiting";
+  state.stepStatuses[6] = state.predictionComplete ? (state.simulatorSnapshot ? "complete" : "ready") : "waiting";
+  renderWorkspaceSteps();
 }
 
 function estimateObservationDays(csvText) {
@@ -1177,9 +1228,13 @@ function renderRecommendations(report) {
   $("report-recommendations").replaceChildren(fragment);
 }
 
-function setupSimulatorOptions(report) {
-  const timeZone = report.metadata?.building_timezone || "UTC";
-  const timestamps = report.chart?.timestamps || [];
+function setupSimulatorOptions(result) {
+  if (!result?.predictions_kwh?.length) {
+    resetSimulator();
+    return;
+  }
+  const timeZone = result.building_timezone || "UTC";
+  const timestamps = result.timestamps || [];
   [$("simulator-from"), $("simulator-to")].forEach((select, selectIndex) => {
     const fragment = document.createDocumentFragment();
     timestamps.forEach((timestamp, index) => {
@@ -1194,19 +1249,62 @@ function setupSimulatorOptions(report) {
   $("simulator-kwh").value = "0";
   $("simulator-from-rate").value = "";
   $("simulator-to-rate").value = "";
+  $("simulator-gate").hidden = true;
+  $("simulator-workspace").hidden = false;
   updateSimulator();
 }
 
+function drawSimulatorChart(forecast, adjusted, fromIndex, toIndex) {
+  const svg = $("simulator-chart");
+  const result = state.predictionResult;
+  if (!result || forecast.length !== 24 || adjusted.length !== 24) {
+    svg.replaceChildren();
+    return;
+  }
+  const timestamps = result.timestamps;
+  const timeZone = result.building_timezone || "UTC";
+  const compact = window.matchMedia("(max-width: 700px)").matches;
+  const width = compact ? 560 : 960;
+  const height = compact ? 400 : 340;
+  const left = compact ? 90 : 78;
+  const right = 24;
+  const top = 34;
+  const bottom = compact ? 72 : 58;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+  const axisMax = Math.max(...forecast, ...adjusted, 1) * 1.12;
+  const point = (value, index) => [left + index * plotWidth / 23, top + plotHeight - value / axisMax * plotHeight];
+  const points = (series) => series.map((value, index) => point(value, index).join(",")).join(" ");
+  const yGrid = Array.from({ length: 5 }, (_, index) => {
+    const y = top + index * plotHeight / 4;
+    const value = axisMax * (1 - index / 4);
+    return `<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" stroke="#dedbd3"/><text x="${left - 10}" y="${y + 4}" text-anchor="end" fill="#657184" font-size="${compact ? 16 : 11}">${fmt(value, 0)}</text>`;
+  }).join("");
+  const xTicks = [0, 6, 12, 18, 23].map((index) => {
+    const [x] = point(0, index);
+    return `<text x="${x}" y="${height - 20}" text-anchor="middle" fill="#657184" font-size="${compact ? 16 : 11}">${formatChartTime(timestamps[index], timeZone, index === 0)}</text>`;
+  }).join("");
+  const [fromX, fromY] = point(adjusted[fromIndex], fromIndex);
+  const [toX, toY] = point(adjusted[toIndex], toIndex);
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = `<g aria-hidden="true">${yGrid}${xTicks}<text x="${compact ? 24 : 18}" y="${top + plotHeight / 2}" transform="rotate(-90 ${compact ? 24 : 18} ${top + plotHeight / 2})" text-anchor="middle" fill="#4f5c70" font-size="${compact ? 16 : 11}" font-weight="700">사용량 (kWh)</text><polyline points="${points(forecast)}" fill="none" stroke="#737e8d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${points(adjusted)}" fill="none" stroke="#1f4fdb" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${fromX}" cy="${fromY}" r="7" fill="#fffdf8" stroke="#a93434" stroke-width="4"/><circle cx="${toX}" cy="${toY}" r="7" fill="#fffdf8" stroke="#087a55" stroke-width="4"/></g>`;
+  svg.setAttribute("aria-label", `변경 전후 24시간 예상 사용량 비교. ${formatLocalDateTime(timestamps[fromIndex], timeZone)}에서 사용량이 감소하고 ${formatLocalDateTime(timestamps[toIndex], timeZone)}에서 증가합니다.`);
+}
+
 function updateSimulator() {
-  const report = state.analysisReport;
-  if (!report) return;
+  const result = state.predictionResult;
+  if (!result?.predictions_kwh?.length) return;
   const amount = Number($("simulator-kwh").value);
   const fromIndex = Number($("simulator-from").value);
   const toIndex = Number($("simulator-to").value);
   const fromRate = Number($("simulator-from-rate").value);
   const toRate = Number($("simulator-to-rate").value);
-  const forecast = (report.chart?.forecast_kwh || []).map(Number);
+  const forecast = result.predictions_kwh.map(Number);
   const sourceLoad = forecast[fromIndex];
+  $("simulator-kwh").max = Number.isFinite(sourceLoad) ? String(sourceLoad) : "0";
+  $("simulator-kwh-help").textContent = Number.isFinite(sourceLoad)
+    ? `이 시간의 예측 사용량 ${fmt(sourceLoad, 1)}kWh 이내`
+    : "기존 시간의 예측 사용량 이내";
   const errorTarget = $("simulator-error");
   errorTarget.hidden = true;
   errorTarget.textContent = "";
@@ -1222,31 +1320,41 @@ function updateSimulator() {
   }
   const ratesReady = $("simulator-from-rate").value !== "" && $("simulator-to-rate").value !== ""
     && Number.isFinite(fromRate) && Number.isFinite(toRate) && fromRate >= 0 && toRate >= 0;
-  const valid = errorTarget.hidden && ratesReady && Number.isFinite(amount);
+  const scenarioValid = errorTarget.hidden && Number.isFinite(amount);
+  const adjusted = [...forecast];
+  if (scenarioValid) {
+    adjusted[fromIndex] -= amount;
+    adjusted[toIndex] += amount;
+  }
+  drawSimulatorChart(forecast, adjusted, fromIndex, toIndex);
+  const beforePeak = Math.max(...forecast);
+  const afterPeak = Math.max(...adjusted);
+  $("simulator-peak-before").textContent = `${fmt(beforePeak, 1)} kWh`;
+  $("simulator-peak-after").textContent = `${fmt(afterPeak, 1)} kWh`;
+  const valid = scenarioValid && ratesReady;
   if (!valid) {
     $("simulator-before").textContent = ratesReady ? "입력 확인 필요" : "단가 입력 필요";
     $("simulator-after").textContent = ratesReady ? "입력 확인 필요" : "단가 입력 필요";
     $("simulator-saving").textContent = "—";
-    $("simulator-load-effect").textContent = "이동할 사용량과 단가를 입력하면 시간대별 부하 변화를 계산합니다.";
+    $("simulator-load-effect").textContent = scenarioValid
+      ? `부하 변화는 그래프에 반영했습니다. 비용 비교를 위해 두 시간 단가를 입력해 주세요.`
+      : "입력을 확인하면 시간대별 부하 변화를 계산합니다.";
     state.simulatorSnapshot = null;
+    updateNextAction();
     return;
   }
   const beforeCost = amount * fromRate;
   const afterCost = amount * toRate;
   const saving = beforeCost - afterCost;
-  const adjusted = [...forecast];
-  adjusted[fromIndex] -= amount;
-  adjusted[toIndex] += amount;
-  const beforePeak = Math.max(...forecast);
-  const afterPeak = Math.max(...adjusted);
   $("simulator-before").textContent = `${fmt(beforeCost, 0)}원`;
   $("simulator-after").textContent = `${fmt(afterCost, 0)}원`;
   $("simulator-saving").textContent = `${saving >= 0 ? "↓" : "↑"} ${fmt(Math.abs(saving), 0)}원`;
   $("simulator-load-effect").textContent = `시간당 예상 피크는 ${fmt(beforePeak, 1)}kWh에서 ${fmt(afterPeak, 1)}kWh로 변합니다. 실제 최대수요전력 요금 계산은 아닙니다.`;
   state.simulatorSnapshot = { amount, fromIndex, toIndex, fromRate, toRate, beforeCost, afterCost, saving, beforePeak, afterPeak };
+  updateNextAction();
 }
 
-function renderAnalysisReport(report, { resetSimulator = true } = {}) {
+function renderAnalysisReport(report) {
   const timeZone = report.metadata?.building_timezone || "UTC";
   const quantitative = report.quantitative || {};
   const quality = report.model_quality || {};
@@ -1287,24 +1395,10 @@ function renderAnalysisReport(report, { resetSimulator = true } = {}) {
   $("report-baseline-legend").hidden = report.chart.baseline_status !== "available";
   state.reportSelectedIndex = 0;
   drawReportChart(report);
-  if (resetSimulator) setupSimulatorOptions(report);
+  $("report-preview").hidden = false;
   $("download-report-html").disabled = false;
   $("print-report").disabled = false;
-}
-
-async function loadQuantitativeReport() {
-  if (!state.job?.job_id || !state.predictionComplete) return;
-  try {
-    const report = await api(`/api/analysis-report/${state.job.job_id}`, requestBody());
-    state.analysisReport = report;
-    renderAnalysisReport(report);
-  } catch (caught) {
-    state.analysisReport = null;
-    $("ai-report").hidden = true;
-    $("ai-analysis-status").textContent = `정량 보고서를 만들지 못했습니다. ${caught.message} 24시간 예측 결과는 그대로 유지됩니다.`;
-  } finally {
-    updateNextAction();
-  }
+  $("regenerate-report").disabled = false;
 }
 
 function updateReportSelection(index, { showTooltip = false } = {}) {
@@ -1402,6 +1496,7 @@ async function runPrediction() {
   $("dashboard-error").hidden = true;
   $("dashboard-error").textContent = "";
   resetAIAnalysis();
+  resetSimulator();
   dashboardButton.disabled = true;
   dashboardButton.textContent = "예측 중…";
   dashboardGate.setAttribute("aria-busy", "true");
@@ -1420,8 +1515,8 @@ async function runPrediction() {
     $("actual-summary-label").textContent = `최근 24시간 ${fmt(result.actual_summary.total_24h_kwh, 1)} kWh`;
     $("workspace-prediction-summary").textContent = `예측 완료 · 총 ${fmt(result.total_kwh)} kWh · 최대 ${fmt(result.peak_kwh)} kWh · 피크 ${formatLocalDateTime(result.peak_timestamp, result.building_timezone || $("timezone").value.trim())}`;
     state.predictionComplete = true;
+    setupSimulatorOptions(result);
     updateNextAction();
-    await loadQuantitativeReport();
   } catch (caught) {
     const message = `예측에 실패했습니다: ${caught.message} 입력 CSV와 시간대를 확인한 뒤 다시 시도하세요.`;
     sourceError.hidden = false;
@@ -1445,24 +1540,33 @@ function renderTextList(target, values) {
   target.replaceChildren(fragment);
 }
 
-$("ai-analyze").onclick = async () => {
+async function generateAIReport() {
   const button = $("ai-analyze");
   if (!state.predictionComplete || !state.job?.job_id) return;
-  button.disabled = true;
-  button.textContent = "AI 분석 중…";
-  $("ai-analysis-status").textContent = "구조화된 정량 결과만 전송해 운영 문장을 보강하고 있습니다. 예측 결과에는 영향을 주지 않습니다.";
+  state.reportRequestInProgress = true;
+  state.reportError = "";
+  $("report").setAttribute("aria-busy", "true");
+  button.textContent = "보고서 생성 중…";
+  $("regenerate-report").textContent = "보고서 생성 중…";
+  updateNextAction();
   try {
     const result = await api(`/api/ai-analysis/${state.job.job_id}`, requestBody());
     state.analysisReport = result;
     state.aiAnalysisComplete = true;
-    renderAnalysisReport(result, { resetSimulator: false });
+    renderAnalysisReport(result);
   } catch (caught) {
-    $("ai-analysis-status").textContent = `AI 문장 보강을 완료하지 못했습니다. ${caught.message} 로컬 정량 보고서와 예측 결과는 그대로 유지됩니다.`;
+    state.reportError = `AI 보고서를 생성하지 못했습니다. ${caught.message}`;
   } finally {
-    button.textContent = "AI 운영 분석 보강";
+    state.reportRequestInProgress = false;
+    $("report").removeAttribute("aria-busy");
+    button.textContent = "AI 전력 운영 보고서 생성";
+    $("regenerate-report").textContent = "보고서 다시 생성";
     updateNextAction();
   }
-};
+}
+
+$("ai-analyze").onclick = generateAIReport;
+$("regenerate-report").onclick = generateAIReport;
 
 function safeJsonForHtml(value) {
   return JSON.stringify(value)
@@ -1497,7 +1601,7 @@ function buildStandaloneReportHtml(report) {
       else option.removeAttribute("selected");
     });
   });
-  const snapshot = { report, simulator: state.simulatorSnapshot };
+  const snapshot = { report };
   const css = `
     :root{--ink:#10213d;--sub:#596579;--line:#d8d5cd;--bg:#f3f0e8;--paper:#fffdf8;--blue:#1f4fdb;--success:#087a55;--danger:#a93434}
     *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge{display:inline-block;border:1px solid #b9c9f5;background:#e9efff;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-cover h4{font-size:34px;margin:14px 0 8px}.report-cover p{margin:0}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.report-priority{padding:14px;background:#edf2ff}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.simulator-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.simulator-grid label{font-size:11px;color:var(--sub)}.simulator-grid input,.simulator-grid select{width:100%;margin-top:5px;border:1px solid var(--line);background:#fff;padding:8px}.simulator-results{margin-top:16px}.simulator-results p{grid-column:1/-1;margin:0;border-top:1px solid var(--line);padding:12px;font-size:12px}.simulator-saving strong{color:var(--success)}.inline-error{border-left:3px solid var(--danger);background:#fde8e5;color:var(--danger);padding:10px;margin-bottom:10px}.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}.quality-grid dl{margin:0}.quality-grid ul{color:var(--sub);font-size:12px}.muted{color:var(--sub);font-size:12px}.status{border:1px solid var(--line);padding:6px 9px;font-size:11px}.report-privacy{display:none}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}.ai-footer-actions{display:none}
@@ -1509,8 +1613,7 @@ function buildStandaloneReportHtml(report) {
     const timeZone=report.metadata.building_timezone||'UTC';const formatTime=v=>new Intl.DateTimeFormat('ko-KR',{timeZone,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(v));
     function draw(){const svg=$('report-chart'),f=report.chart.forecast_kwh.map(Number),b=(report.chart.same_weekday_baseline_kwh||[]).map(Number),show=$('report-baseline-toggle').checked&&b.length===24,w=960,h=340,l=78,r=24,t=34,bt=58,pw=w-l-r,ph=h-t-bt,max=Math.max(...f,...(show?b:[]),1)*1.12,p=(v,i)=>[l+i*pw/23,t+ph-v/max*ph],pts=s=>s.map((v,i)=>p(v,i).join(',')).join(' ');let grid='';for(let i=0;i<5;i++){const y=t+i*ph/4;grid+='<line x1="'+l+'" y1="'+y+'" x2="'+(w-r)+'" y2="'+y+'" stroke="#dedbd3"/><text x="'+(l-10)+'" y="'+(y+4)+'" text-anchor="end" fill="#657184" font-size="11">'+nf.format(max*(1-i/4))+'</text>'}const base=show?'<polyline points="'+pts(b)+'" fill="none" stroke="#737e8d" stroke-width="3"/>':'';const dots=f.map((v,i)=>{const q=p(v,i);return '<circle data-i="'+i+'" cx="'+q[0]+'" cy="'+q[1]+'" r="4" fill="#1f4fdb"/>'}).join('');svg.innerHTML='<g aria-hidden="true">'+grid+base+'<polyline points="'+pts(f)+'" fill="none" stroke="#1f4fdb" stroke-width="4" stroke-dasharray="9 7"/>'+dots+'<line id="guide" x1="'+l+'" x2="'+l+'" y1="'+t+'" y2="'+(t+ph)+'" stroke="#1f4fdb" stroke-dasharray="4 5"/></g>';$('report-baseline-legend').hidden=!show;const pick=e=>{const rect=svg.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*w,i=Math.round((Math.max(l,Math.min(w-r,x))-l)/pw*23);select(i,true)};svg.onpointermove=pick;svg.onclick=pick;svg.onpointerleave=()=>{$('report-chart-tooltip').hidden=true};select(Number($('report-hour-slider').value)||0,false)}
     function select(i,tip){const f=report.chart.forecast_kwh.map(Number),b=(report.chart.same_weekday_baseline_kwh||[]).map(Number),show=$('report-baseline-toggle').checked&&b.length===24;i=Math.max(0,Math.min(23,i));$('report-hour-slider').value=String(i);let text=formatTime(report.chart.timestamps[i])+' · 예측 '+nf.format(f[i])+' kWh';if(show)text+=' · 동일 요일 '+nf.format(b[i])+' kWh · 차이 '+nf.format(f[i]-b[i])+' kWh';$('report-selected-value').textContent=text;const point=document.querySelector('[data-i="'+i+'"]'),guide=$('guide');if(point&&guide){guide.setAttribute('x1',point.getAttribute('cx'));guide.setAttribute('x2',point.getAttribute('cx'))}const tt=$('report-chart-tooltip');tt.textContent=text;tt.hidden=!tip}
-    function simulate(){const a=Number($('simulator-kwh').value),fi=Number($('simulator-from').value),ti=Number($('simulator-to').value),fr=$('simulator-from-rate').value,tr=$('simulator-to-rate').value,f=report.chart.forecast_kwh.map(Number),error=$('simulator-error');error.hidden=true;if(fi===ti){error.textContent='기존 시간대와 변경 시간대를 다르게 선택해 주세요.';error.hidden=false}else if(!Number.isFinite(a)||a<0||a>f[fi]){error.textContent='이동할 사용량을 기존 시간의 예상 사용량 이하로 입력해 주세요.';error.hidden=false}if(error.hidden&&fr!==''&&tr!==''){const before=a*Number(fr),after=a*Number(tr),adj=[...f];adj[fi]-=a;adj[ti]+=a;$('simulator-before').textContent=nf.format(before)+'원';$('simulator-after').textContent=nf.format(after)+'원';$('simulator-saving').textContent=nf.format(before-after)+'원';$('simulator-load-effect').textContent='시간당 예상 피크 '+nf.format(Math.max(...f))+'kWh → '+nf.format(Math.max(...adj))+'kWh. 실제 최대수요전력 요금 계산은 아닙니다.'}}
-    $('report-baseline-toggle').addEventListener('change',draw);$('report-hour-slider').addEventListener('input',e=>select(Number(e.target.value),false));['simulator-kwh','simulator-from','simulator-to','simulator-from-rate','simulator-to-rate'].forEach(id=>$(id).addEventListener('input',simulate));draw();simulate();
+    $('report-baseline-toggle').addEventListener('change',draw);$('report-hour-slider').addEventListener('input',e=>select(Number(e.target.value),false));draw();
   `;
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f3f0e8"><title>Energy Planner 전력 운영 분석 보고서</title><style>${css}</style></head><body><main><h1 style="font-size:16px;margin:0 0 22px">Energy Planner · 전력 운영 분석 보고서</h1>${clone.outerHTML}<p class="report-footer">이 파일에는 원본 CSV와 OpenAI API 키가 포함되지 않습니다.</p></main><script id="report-data" type="application/json">${safeJsonForHtml(snapshot)}</script><script>${script}</script></body></html>`;
 }
