@@ -112,7 +112,8 @@
 - 학습 작업의 QUEUED/RUNNING/COMPLETED/FAILED 상태와 실제 작업 단계 기반 진행률을 퍼센트로 표현합니다.
 - Validation MAE, 선택 모델과 run ID를 표시합니다.
 - 저장 run 예측 후 그래프·총량·피크를 갱신합니다.
-- Editorial 기반 Wave Halftone 랜딩과 파란색 계열 작업 화면을 사용합니다.
+- 사용자 제공 Forecast HTML을 기준으로 한 아이보리·블루 화면, Forecast 곡선 Hero와 직선형 운영 패널을 사용합니다.
+- 예측 전에는 결과 KPI·그래프를 숨기고 CSV 업로드 → 품질 진단 → 모델 학습 → 24시간 예측의 준비 상태와 다음 행동을 표시합니다.
 - 실제 Chrome에서 데스크톱 1440px, 모바일 390px·320px 흐름과 스크린샷을 검증했습니다.
 
 ### PRD-F11 선택형 AI 예측 해석 — 부분 구현
