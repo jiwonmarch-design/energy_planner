@@ -28,8 +28,8 @@ const result = await send("Runtime.evaluate", {
     viewport: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
     stepLayout: (() => {
-      const nav = document.querySelector('.integrated-steps');
-      const inner = document.querySelector('.integrated-steps-inner');
+      const nav = document.querySelector('.sticky-steps');
+      const inner = document.querySelector('.steps-inner');
       return {
         nav: { rect: nav.getBoundingClientRect().toJSON(), overflowX: getComputedStyle(nav).overflowX },
         inner: { rect: inner.getBoundingClientRect().toJSON(), overflowX: getComputedStyle(inner).overflowX, scrollWidth: inner.scrollWidth, clientWidth: inner.clientWidth }

@@ -1,5 +1,5 @@
 {
-  "executed_at": "2026-11-04T01:07:27.921Z",
+  "executed_at": "2026-11-04T01:34:18.904Z",
   "browser": "Chrome 156 headless via CDP",
   "fixture": "synthetic_180_days.csv",
   "checks": [
@@ -10,7 +10,7 @@
         "viewport": 1425,
         "scrollWidth": 1425,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -26,7 +26,7 @@
         "viewport": 1425,
         "scrollWidth": 1425,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -42,7 +42,7 @@
         "viewport": 1425,
         "scrollWidth": 1425,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -58,7 +58,7 @@
         "viewport": 390,
         "scrollWidth": 390,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -74,7 +74,7 @@
         "viewport": 390,
         "scrollWidth": 390,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -90,7 +90,7 @@
         "viewport": 390,
         "scrollWidth": 390,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -113,7 +113,7 @@
         "viewport": 320,
         "scrollWidth": 320,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -129,7 +129,7 @@
         "viewport": 320,
         "scrollWidth": 320,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -145,7 +145,7 @@
         "viewport": 320,
         "scrollWidth": 320,
         "titleOverflow": false,
-        "title": "Energy Plannermini",
+        "title": "EnergyPlannermini",
         "energyColor": "rgb(31, 79, 219)",
         "plannerColor": "rgb(16, 33, 61)",
         "mini": "mini",
@@ -238,13 +238,33 @@
       }
     },
     {
+      "name": "dashboard_390_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "total": "574 kWh",
+        "cards": 11
+      }
+    },
+    {
+      "name": "dashboard_320_layout",
+      "status": "PASS",
+      "details": {
+        "viewport": 320,
+        "scrollWidth": 320,
+        "total": "574 kWh",
+        "cards": 11
+      }
+    },
+    {
       "name": "runtime_console_errors",
       "status": "PASS",
       "details": []
     }
   ],
   "summary": {
-    "pass": 21,
+    "pass": 23,
     "fail": 0
   }
 }

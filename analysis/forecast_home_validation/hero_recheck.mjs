@@ -114,22 +114,21 @@ const primary = await evaluate(`(() => {
   return { hash: location.hash, target: link.dataset.scrollTarget };
 })()`);
 record("primary_cta", primary.hash === `#${primary.target}` && ["upload", "dashboard"].includes(primary.target), primary);
-await evaluate("document.querySelector('.primary-nav a[href=\"#upload\"]').click(); true");
+await evaluate("document.querySelector('.topnav a[href=\"#upload\"]').click(); true");
 record("header_analysis_link", await waitFor("location.hash === '#upload'"), { hash: await evaluate("location.hash") });
-await evaluate("document.querySelector('.primary-nav a[href=\"#dashboard\"]').click(); true");
+await evaluate("document.querySelector('.topnav a[href=\"#dashboard\"]').click(); true");
 record("header_dashboard_link", await waitFor("location.hash === '#dashboard'"), { hash: await evaluate("location.hash") });
 await pause(500);
 const dashboardLayout = await evaluate(`(() => {
   const dashboard = document.getElementById('dashboard');
-  const grid = dashboard.querySelector('.dashboard-grid');
   return {
     sectionTop: Math.round(dashboard.getBoundingClientRect().top),
     viewport: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
-    cards: grid.children.length
+    cards: dashboard.querySelectorAll('.panel').length
   };
 })()`);
-record("dashboard_layout", dashboardLayout.scrollWidth === dashboardLayout.viewport && dashboardLayout.cards === 6, dashboardLayout);
+record("dashboard_layout", dashboardLayout.scrollWidth === dashboardLayout.viewport && dashboardLayout.cards >= 6, dashboardLayout);
 await screenshot("reference-dashboard-empty-1440.png");
 record("runtime_errors", errors.length === 0, errors);
 

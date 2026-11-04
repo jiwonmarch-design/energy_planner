@@ -170,3 +170,13 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 합성 180일 CSV로 실제 품질 진단, XGBoost·baseline 평가, Validation 선택/Test 독립, 저장 모델 24시간 예측과 25개 그래프 점 렌더링을 확인
 - 전체 브라우저·백엔드 연결 검증 21/21 PASS
 - 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `analysis/forecast_home_validation/hero_recheck_results.json`, `analysis/forecast_home_validation/reference-dashboard-empty-1440.png`
+
+## 2026-11-04 Forecast HTML 원본 충실도 재구현
+
+- 사용자 제공 Forecast HTML을 최상위 구현 명세로 두고 데스크톱의 `240px 단계 설명 + 작업 영역` 2열 섹션 구조를 복원
+- 원본의 아이보리 배경, 블루·잉크 토큰, 직선형 버튼·패널, Sticky 4단계 탐색, Forecast 곡선 Hero를 기준 치수로 재작성
+- 업로드·품질 진단·XGBoost 학습·Validation 비교·예측 KPI·차트·사용 패턴·AI 해석을 원본의 `.section`, `.panel`, `.grid2`, `.grid4` 계층에 배치
+- 기존 `/api/quality`, 학습 job, 저장 모델 예측, AI 해석 계약은 변경 없이 원본형 DOM에 연결했으며 백엔드 수정은 불필요
+- 원본의 42px 버튼은 접근성 최소 조작 영역을 위해 시각 차이 없이 44px로 보정하고 키보드 포커스·reduced motion을 유지
+- 실제 Chrome UI 검증 17/17 PASS, 합성 180일 CSV 전체 백엔드 연결과 1440px·390px·320px 실제 예측 대시보드 검증 23/23 PASS, 콘솔 오류 0
+- 검증 결과와 스크린샷: `analysis/forecast_home_validation/browser_results.json`, `analysis/forecast_home_validation/hero_recheck_results.json`, `analysis/forecast_home_validation/forecast-dashboard-1440.png`, `forecast-dashboard-390.png`, `forecast-dashboard-320.png`

@@ -141,10 +141,10 @@ const cta = await evaluate(`(() => {
   return { hash: location.hash, target: document.getElementById('home-primary-cta').dataset.scrollTarget };
 })()`);
 record("hero_primary_cta", ["#upload", "#dashboard"].includes(cta.hash) && cta.hash === `#${cta.target}`, cta);
-await evaluate("document.querySelector('.primary-nav a[href=\"#dashboard\"]').click(); true");
+await evaluate("document.querySelector('.topnav a[href=\"#dashboard\"]').click(); true");
 record("header_dashboard_navigation", await waitFor("location.hash === '#dashboard'"), { hash: await evaluate("location.hash") });
 
-await evaluate("document.querySelector('.primary-nav a[href=\"#upload\"]').click(); true");
+await evaluate("document.querySelector('.topnav a[href=\"#upload\"]').click(); true");
 record("csv_file_selected", await selectFile(fixture), { fixture });
 await evaluate("document.getElementById('analyze').click(); true");
 const diagnosed = await waitFor("!document.getElementById('quality-result').hidden && !document.getElementById('train').disabled", 30_000);
@@ -179,7 +179,22 @@ if (trainingCompleted) {
     aiStatus: document.getElementById('ai-analysis-status').textContent
   })`);
   record("saved_model_prediction_dashboard", predicted && dashboard.total !== "—" && dashboard.tag.includes("실제"), dashboard);
+  await evaluate("document.getElementById('dashboard').scrollIntoView({ behavior: 'auto', block: 'start' }); true");
+  await pause(350);
   await screenshot("forecast-dashboard-1440.png");
+  for (const width of [390, 320]) {
+    await viewport(width, 844);
+    await evaluate("document.documentElement.style.scrollBehavior = 'auto'; document.getElementById('dashboard').scrollIntoView({ block: 'start' }); true");
+    await pause(200);
+    const mobileDashboard = await evaluate(`({
+      viewport: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      total: document.getElementById('total-forecast').textContent,
+      cards: document.querySelectorAll('#dashboard .panel').length
+    })`);
+    record(`dashboard_${width}_layout`, mobileDashboard.viewport === mobileDashboard.scrollWidth && mobileDashboard.total !== "—" && mobileDashboard.cards >= 6, mobileDashboard);
+    await screenshot(`forecast-dashboard-${width}.png`);
+  }
 }
 
 record("runtime_console_errors", runtimeErrors.length === 0, runtimeErrors);
