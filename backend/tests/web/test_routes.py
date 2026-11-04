@@ -6,11 +6,14 @@ from backend.app.web.server import FRONTEND_ROOT, resolve_frontend_target
 
 
 class FrontendRouteCases(unittest.TestCase):
-    def test_history_api_routes_resolve_to_index(self) -> None:
+    def test_single_page_root_resolves_to_index(self) -> None:
         expected = (FRONTEND_ROOT / "index.html").resolve()
-        for path in ("/", "/workspace", "/dashboard"):
+        self.assertEqual(resolve_frontend_target("/"), expected)
+
+    def test_removed_page_routes_are_not_served(self) -> None:
+        for path in ("/workspace", "/dashboard", "/guide"):
             with self.subTest(path=path):
-                self.assertEqual(resolve_frontend_target(path), expected)
+                self.assertIsNone(resolve_frontend_target(path))
 
     def test_static_assets_still_resolve(self) -> None:
         self.assertEqual(

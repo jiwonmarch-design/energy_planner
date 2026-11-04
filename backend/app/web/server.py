@@ -17,11 +17,11 @@ from backend.app.web.service import TrainingJobManager, analyze_csv
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 FRONTEND_ROOT = PROJECT_ROOT / "frontend"
 MANAGER = TrainingJobManager(PROJECT_ROOT / "artifacts" / "web_jobs")
-SPA_ROUTES = {"/", "/workspace", "/dashboard"}
+SPA_ROUTES = {"/"}
 
 
 def resolve_frontend_target(path: str) -> Path | None:
-    """Resolve static assets and known History API routes without a broad fallback."""
+    """Resolve static assets and known entry routes without a broad fallback."""
 
     relative = "index.html" if path in SPA_ROUTES else path.lstrip("/")
     target = (FRONTEND_ROOT / relative).resolve()

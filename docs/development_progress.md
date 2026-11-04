@@ -138,3 +138,13 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 실제 Headless Chrome 1440px·390px·320px 검증 9/9 PASS, 콘솔 오류 0, 수평 페이지 오버플로 없음
 - 전체 Python 회귀 48/48 PASS, JavaScript 문법 검사 PASS
 - 검증 결과와 스크린샷: `analysis/ivory_reference_validation/`
+
+## 2026-11-04 아이보리 단일 페이지 구조 정합화
+
+- Home·Workspace·Dashboard용 `data-page` 래퍼와 Guide DOM, 단계 전환용 wizard, 가상 랜딩 KPI 코드를 제거
+- `/workspace`, `/dashboard`, `/guide` 서버 라우트를 제거하고 `/`의 `#upload`, `#quality`, `#training`, `#dashboard` 섹션 이동으로 통일
+- 기존 CSV 품질 진단·XGBoost 학습·저장 run 예측·OpenAI 해석 API와 상태 ID는 유지
+- Headless Chrome 1440px·390px·320px에서 필수 5개 섹션, 중복 ID 없음, 콘솔 오류 0, 수평 페이지 오버플로 없음 확인
+- Sticky 단계 이동·URL hash·뒤로 가기와 모바일 44px 이상 주요 CTA를 검증
+- 전체 Python 회귀 49/49 PASS, JavaScript 문법·Python compileall PASS
+- 검증 스크린샷: `analysis/single_page_validation/`

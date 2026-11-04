@@ -4,7 +4,6 @@ const state = {
   analysis: null,
   job: null,
   poll: null,
-  route: "/",
   fileToken: "",
   analysisSignature: "",
   jobContext: null,
@@ -24,60 +23,38 @@ const $ = (id) => document.getElementById(id);
 const fileInput = $("csv-file");
 const drop = $("drop-zone");
 const error = $("form-error");
-const routes = new Set(["/", "/workspace", "/dashboard"]);
 const jobSessionKey = "energy-planner.active-job.v1";
 
 function fmt(number, digits = 1) {
   return Number(number).toLocaleString("ko-KR", { maximumFractionDigits: digits });
 }
 
-function normalizeRoute(pathname) {
-  const normalized = pathname !== "/" ? pathname.replace(/\/$/, "") : pathname;
-  return routes.has(normalized) ? normalized : "/";
-}
-
-function renderRoute(path, { scroll = true } = {}) {
-  state.route = normalizeRoute(path);
-  document.body.dataset.route = "integrated";
-  document.querySelectorAll("[data-page]").forEach((page) => {
-    page.hidden = page.dataset.page === "/guide";
-  });
-  document.querySelectorAll("[data-route-link]").forEach((link) => {
-    const active = new URL(link.href, location.origin).pathname === state.route;
-    if (active) link.setAttribute("aria-current", "page");
-    else link.removeAttribute("aria-current");
-  });
-  const titles = {
-    "/": "Energy Planner",
-    "/workspace": "Workspace · Energy Planner",
-    "/dashboard": "Dashboard · Energy Planner",
-  };
-  document.title = titles[state.route];
-  updateNextAction();
-  if (scroll) {
-    const target = state.route === "/workspace" ? $("data-workspace") : state.route === "/dashboard" ? $("dashboard-page") : $("top");
-    target?.scrollIntoView({ behavior: "auto", block: "start" });
+function scrollToSection(id, { smooth = true, updateHistory = true } = {}) {
+  const target = $(id);
+  if (!target) return;
+  const nextLocation = id === "top" ? "/" : `/#${id}`;
+  if (updateHistory && `${location.pathname}${location.hash}` !== nextLocation) {
+    history.pushState({}, "", nextLocation);
   }
-}
-
-function navigate(path, { replace = false, scroll = true } = {}) {
-  const route = normalizeRoute(path);
-  if (location.pathname !== route) {
-    history[replace ? "replaceState" : "pushState"]({}, "", route);
-  }
-  renderRoute(route, { scroll });
+  const stickyOffset = window.matchMedia("(max-width: 800px)").matches ? 126 : 145;
+  const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - stickyOffset);
+  window.scrollTo({
+    top,
+    behavior: smooth && !window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "auto",
+  });
 }
 
 document.addEventListener("click", (event) => {
-  const link = event.target.closest("[data-route-link]");
-  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const url = new URL(link.href, location.origin);
-  if (url.origin !== location.origin) return;
+  const control = event.target.closest("[data-scroll-target]");
+  if (!control || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
-  navigate(url.pathname);
+  scrollToSection(control.dataset.scrollTarget);
 });
 
-window.addEventListener("popstate", () => renderRoute(location.pathname));
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+window.addEventListener("popstate", () => {
+  scrollToSection(location.hash.slice(1) || "top", { smooth: false, updateHistory: false });
+});
 
 function statusLabel(status) {
   return {
@@ -91,22 +68,13 @@ function statusLabel(status) {
 }
 
 function renderWorkspaceSteps() {
-  document.querySelectorAll("[data-workspace-step]").forEach((step) => {
-    const number = Number(step.dataset.workspaceStep);
+  document.querySelectorAll("[data-workflow-step]").forEach((step) => {
+    const number = Number(step.dataset.workflowStep);
+    if (number === 4) return;
     const status = state.stepStatuses[number] || "waiting";
-    step.className = `workflow-step status-${status}${number === state.viewedStep ? " is-viewed" : ""}`;
     step.dataset.status = status;
     step.dataset.statusLabel = statusLabel(status);
-    if (number === state.viewedStep) step.setAttribute("aria-current", "step");
-    else step.removeAttribute("aria-current");
   });
-  document.querySelectorAll("[data-step-panel]").forEach((panel) => {
-    panel.hidden = false;
-  });
-  $("wizard-previous").disabled = state.viewedStep === 1;
-  $("wizard-next").disabled = state.viewedStep === 3;
-  $("wizard-next").textContent = state.viewedStep === 2 ? "XGBoost 학습 단계" : "다음 단계";
-  $("wizard-position").textContent = `${state.viewedStep} / 3`;
 }
 
 function switchWorkspaceStep(number, { scroll = true } = {}) {
@@ -115,8 +83,8 @@ function switchWorkspaceStep(number, { scroll = true } = {}) {
   if (scroll) {
     const panel = document.querySelector(`[data-step-panel="${state.viewedStep}"]`);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    panel.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
-    panel.focus({ preventScroll: true });
+    panel?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    panel?.focus({ preventScroll: true });
   }
 }
 
@@ -126,17 +94,6 @@ function setWorkspaceState(statuses, viewedStep = state.viewedStep) {
   renderWorkspaceSteps();
   updateNextAction();
 }
-
-document.querySelectorAll("[data-workspace-step]").forEach((step) => {
-  step.addEventListener("click", (event) => {
-    event.preventDefault();
-    const number = Number(step.dataset.workspaceStep);
-    switchWorkspaceStep(number);
-  });
-});
-
-$("wizard-previous").addEventListener("click", () => switchWorkspaceStep(state.viewedStep - 1));
-$("wizard-next").addEventListener("click", () => switchWorkspaceStep(state.viewedStep + 1));
 
 function currentContext() {
   return {
@@ -237,7 +194,7 @@ function resetDashboardPrediction() {
 function invalidateAnalysis(message = "입력이 변경되어 재검증이 필요합니다.") {
   const hadAnalysis = Boolean(state.analysis);
   state.qualityRequestId += 1;
-  $("quality-panel").removeAttribute("aria-busy");
+  $("quality").removeAttribute("aria-busy");
   updateAnalyzeAvailability();
   $("analyze").textContent = "데이터 품질 진단하기";
   state.predictionComplete = false;
@@ -268,24 +225,25 @@ function updateNextAction() {
   );
   const homeCta = $("home-primary-cta");
   const homeLabel = $("home-cta-label");
-  let homePath = "/workspace";
+  let homeTarget = "upload";
   let homeText = "전력 분석 시작";
 
   if (completed) {
-    homePath = canPredict ? "/dashboard" : "/workspace";
+    homeTarget = canPredict ? "dashboard" : "upload";
     homeText = canPredict ? "24시간 예측 실행" : "예측 입력 준비하기";
   } else if (running) {
-    homePath = "/dashboard";
+    homeTarget = "training";
     homeText = "학습 상태 확인";
   } else if (currentAnalysis && state.analysis.training_eligible) {
-    homePath = "/workspace";
+    homeTarget = "training";
     homeText = "모델 학습 계속하기";
   } else if (state.csvText) {
-    homePath = "/workspace";
+    homeTarget = "quality";
     homeText = "품질 진단 계속하기";
   }
 
-  homeCta.href = homePath;
+  homeCta.href = `#${homeTarget}`;
+  homeCta.dataset.scrollTarget = homeTarget;
   homeLabel.textContent = homeText;
   $("dashboard-empty-action").hidden = completed;
   $("dashboard-empty-action").textContent = running ? "데이터 분석에서 학습 상태 확인" : "CSV 업로드하러 가기";
@@ -452,7 +410,7 @@ function handleInfluentialInputChange() {
   if (state.analysis || state.analysisSignature) invalidateAnalysis();
   else {
     state.qualityRequestId += 1;
-    $("quality-panel").removeAttribute("aria-busy");
+    $("quality").removeAttribute("aria-busy");
     updateAnalyzeAvailability();
     $("analyze").textContent = "데이터 품질 진단하기";
     if (state.csvText) {
@@ -493,7 +451,7 @@ function renderQuality(result) {
   state.analysisSignature = inputSignature();
   $("empty-state").hidden = true;
   $("quality-result").hidden = false;
-  $("quality-panel").removeAttribute("aria-busy");
+  $("quality").removeAttribute("aria-busy");
   $("selected-file-state").textContent = "품질 진단 완료 · 서버 저장 모델과는 별도 상태";
   const quality = result.quality;
   state.warningRequired = Boolean(result.split?.warning_limited_experiment);
@@ -590,7 +548,7 @@ $("analyze").onclick = async () => {
   $("quality-empty-title").textContent = "데이터 품질을 진단하고 있습니다.";
   $("quality-empty-copy").textContent = "파일 형식, 관측 기간, 누락된 시간과 학습 가능 여부를 확인합니다.";
   $("quality-preview").hidden = false;
-  $("quality-panel").setAttribute("aria-busy", "true");
+  $("quality").setAttribute("aria-busy", "true");
   $("selected-file-state").textContent = "품질 진단을 위해 로컬 서버에 전송 중";
   setWorkspaceState({ 1: "complete", 2: "in-progress", 3: jobStepStatus() }, 2);
   try {
@@ -610,7 +568,7 @@ $("analyze").onclick = async () => {
     setWorkspaceState({ 1: "complete", 2: "fail", 3: jobStepStatus() }, 2);
   } finally {
     if (requestId !== state.qualityRequestId) return;
-    $("quality-panel").removeAttribute("aria-busy");
+    $("quality").removeAttribute("aria-busy");
     updateAnalyzeAvailability();
     $("analyze").textContent = "데이터 품질 진단하기";
   }
@@ -737,9 +695,9 @@ async function pollJob() {
   }
 }
 
-$("open-dashboard").onclick = () => navigate("/dashboard");
-$("dashboard-empty-action").onclick = () => navigate("/workspace");
-$("return-workspace").onclick = () => navigate("/workspace");
+$("open-dashboard").onclick = () => scrollToSection("dashboard");
+$("dashboard-empty-action").onclick = () => scrollToSection("upload");
+$("return-workspace").onclick = () => scrollToSection("upload");
 
 async function recoverJob() {
   let saved;
@@ -770,7 +728,7 @@ async function recoverJob() {
     $("job-status").textContent = "진행 중인 모델 학습이 없습니다.";
     $("job-status").removeAttribute("data-status");
     updateNextAction();
-    if (state.route === "/dashboard") {
+    if (location.hash === "#dashboard") {
       $("dashboard-error").hidden = false;
       $("dashboard-error").textContent = `${caught.message} 이 로컬 버전은 서버가 재시작되면 이전 학습 상태를 자동으로 복원할 수 없습니다. 데이터 분석에서 상태를 다시 확인해 주세요.`;
     }
@@ -1104,10 +1062,7 @@ function initIntegratedNavigation() {
   buttons.forEach((button) => button.addEventListener("click", () => {
     const target = $(button.dataset.integratedTarget);
     if (!target) return;
-    const route = button.dataset.integratedTarget === "dashboard-page" ? "/dashboard" : "/workspace";
-    if (location.pathname !== route) history.pushState({}, "", route);
-    state.route = route;
-    target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    scrollToSection(button.dataset.integratedTarget);
     activate(button.dataset.integratedTarget);
   }));
   if ("IntersectionObserver" in window) {
@@ -1119,154 +1074,30 @@ function initIntegratedNavigation() {
   }
 }
 
-function initLandingReference() {
-  const hero = $("landing-home");
+function initHeroWave() {
   const wave = $("landing-wave");
-  if (!hero || !wave) return;
+  if (!wave) return;
 
-  const stepButtons = [...document.querySelectorAll("[data-landing-step]")];
-  const stepContent = $("landing-step-content");
-  const stepMarkup = [
-    `<p class="landing-eyebrow">STEP 01</p><h3>건물 전력 사용량 CSV 업로드</h3><p><code>timestamp</code>와 <code>kwh</code> 컬럼이 있는 건물별 시간당 CSV와 건물 시간대를 준비합니다.</p><ul><li>한 파일에는 한 건물만 포함합니다.</li><li>누적 검침값이 아닌 1시간 구간 소비량을 사용합니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/workspace" data-route-link>실제 CSV 업로드 화면 열기 <span aria-hidden="true">→</span></a>`,
-    `<p class="landing-eyebrow">STEP 02 / QUALITY CHECK</p><h3>데이터 품질 진단</h3><p>시간 간격, 결측, 장기 상수 구간과 학습 가능한 168→24시간 조합을 확인합니다.</p><ul><li>PASS·WARNING·FAIL과 구체적인 사유를 표시합니다.</li><li>원본값은 자동 보간하거나 0으로 바꾸지 않습니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/guide#guide-quality" data-route-link>품질 판정 기준 보기 <span aria-hidden="true">→</span></a>`,
-    `<p class="landing-eyebrow">STEP 03 / MODEL TRAINING</p><h3>XGBoost 학습 및 평가</h3><p>사용자가 명시적으로 요청할 때만 건물 전용 모델을 학습하고 두 기준 모델과 비교합니다.</p><ul><li>Validation으로 모델을 선택하고 Test는 최종 평가에만 사용합니다.</li><li>예측할 때는 저장 모델을 재사용하며 자동 재학습하지 않습니다.</li></ul><a class="landing-button secondary landing-flow-action" href="/dashboard" data-route-link>예측 대시보드 열기 <span aria-hidden="true">→</span></a>`,
-  ];
-
-  const renderLandingStep = (index, focus = false) => {
-    stepButtons.forEach((button, buttonIndex) => {
-      const active = buttonIndex === index;
-      button.classList.toggle("is-active", active);
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
-    stepContent.innerHTML = stepMarkup[index];
-    if (focus) stepButtons[index].focus();
-  };
-
-  stepButtons.forEach((button, index) => {
-    button.addEventListener("click", () => renderLandingStep(index));
-    button.addEventListener("keydown", (event) => {
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-      event.preventDefault();
-      const delta = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1;
-      renderLandingStep((index + delta + stepButtons.length) % stepButtons.length, true);
-    });
-  });
-  renderLandingStep(0);
-
-  const forecast = [2.85, 2.95, 3.08, 3.12, 3.02, 2.98, 3.1, 3.02, 3.75, 4.65, 5.52, 5.81, 6.15, 6.4, 6.35, 6.32, 6.11, 5.78, 5.59, 5.36, 4.12, 3.2, 3.04, 3.01];
-  const history = [3.1, 3.22, 3.15, 2.9, 2.85, 2.95, 4.4, 6.05, 5.8, 6.35, 6.13, 6.15, 6.02, 5.67, 4.85, 3.55, 2.65, 3.3, 3.02, 3.12, 3.1, 3.08, 3.12, 3.02];
-  const chart = $("landing-chart");
-  const tooltip = $("landing-tooltip");
-  const chartWrap = $("landing-chart-wrap");
-  let chartView = "forecast";
-  let activePoint = -1;
-  const chartButtons = [...document.querySelectorAll("[data-landing-view]")];
-  const drawLandingChart = () => {
-    const data = chartView === "forecast" ? forecast : history;
-    const x = (index) => 45 + (index * 650) / 23;
-    const y = (value) => 202 - (value - 2) * 35;
-    const grid = [2, 3, 4, 5, 6].map((tick) => {
-      const lineY = y(tick);
-      return `<line x1="40" x2="710" y1="${lineY}" y2="${lineY}" stroke="#dce3ef"/><text x="8" y="${lineY + 4}" fill="#7f8da3" font-size="11">${tick}</text>`;
-    }).join("");
-    const points = data.map((value, index) => [x(index), y(value)]);
-    let markup = `${grid}<path d="${points.map((point, index) => `${index ? "L" : "M"}${point.join(" ")}`).join(" ")}" stroke="${chartView === "forecast" ? "#2150d9" : "#8a9da2"}" fill="none" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`;
-    if (activePoint >= 0) {
-      const [pointX, pointY] = points[activePoint];
-      markup += `<line x1="${pointX}" x2="${pointX}" y1="10" y2="208" stroke="#386ae5" stroke-width="1.5" stroke-dasharray="5 5"/><circle cx="${pointX}" cy="${pointY}" r="6" fill="white" stroke="#2150d9" stroke-width="3"/>`;
-    }
-    chart.innerHTML = markup;
-    $("landing-axis-start").textContent = chartView === "forecast" ? "10월 31일 11:00" : "10월 30일 11:00";
-    $("landing-axis-end").textContent = chartView === "forecast" ? "11월 1일 10:00" : "10월 31일 10:00";
-  };
-  const showLandingChartPoint = (event) => {
-    const rect = chart.getBoundingClientRect();
-    const localX = ((event.clientX - rect.left) / rect.width) * 740;
-    activePoint = Math.max(0, Math.min(23, Math.round(((localX - 45) / 650) * 23)));
-    drawLandingChart();
-    const start = new Date(chartView === "forecast" ? "2026-10-31T11:00:00+09:00" : "2026-10-30T11:00:00+09:00");
-    const timestamp = new Date(start.getTime() + activePoint * 3600000);
-    const timeLabel = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "2-digit", hour12: false }).format(timestamp);
-    const value = (chartView === "forecast" ? forecast : history)[activePoint];
-    tooltip.style.display = "block";
-    tooltip.textContent = `${timeLabel} · ${chartView === "forecast" ? "예측 예시" : "사용량 예시"} ${value.toFixed(2)} kWh`;
-    const wrapRect = chartWrap.getBoundingClientRect();
-    const pointerX = event.clientX - wrapRect.left;
-    tooltip.style.left = `${Math.max(4, Math.min(chartWrap.clientWidth - tooltip.offsetWidth - 4, pointerX + 8))}px`;
-    tooltip.style.top = "8px";
-  };
-  chart.addEventListener("pointermove", showLandingChartPoint);
-  chart.addEventListener("click", showLandingChartPoint);
-  chart.addEventListener("pointerleave", () => {
-    activePoint = -1;
-    tooltip.style.display = "none";
-    drawLandingChart();
-  });
-  chartButtons.forEach((button) => button.addEventListener("click", () => {
-    chartButtons.forEach((candidate) => candidate.classList.toggle("is-active", candidate === button));
-    chartView = button.dataset.landingView;
-    activePoint = -1;
-    tooltip.style.display = "none";
-    drawLandingChart();
-  }));
-  drawLandingChart();
-
-  const periods = [["00–05시", 9.9, "#1b4cdc"], ["06–11시", 31.2, "#39bfdf"], ["12–17시", 44.2, "#abe24d"], ["18–23시", 14.7, "#172238"]];
-  const donut = $("landing-donut");
-  const legend = $("landing-legend");
-  let activePeriod = -1;
-  const drawLandingDonut = () => {
-    let accumulated = 0;
-    let markup = "";
-    periods.forEach(([label, value, color], index) => {
-      const length = (value / 100) * 471.24;
-      markup += `<circle data-landing-donut="${index}" cx="105" cy="105" r="75" fill="none" stroke="${color}" stroke-width="${activePeriod === index ? 38 : 31}" stroke-dasharray="${length} ${471.24 - length}" stroke-dashoffset="${-accumulated}" transform="rotate(-90 105 105)"/>`;
-      accumulated += length;
-    });
-    markup += `<circle cx="105" cy="105" r="47" fill="#fff"/><text x="105" y="102" text-anchor="middle" font-size="13" fill="#182849" font-weight="700">${activePeriod < 0 ? "24시간" : periods[activePeriod][0]}</text><text x="105" y="122" text-anchor="middle" font-size="16" fill="#2150d9" font-weight="800">${activePeriod < 0 ? "비중" : `${periods[activePeriod][1]}%`}</text>`;
-    donut.innerHTML = markup;
-    legend.replaceChildren(...periods.map(([label, value, color], index) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = activePeriod === index ? "is-active" : "";
-      button.innerHTML = `<span><span class="landing-legend-dot" style="background:${color}"></span>${label}</span><b>${value}%</b>`;
-      button.addEventListener("pointerenter", () => { activePeriod = index; drawLandingDonut(); });
-      button.addEventListener("focus", () => { activePeriod = index; drawLandingDonut(); });
-      button.addEventListener("click", () => { activePeriod = index; drawLandingDonut(); });
-      return button;
-    }));
-    $("landing-donut-detail").textContent = activePeriod < 0
-      ? "도넛 영역이나 범례를 선택하면 상세 비중을 확인할 수 있습니다."
-      : `${periods[activePeriod][0]} · 약 ${(108.3 * periods[activePeriod][1] / 100).toFixed(1)} kWh · 전체의 ${periods[activePeriod][1]}%`;
-    donut.querySelectorAll("[data-landing-donut]").forEach((segment) => {
-      segment.addEventListener("pointerenter", () => { activePeriod = Number(segment.dataset.landingDonut); drawLandingDonut(); });
-      segment.addEventListener("click", () => { activePeriod = Number(segment.dataset.landingDonut); drawLandingDonut(); });
-    });
-  };
-  donut.addEventListener("pointerleave", () => { activePeriod = -1; drawLandingDonut(); });
-  legend.addEventListener("pointerleave", () => { activePeriod = -1; drawLandingDonut(); });
-  drawLandingDonut();
-
-  let waveMarkup = "";
+  let markup = "";
   for (let column = 0; column < 44; column += 1) {
     for (let row = 0; row < 24; row += 1) {
       const x = column * 11.5;
       const y = row * 13 + 5 + Math.sin(column * 0.2 + row * 0.13) * 12 + Math.cos(column * 0.15) * 12;
       const radius = 0.5 + 1.65 * (0.5 + 0.5 * Math.sin(column * 0.28 + row * 0.36)) + Math.exp(-Math.pow(y - 150, 2) / 6500);
       const opacity = 0.27 + 0.62 * column / 44;
-      waveMarkup += `<circle cx="${x}" cy="${y.toFixed(2)}" r="${radius.toFixed(2)}" fill="#5279ed" opacity="${opacity.toFixed(2)}"/>`;
+      markup += `<circle cx="${x}" cy="${y.toFixed(2)}" r="${radius.toFixed(2)}" fill="#5279ed" opacity="${opacity.toFixed(2)}"/>`;
     }
   }
-  wave.innerHTML = waveMarkup;
+  wave.innerHTML = markup;
 }
 
 drawEmptyChart();
-initLandingReference();
+initHeroWave();
 initIntegratedNavigation();
 renderWorkspaceSteps();
-const initialRoute = normalizeRoute(location.pathname);
-if (initialRoute !== location.pathname) history.replaceState({}, "", initialRoute);
-renderRoute(initialRoute, { scroll: initialRoute !== "/" });
+if (location.hash) {
+  requestAnimationFrame(() => scrollToSection(location.hash.slice(1), { smooth: false, updateHistory: false }));
+}
+updateNextAction();
 recoverJob();
 loadCapabilities();
