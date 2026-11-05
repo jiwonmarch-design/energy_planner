@@ -161,6 +161,40 @@ class AIAnalysisCases(unittest.TestCase):
         with self.assertRaisesRegex(AIAnalysisUnavailable, "OPENAI_API_KEY"):
             analyze_prediction(report_payload(), environ={})
 
+    def test_reasoning_effort_is_reported_and_sent_when_configured(self):
+        captured = {}
+
+        def transport(payload, api_key, timeout):
+            captured.update(payload=payload, api_key=api_key, timeout=timeout)
+            return valid_response()
+
+        environ = {
+            "OPENAI_API_KEY": "test-secret",
+            "OPENAI_MODEL": "test-model",
+            "OPENAI_REASONING_EFFORT": "high",
+        }
+        status = analysis_status(environ)
+        result = analyze_prediction(report_payload(), environ=environ, transport=transport)
+
+        self.assertEqual(status["reasoning_effort"], "high")
+        self.assertEqual(captured["payload"]["reasoning"], {"effort": "high"})
+        self.assertEqual(result["ai"]["model"], "test-model")
+
+    def test_reasoning_field_is_omitted_when_not_configured(self):
+        captured = {}
+
+        def transport(payload, api_key, timeout):
+            captured.update(payload=payload, api_key=api_key, timeout=timeout)
+            return valid_response()
+
+        analyze_prediction(
+            report_payload(),
+            environ={"OPENAI_API_KEY": "test-secret", "OPENAI_MODEL": "test-model"},
+            transport=transport,
+        )
+
+        self.assertNotIn("reasoning", captured["payload"])
+
     def test_only_forecast_summary_is_sent_and_structured_result_is_returned(self):
         captured = {}
 

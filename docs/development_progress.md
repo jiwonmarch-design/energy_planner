@@ -268,3 +268,11 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 최근 168시간 모델 입력 구간과 최소 업로드 기간 90일이 서로 다른 조건임을 명시
 - 관련 웹 테스트 23 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
 - 실제 브라우저 시각 검증은 브라우저 연결 호스트 오류로 미검증
+
+## 2026-11-05 OpenAI 추론 강도 환경설정
+
+- 선택형 OpenAI Responses API 요청에 `OPENAI_REASONING_EFFORT`가 설정된 경우 `reasoning.effort`로 전달하도록 연결
+- 설정이 없으면 reasoning 필드를 생략해 기존 모델 호출 호환성을 유지
+- 로컬 `.env`에 `gpt-6-sol`·`high`를 적용하고 서버 상태 응답에서 로드된 설정 확인
+- 전체 Python 회귀 테스트 62 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
+- 실제 OpenAI 외부 호출과 `gpt-6-sol` 공개 API 사용 가능 여부는 미검증

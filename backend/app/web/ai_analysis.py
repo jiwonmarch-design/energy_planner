@@ -78,6 +78,7 @@ def analysis_status(environ: Mapping[str, str] | None = None) -> dict[str, Any]:
     return {
         "enabled": enabled,
         "model": values.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
+        "reasoning_effort": values.get("OPENAI_REASONING_EFFORT", "").strip() or None,
     }
 
 
@@ -265,6 +266,9 @@ def analyze_prediction(
             }
         },
     }
+    reasoning_effort = values.get("OPENAI_REASONING_EFFORT", "").strip()
+    if reasoning_effort:
+        payload["reasoning"] = {"effort": reasoning_effort}
     response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
     analysis = _parse_structured_response(response)
     for item in analysis["findings"]:
