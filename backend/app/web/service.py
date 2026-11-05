@@ -33,7 +33,11 @@ from backend.app.ml.quality import (
 from backend.app.ml.sequences import prepare_sequence_data
 from backend.app.ml.split import make_split_plan
 from backend.app.ml.train import run_training_pipeline
-from backend.app.web.ai_analysis import analyze_prediction
+from backend.app.web.ai_analysis import (
+    AIAnalysisUnavailable,
+    AIAnalysisUpstreamError,
+    analyze_prediction,
+)
 from backend.app.web.analysis_report import build_analysis_report
 
 
@@ -491,17 +495,49 @@ class TrainingJobManager:
 
     def analyze_prediction(self, job_id: str, csv_text: str) -> dict[str, Any]:
         """Explain a fresh local forecast without changing model or prediction state."""
+        use_local_only = False
         with self._lock:
             if job_id in self._analysis_in_progress:
                 raise EligibilityError("이 학습 기록의 AI 분석이 이미 진행 중입니다.")
             if self._analysis_counts.get(job_id, 0) >= 3:
-                raise EligibilityError("한 학습 기록의 AI 분석은 로컬 실행당 최대 3회까지 가능합니다.")
-            self._analysis_in_progress.add(job_id)
-            self._analysis_counts[job_id] = self._analysis_counts.get(job_id, 0) + 1
+                use_local_only = True
+            else:
+                self._analysis_in_progress.add(job_id)
+                self._analysis_counts[job_id] = self._analysis_counts.get(job_id, 0) + 1
         try:
             prediction = self.predict(job_id, csv_text)
             report = build_analysis_report(prediction, self.get(job_id))
-            return self.ai_analyzer(report)
+            if use_local_only:
+                return {
+                    **report,
+                    "ai": {
+                        "status": "fallback",
+                        "source": "local",
+                        "reason": "analysis_call_limit",
+                    },
+                }
+            try:
+                return self.ai_analyzer(report)
+            except AIAnalysisUnavailable:
+                return {
+                    **report,
+                    "ai": {
+                        "status": "fallback",
+                        "source": "local",
+                        "reason": "not_configured",
+                    },
+                }
+            except AIAnalysisUpstreamError as exc:
+                return {
+                    **report,
+                    "ai": {
+                        "status": "fallback",
+                        "source": "local",
+                        "reason": "upstream_error",
+                        "diagnostics": exc.diagnostics,
+                    },
+                }
         finally:
-            with self._lock:
-                self._analysis_in_progress.discard(job_id)
+            if not use_local_only:
+                with self._lock:
+                    self._analysis_in_progress.discard(job_id)

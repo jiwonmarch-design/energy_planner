@@ -10,7 +10,6 @@ import urllib.error
 from unittest.mock import patch
 from types import SimpleNamespace
 
-from backend.app.ml.contracts import EligibilityError
 from backend.app.web.ai_analysis import (
     AIAnalysisUnavailable,
     AIAnalysisUpstreamError,
@@ -218,6 +217,23 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertEqual(raised.exception.diagnostics["http_status"], 401)
         self.assertEqual(raised.exception.diagnostics["error_code"], "invalid_api_key")
         self.assertNotIn("secret-never-log", str(raised.exception))
+
+    def test_http_429_preserves_documented_safe_billing_code(self):
+        body = json.dumps({
+            "error": {
+                "code": "credit_balance_exhausted",
+                "message": "private billing detail",
+            }
+        }).encode()
+        error = urllib.error.HTTPError(
+            "https://api.openai.com/v1/responses", 429, "Too Many Requests", {}, io.BytesIO(body)
+        )
+        with patch("backend.app.web.ai_analysis.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                _request_openai({}, "secret-never-log", 20)
+        self.assertEqual(raised.exception.diagnostics["http_status"], 429)
+        self.assertEqual(raised.exception.diagnostics["error_code"], "credit_balance_exhausted")
+        self.assertNotIn("private billing detail", str(raised.exception))
 
     def test_transport_failures_keep_only_safe_reason_categories(self):
         cases = (
@@ -541,7 +557,7 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertEqual(result["summary"], report["summary"])
         self.assertTrue(result["ai"]["numeric_filter_applied"])
 
-    def test_manager_limits_manual_analysis_calls_and_never_trains(self):
+    def test_manager_limits_paid_calls_then_returns_local_report_without_training(self):
         calls = []
         with tempfile.TemporaryDirectory() as temporary:
             manager = TrainingJobManager(
@@ -561,9 +577,41 @@ class AIAnalysisCases(unittest.TestCase):
             manager.predict = lambda job_id, csv_text: prediction_payload()  # type: ignore[method-assign]
             for _ in range(3):
                 self.assertEqual(manager.analyze_prediction("job-a", "local-csv"), {"summary": "ok"})
-            with self.assertRaises(EligibilityError):
-                manager.analyze_prediction("job-a", "local-csv")
+            fallback = manager.analyze_prediction("job-a", "local-csv")
+            self.assertEqual(fallback["ai"], {
+                "status": "fallback",
+                "source": "local",
+                "reason": "analysis_call_limit",
+            })
+            self.assertIn("summary", fallback)
         self.assertEqual(len(calls), 3)
+
+    def test_manager_returns_local_report_when_openai_is_rate_limited(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            error = AIAnalysisUpstreamError(
+                "rate limited",
+                stage="http_error",
+                diagnostics={"http_status": 429, "error_code": "credit_balance_exhausted"},
+            )
+            def rate_limited(_report):
+                raise error
+            manager = TrainingJobManager(
+                temporary,
+                pipeline=lambda *_args, **_kwargs: self.fail("training must not run"),
+                ai_analyzer=rate_limited,
+            )
+            manager._jobs["job-a"] = TrainingJob(
+                job_id="job-a", building_id="building-a", status="COMPLETED",
+                run_dir="unused", selected_model="xgboost",
+                validation_metrics={"xgboost": {"mae": 1.0, "wape": 0.1}},
+                test_metrics={"xgboost": {"mae": 1.2, "wape": 0.12}},
+            )
+            manager.predict = lambda job_id, csv_text: prediction_payload()  # type: ignore[method-assign]
+            result = manager.analyze_prediction("job-a", "local-csv")
+            self.assertEqual(result["ai"]["status"], "fallback")
+            self.assertEqual(result["ai"]["reason"], "upstream_error")
+            self.assertEqual(result["ai"]["diagnostics"]["http_status"], 429)
+            self.assertEqual(result["summary"], report_payload()["summary"])
 
 
 if __name__ == "__main__":

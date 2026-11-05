@@ -47,6 +47,9 @@ def _response_diagnostics(response: Mapping[str, Any]) -> dict[str, Any]:
         "server_error", "rate_limit_exceeded", "invalid_prompt", "invalid_api_key",
         "insufficient_quota", "model_not_found", "context_length_exceeded",
         "invalid_value", "unsupported_value", "permission_denied", "content_policy_violation",
+        "credit_balance_exhausted", "slow_down",
+        "organization_spend_limit_exceeded", "project_spend_limit_exceeded",
+        "organization_usage_limit_exceeded", "server_is_overloaded",
     }
     diagnostics = {
         "response_status": status if status in {None, "completed", "incomplete", "failed", "cancelled", "queued", "in_progress"} else "unknown",
