@@ -305,3 +305,12 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 실제 유료 호출은 승인된 1회만 실행. 변경된 4096 설정의 실제 API 완료 여부는 추가 호출하지 않아 미검증
 - 전체 Python 74 PASS, 실패 후 예측/기존 보고서 유지 DOM 모의 검사 8 PASS. 서버 재시작 후 health에서 4096/high/20초 적용 확인
 - 안전한 실측 메타데이터: `analysis/report_failure_validation/live-diagnostic-once.json`
+
+## 2026-11-05 연속 결측 학습 적합성 진단 개선
+
+- 최대 연속 결측이 정확히 24시간인 경우와 24시간 초과인 경우를 구분하고, 초과만 `WARNING_MAX_GAP_OVER_24_HOURS`로 기록하도록 변경
+- 장기 결측만으로 분할을 차단하지 않고, 결측을 채우지 않은 완전한 168시간 입력+24시간 정답 표본을 Train·Validation·Test별로 계산해 1,000/168/12/12 최소 기준으로 학습 적합성을 별도 판정
+- 품질 진단과 실제 학습이 같은 표본 준비 함수를 사용하며, 화면에 구간별 유효·제외 수와 Validation 비중복 평가창 수를 표시. 실제 분할 실패와 유효 표본 부족 문구를 분리
+- 최근 업로드된 `유큐브_시간별_전력사용량.csv` 읽기 전용 재진단: 최대 결측 72시간, 전체 유효 192시간 창 3,591개, Train 2,537/제외 2,319, Validation dense 503/제외 194·비중복 22/제외 8, Test 비중복 22/제외 8, 품질 WARNING·학습 적합성 PASS
+- 전체 Python 회귀 80 PASS, 프런트 품질 계약 DOM 모의 2시나리오 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
+- 실제 XGBoost 전체 학습과 실제 브라우저 시각 검증은 실행하지 않음

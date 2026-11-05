@@ -141,8 +141,8 @@ def run_training_pipeline(
         enforce_train_variance,
         validate_and_normalize_frame,
     )
-    from .sequences import make_sequences, validate_minimum_samples
-    from .split import frozen_evaluation_origins, make_split_plan
+    from .sequences import prepare_sequence_data, validate_minimum_samples
+    from .split import make_split_plan
 
     def report_progress(percent: int, message: str) -> None:
         if progress_callback is not None:
@@ -158,16 +158,11 @@ def run_training_pipeline(
     distribution_report = diagnose_split_distribution(data, plan)
     enforce_train_variance(distribution_report)
     features = build_features(data, building_timezone)
-    train_dense = make_sequences(features, data.kwh, plan, "train")
-    validation_dense = make_sequences(features, data.kwh, plan, "validation")
-    validation_origins, validation_excluded = frozen_evaluation_origins(
-        plan, "validation", data.index
-    )
-    test_origins, test_excluded = frozen_evaluation_origins(plan, "test", data.index)
-    validation_eval = make_sequences(
-        features, data.kwh, plan, "validation", origins=validation_origins
-    )
-    test_eval = make_sequences(features, data.kwh, plan, "test", origins=test_origins)
+    prepared = prepare_sequence_data(features, data.kwh, plan)
+    train_dense = prepared.train_dense
+    validation_dense = prepared.validation_dense
+    validation_eval = prepared.validation_evaluation
+    test_eval = prepared.test_evaluation
     validate_minimum_samples(train_dense, validation_dense, validation_eval, test_eval)
     data_preparation_seconds = perf_counter() - total_started
     report_progress(25, "학습·Validation·Test 데이터를 준비했습니다.")
@@ -221,8 +216,8 @@ def run_training_pipeline(
     schedule = {
         "validation_origins": [value.isoformat() for value in validation_eval.origins],
         "test_origins": [value.isoformat() for value in test_eval.origins],
-        "validation_excluded": validation_excluded,
-        "test_excluded": test_excluded,
+        "validation_excluded": prepared.validation_excluded,
+        "test_excluded": prepared.test_excluded,
         "interval_hours": 24,
         "frozen_before_training": True,
     }

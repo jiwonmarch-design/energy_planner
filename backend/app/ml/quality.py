@@ -200,8 +200,9 @@ def diagnose_quality(data: pd.DataFrame) -> QualityReport:
         status = QualityStatus.FAIL
         reasons.append("FAIL_MISSING_RATE_OVER_5_PERCENT")
     if max_gap > 24:
-        status = QualityStatus.FAIL
-        reasons.append("FAIL_MAX_GAP_OVER_24_HOURS")
+        if status == QualityStatus.PASS:
+            status = QualityStatus.WARNING
+        reasons.append("WARNING_MAX_GAP_OVER_24_HOURS")
     state_transition = bool(
         longest_constant >= 168
         and dominant_rate >= 0.5

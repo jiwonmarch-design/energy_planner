@@ -708,7 +708,7 @@ function renderQuality(result) {
   $("upload").removeAttribute("aria-busy");
   $("selected-file-state").textContent = "선택한 파일로 진단을 완료했습니다";
   const quality = result.quality;
-  state.warningRequired = Boolean(result.split?.warning_limited_experiment);
+  state.warningRequired = quality.reason_codes.includes("WARNING_90_TO_179_DAYS_APPROVAL_REQUIRED");
   $("warning-approval").hidden = !state.warningRequired;
   const badge = $("status-badge");
   badge.textContent = quality.status;
@@ -716,22 +716,23 @@ function renderQuality(result) {
   const headingBadge = $("quality-heading-status");
   headingBadge.textContent = quality.status;
   headingBadge.className = `status ${quality.status.toLowerCase()}`;
+  const approvalPending = state.warningRequired && !result.split;
   $("eligibility").textContent = result.training_eligible
-    ? "모델 학습을 시작할 수 있습니다."
-    : quality.status === "WARNING"
+    ? quality.status === "WARNING"
+      ? "결측 구간과 겹치는 표본을 제외하고 모델을 학습할 수 있습니다."
+      : "모델 학습을 시작할 수 있습니다."
+    : approvalPending
       ? "학습은 가능하지만 제한 실험 동의와 재진단이 필요합니다."
-      : "현재 데이터로는 모델을 학습할 수 없습니다.";
+      : "필수 유효 표본 또는 품질 기준이 부족해 모델을 학습할 수 없습니다.";
   const continuityRate = quality.expected_hours > 0
     ? quality.observed_hours / quality.expected_hours
     : 0;
-  const eligibilityLabel = result.training_eligible
-    ? quality.status === "WARNING" ? "확인 필요" : "적합"
-    : "부적합";
+  const trainingStatus = result.training_status || (result.training_eligible ? "PASS" : "FAIL");
   const cards = [
     ["관측 기간", `${fmt(quality.elapsed_days, 0)}일`, quality.elapsed_days >= 180 ? "권장 기간 충족" : "최소 90일"],
     ["결측률", `${fmt(quality.missing_rate * 100, 2)}%`, `연속 누락 최대 ${fmt(quality.max_consecutive_missing_hours, 0)}시간`],
     ["시간 연속성", `${fmt(continuityRate * 100, 2)}%`, `${fmt(quality.observed_hours, 0)} / ${fmt(quality.expected_hours, 0)}시간`],
-    ["학습 적합성", eligibilityLabel, result.training_eligible ? "시간순 학습 가능" : "차단 사유 확인"],
+    ["학습 적합성", trainingStatus, result.training_eligible ? "필수 유효 표본 충족" : "차단 사유 확인"],
   ];
   $("quality-cards").innerHTML = cards
     .map(([label, value, foot]) => `<div class="metric-card"><span>${label}</span><strong>${value}</strong><small>${foot}</small></div>`)
@@ -739,12 +740,18 @@ function renderQuality(result) {
   const observationState = quality.elapsed_days >= 180 ? "pass" : quality.elapsed_days >= 90 ? "warning" : "fail";
   const observationText = quality.elapsed_days >= 180 ? "통과" : quality.elapsed_days >= 90 ? "최소 기간 충족 · 확인 필요" : "90일 미만";
   const inputWindowState = quality.latest_168_complete ? "pass" : "fail";
-  const splitState = result.split ? "pass" : "fail";
+  const sampleAvailability = result.sample_availability;
+  const splitState = result.split && sampleAvailability?.status === "PASS" ? "pass" : "fail";
+  const splitText = !result.split
+    ? "분리 불가"
+    : sampleAvailability?.status === "FAIL"
+      ? "유효 표본 부족"
+      : "가능";
   const details = [
     ["필수 컬럼 및 형식", result.contract_status === "PASS" ? "통과" : "확인 필요", result.contract_status === "PASS" ? "pass" : "fail"],
     ["최소 관측 기간", observationText, observationState],
     ["입력용 168시간 구간", quality.latest_168_complete ? "통과" : "최신 구간 불완전", inputWindowState],
-    ["시간순 Train / Validation / Test 분리", result.split ? "가능" : "분리 불가", splitState],
+    ["시간순 Train / Validation / Test 분리", splitText, splitState],
   ];
   const checkIcon = '<svg class="detail-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m4 10.5 3.5 3.5L16 5.5"/></svg>';
   $("quality-detail-list").innerHTML = details
@@ -757,13 +764,20 @@ function renderQuality(result) {
   const split = result.split;
   const splitResults = $("quality-split-results");
   if (split) {
+    const trainSamples = sampleAvailability?.splits?.train;
+    const validationSamples = sampleAvailability?.splits?.validation;
+    const validationEvaluation = validationSamples?.evaluation;
+    const testSamples = sampleAvailability?.splits?.test;
+    const sampleSummary = (samples) => samples
+      ? `<small>유효 ${fmt(samples.valid_count, 0)}개 · 제외 ${fmt(samples.excluded_count, 0)}개 · 최소 ${fmt(samples.minimum_required, 0)}개</small>`
+      : "";
     splitResults.hidden = false;
     splitResults.innerHTML = `
-      <h3>Train / Validation / Test 시간순 분할</h3>
+      <h3>Train / Validation / Test 시간순 분할과 유효 표본</h3>
       <div class="split-grid">
-        <div><span>Train</span><strong>${split.train_start.slice(0, 10)} → ${split.train_end.slice(0, 10)}</strong></div>
-        <div><span>Validation</span><strong>${split.validation_start.slice(0, 10)} → ${split.validation_end.slice(0, 10)}</strong><small>${split.validation_days}일</small></div>
-        <div><span>Test</span><strong>${split.test_start.slice(0, 10)} → ${split.test_end.slice(0, 10)}</strong><small>${split.test_days}일</small></div>
+        <div><span>Train</span><strong>${split.train_start.slice(0, 10)} → ${split.train_end.slice(0, 10)}</strong>${sampleSummary(trainSamples)}</div>
+        <div><span>Validation</span><strong>${split.validation_start.slice(0, 10)} → ${split.validation_end.slice(0, 10)}</strong>${sampleSummary(validationSamples)}${validationEvaluation ? `<small>비중복 평가 유효 ${fmt(validationEvaluation.valid_count, 0)}개 · 제외 ${fmt(validationEvaluation.excluded_count, 0)}개 · 최소 ${fmt(validationEvaluation.minimum_required, 0)}개</small>` : ""}</div>
+        <div><span>Test</span><strong>${split.test_start.slice(0, 10)} → ${split.test_end.slice(0, 10)}</strong>${sampleSummary(testSamples)}</div>
       </div>`;
   } else {
     splitResults.hidden = true;
@@ -795,12 +809,16 @@ function qualityReasonText(code) {
     FAIL_LESS_THAN_90_DAYS: "관측 기간이 90일 미만입니다. 더 긴 기간의 CSV를 업로드해 주세요.",
     WARNING_90_TO_179_DAYS_APPROVAL_REQUIRED: "관측 기간이 90~179일입니다. 제한 실험에 동의해야 학습할 수 있습니다.",
     FAIL_MISSING_RATE_OVER_5_PERCENT: "누락된 시간 비율이 5%를 초과합니다. 원본 계측 데이터를 확인해 주세요.",
-    FAIL_MAX_GAP_OVER_24_HOURS: "24시간을 초과하는 연속 누락 구간이 있습니다. 원본 계측 데이터를 확인해 주세요.",
+    WARNING_MAX_GAP_OVER_24_HOURS: "24시간을 초과하는 연속 누락 구간이 있습니다. 값을 채우지 않고, 이 구간과 겹치는 192시간 표본만 제외합니다.",
     WARNING_LONG_CONSTANT_RUN_168H: "같은 사용량이 168시간 이상 이어진 구간이 있습니다. 계량기 상태를 확인해 주세요.",
     WARNING_DOMINANT_VALUE_OVER_50_PERCENT: "한 사용량 값이 전체 데이터의 절반을 초과합니다. 계량기 비활성 여부를 확인해 주세요.",
     WARNING_SUSPECTED_METER_STATE_TRANSITION: "계량기 상태가 바뀐 것으로 의심되는 구간이 있습니다.",
     PASS_QUALITY_THRESHOLDS: "기간, 누락과 연속성에 대한 필수 품질 기준을 충족했습니다.",
     FAIL_TRAIN_ZERO_VARIANCE: "학습 구간의 사용량 변화가 없어 모델을 학습할 수 없습니다.",
+    FAIL_MINIMUM_TRAIN_SAMPLES_1000: "Train 구간의 유효 192시간 표본이 최소 1,000개보다 적습니다.",
+    FAIL_MINIMUM_VALIDATION_DENSE_SAMPLES_168: "Validation 구간의 유효 192시간 표본이 최소 168개보다 적습니다.",
+    FAIL_MINIMUM_VALIDATION_NONOVERLAP_12: "Validation 구간의 비중복 평가 표본이 최소 12개보다 적습니다.",
+    FAIL_MINIMUM_TEST_NONOVERLAP_12: "Test 구간의 비중복 평가 표본이 최소 12개보다 적습니다.",
     "data is not eligible for a temporal split": "시간순 학습·검증·테스트 구간을 만들 수 없습니다. 데이터 기간과 품질 기준을 확인해 주세요.",
     "90-179 day data requires explicit limited-experiment approval": "90~179일 데이터의 제한 실험 동의가 필요합니다. 아래 동의 항목을 확인한 뒤 다시 진단해 주세요.",
     "training interval is empty": "학습에 사용할 시간 구간이 없습니다. 더 긴 기간의 CSV를 업로드해 주세요.",

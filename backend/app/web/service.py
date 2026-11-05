@@ -24,11 +24,13 @@ from backend.app.ml.contracts import (
     to_jsonable,
 )
 from backend.app.ml.inference import predict_from_run
+from backend.app.ml.features import build_features
 from backend.app.ml.quality import (
     diagnose_quality,
     diagnose_split_distribution,
     validate_and_normalize_frame,
 )
+from backend.app.ml.sequences import prepare_sequence_data
 from backend.app.ml.split import make_split_plan
 from backend.app.ml.train import run_training_pipeline
 from backend.app.web.ai_analysis import analyze_prediction
@@ -175,6 +177,7 @@ def analyze_csv(
         "contract_status": "PASS",
         "quality": to_jsonable(quality),
         "training_eligible": False,
+        "training_status": "FAIL",
         "training_blockers": [],
         "prediction_eligible": quality.latest_168_complete,
         "source_timezone_mode": SourceTimezoneMode(resolved_timezone_mode).value,
@@ -188,11 +191,15 @@ def analyze_csv(
         payload["training_blockers"].append(str(exc))
         return payload
     distribution = diagnose_split_distribution(data, plan)
+    prepared = prepare_sequence_data(build_features(data, building_timezone), data.kwh, plan)
     payload["split"] = to_jsonable(plan)
     payload["distribution"] = to_jsonable(distribution)
+    payload["sample_availability"] = prepared.availability
     if distribution.train_zero_variance:
         payload["training_blockers"].append("FAIL_TRAIN_ZERO_VARIANCE")
+    payload["training_blockers"].extend(prepared.availability["reason_codes"])
     payload["training_eligible"] = not payload["training_blockers"]
+    payload["training_status"] = "PASS" if payload["training_eligible"] else "FAIL"
     return payload
 
 
@@ -314,8 +321,6 @@ class TrainingJobManager:
             raise EligibilityError(
                 ", ".join(analysis["training_blockers"]) or "데이터가 학습 조건을 충족하지 않습니다."
             )
-        if analysis["quality"]["status"] == "WARNING" and not warning_approved:
-            raise EligibilityError("WARNING 데이터는 명시적 제한 실험 승인이 필요합니다.")
         job_id = uuid.uuid4().hex
         job = TrainingJob(
             job_id=job_id,
