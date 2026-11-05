@@ -18,6 +18,8 @@ import pandas as pd
 from backend.app.ml.contracts import (
     DataContractError,
     EligibilityError,
+    FEATURE_NAMES,
+    LOOKBACK,
     SourceTimezoneMode,
     to_jsonable,
 )
@@ -35,6 +37,32 @@ from backend.app.web.analysis_report import build_analysis_report
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 BUILDING_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
+FEATURE_DESCRIPTIONS = {
+    "kwh": "시간별 전력 사용량",
+    "hour_sin": "하루 중 시간의 반복 패턴",
+    "hour_cos": "하루 중 시간의 반복 패턴",
+    "weekday_sin": "요일의 반복 패턴",
+    "weekday_cos": "요일의 반복 패턴",
+    "is_weekend": "주말 여부",
+}
+
+
+def model_input_info() -> dict[str, Any]:
+    """Expose the active XGBoost input contract for the training UI."""
+
+    return {
+        "model_kind": "xgboost",
+        "feature_count": len(FEATURE_NAMES),
+        "features": [
+            {
+                "name": name,
+                "description": FEATURE_DESCRIPTIONS.get(name, "모델 입력 피처"),
+            }
+            for name in FEATURE_NAMES
+        ],
+        "lookback_hours": LOOKBACK,
+        "minimum_upload_days": 90,
+    }
 
 
 def same_weekday_baseline(

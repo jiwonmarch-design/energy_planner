@@ -199,6 +199,20 @@ a { color: inherit; }
 .test-split { width: 16.665%; background: #aabbd8; }
 .detail-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #e9e6df; font-size: 12px; }
 .detail-row:last-of-type { border-bottom: 0; }
+.model-input-details { margin-top: 10px; border-top: 1px solid #e9e6df; color: var(--sub); }
+.model-input-details > summary { display: flex; min-height: 44px; align-items: center; gap: 5px; width: fit-content; list-style: none; color: var(--sub); font-size: 12px; font-weight: 700; cursor: pointer; }
+.model-input-details > summary::-webkit-details-marker { display: none; }
+.model-input-details > summary span { display: inline-block; color: #8490a0; transition: transform .18s ease; }
+.model-input-details[open] > summary span { transform: rotate(180deg); }
+.model-input-content { padding: 2px 0 6px; border-top: 1px solid #eeece6; }
+.model-input-count { margin: 13px 0 8px; color: var(--ink); font-size: 12px; }
+.model-feature-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.model-feature-list li { display: grid; grid-template-columns: minmax(128px, .9fr) minmax(0, 1.45fr); gap: 14px; padding: 8px 0; border-bottom: 1px solid #eeece6; font-size: 12px; line-height: 1.55; }
+.model-feature-names { color: var(--blue-deep); font-weight: 750; overflow-wrap: anywhere; }
+.model-feature-names code { font: inherit; }
+.model-lookback { display: grid; gap: 3px; margin: 11px 0 0; font-size: 12px; line-height: 1.55; }
+.model-lookback strong { color: var(--ink); font-weight: 750; }
+.model-lookback span { color: var(--sub); }
 .model-results { margin-top: 18px; }
 .table-wrap { overflow: auto; }
 .table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -446,6 +460,7 @@ a { color: inherit; }
   .readiness-list li { grid-template-columns: 34px minmax(0, 1fr); padding-block: 12px; }
   .readiness-state { grid-column: 2; min-width: 0; text-align: left; }
   .forecast-summary { padding: 16px; }
+  .model-feature-list li { grid-template-columns: 1fr; gap: 2px; }
   .validation-detail-grid dl > div { grid-template-columns: 1fr; gap: 4px; }
   .validation-detail-grid dd { text-align: left; }
   .report-actions .btn { width: 100%; }

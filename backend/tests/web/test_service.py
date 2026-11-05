@@ -9,7 +9,13 @@ from types import SimpleNamespace
 
 from backend.app.ml.artifacts import save_run_artifacts
 from backend.app.ml.baselines import LAST_24H
-from backend.app.ml.contracts import DataContractError, EligibilityError, TrainingConfig
+from backend.app.ml.contracts import (
+    DataContractError,
+    EligibilityError,
+    FEATURE_NAMES,
+    LOOKBACK,
+    TrainingConfig,
+)
 from backend.app.ml.quality import diagnose_quality, validate_and_normalize_frame
 from backend.app.ml.split import make_split_plan
 from backend.app.web.service import (
@@ -17,6 +23,7 @@ from backend.app.web.service import (
     analyze_csv,
     generated_building_id,
     infer_source_timezone_mode,
+    model_input_info,
     parse_csv_text,
 )
 from backend.tests.ml.synthetic import hourly_frame
@@ -27,6 +34,18 @@ def csv_for(days: int, *, constant: float | None = None) -> str:
 
 
 class WebServiceCases(unittest.TestCase):
+    def test_model_input_info_matches_active_xgboost_contract(self):
+        result = model_input_info()
+
+        self.assertEqual(result["model_kind"], "xgboost")
+        self.assertEqual(result["feature_count"], len(FEATURE_NAMES))
+        self.assertEqual(
+            tuple(feature["name"] for feature in result["features"]),
+            FEATURE_NAMES,
+        )
+        self.assertEqual(result["lookback_hours"], LOOKBACK)
+        self.assertEqual(result["minimum_upload_days"], 90)
+
     def test_timezone_mode_is_inferred_from_timestamp_offsets(self):
         aware = parse_csv_text(csv_for(180))
         self.assertEqual(infer_source_timezone_mode(aware).value, "explicit_offset")

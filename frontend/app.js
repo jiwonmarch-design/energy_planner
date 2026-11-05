@@ -1726,11 +1726,62 @@ async function loadCapabilities() {
     const health = await response.json();
     state.aiAnalysisAvailable = Boolean(health.ai_analysis?.enabled);
     state.aiAnalysisModel = health.ai_analysis?.model || "";
+    renderModelInputInfo(health.model_input);
   } catch {
     state.aiAnalysisAvailable = false;
     state.aiAnalysisModel = "";
+    renderModelInputInfo(null);
   }
   updateNextAction();
+}
+
+function renderModelInputInfo(info) {
+  const features = Array.isArray(info?.features) ? info.features : [];
+  const featureCount = Number(info?.feature_count);
+  const lookbackHours = Number(info?.lookback_hours);
+  const minimumUploadDays = Number(info?.minimum_upload_days);
+  const list = $("model-feature-list");
+
+  if (!features.length || !Number.isInteger(featureCount) || !Number.isInteger(lookbackHours)) {
+    $("model-feature-count").textContent = "모델 입력 정보를 불러오지 못했습니다.";
+    $("model-lookback-summary").textContent = "서버 연결 후 실제 학습 설정을 확인할 수 있습니다.";
+    $("model-lookback-note").textContent = "";
+    list.replaceChildren();
+    return;
+  }
+
+  $("model-feature-count").textContent = `실제 학습 피처 ${featureCount}개`;
+  const grouped = new Map();
+  features.forEach((feature) => {
+    const name = String(feature?.name || "").trim();
+    if (!name) return;
+    const description = String(feature?.description || "모델 입력 피처").trim();
+    if (!grouped.has(description)) grouped.set(description, []);
+    grouped.get(description).push(name);
+  });
+  list.replaceChildren(...[...grouped].map(([description, names]) => {
+    const item = document.createElement("li");
+    const nameGroup = document.createElement("span");
+    nameGroup.className = "model-feature-names";
+    names.forEach((name, index) => {
+      if (index) nameGroup.append(", ");
+      const code = document.createElement("code");
+      code.textContent = name;
+      nameGroup.append(code);
+    });
+    const copy = document.createElement("span");
+    copy.textContent = description;
+    item.append(nameGroup, copy);
+    return item;
+  }));
+
+  const lookbackDays = lookbackHours % 24 === 0 ? lookbackHours / 24 : null;
+  $("model-lookback-summary").textContent = lookbackDays
+    ? `최근 ${lookbackHours}시간(${lookbackDays}일)의 데이터를 활용합니다.`
+    : `최근 ${lookbackHours}시간의 데이터를 활용합니다.`;
+  $("model-lookback-note").textContent = Number.isInteger(minimumUploadDays)
+    ? `이는 학습 자격을 위한 최소 업로드 기간 ${minimumUploadDays}일과 별개의 모델 입력 구간입니다.`
+    : "학습 자격을 위한 최소 업로드 기간과는 별개의 모델 입력 구간입니다.";
 }
 
 function updateForecastSelection(index, { showTooltip = false } = {}) {

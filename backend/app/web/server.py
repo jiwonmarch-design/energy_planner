@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from backend.app.ml.contracts import PipelineError
 from backend.app.web.local_env import load_env_file
-from backend.app.web.service import TrainingJobManager, analyze_csv
+from backend.app.web.service import TrainingJobManager, analyze_csv, model_input_info
 from backend.app.web.ai_analysis import (
     AIAnalysisUnavailable,
     AIAnalysisUpstreamError,
@@ -79,6 +79,7 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "ok",
                     "service": "energy-planner-local",
                     "ai_analysis": analysis_status(),
+                    "model_input": model_input_info(),
                 },
             )
             return

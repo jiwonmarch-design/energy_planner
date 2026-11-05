@@ -260,3 +260,11 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 전체 Python 회귀 59 PASS·3 subtests PASS, JavaScript 문법·Python compileall PASS
 - 저장된 실제 XGBoost 완료 run과 `gpt-4o-mini` 연동으로 보고서 버전 2, 핵심 발견 2개, 정량 근거 표시, 1440px·390px 반응형을 Chrome 6/6 PASS로 확인
 - 검증 산출물: `analysis/ai_decision_report_validation/`
+
+## 2026-11-05 모델 입력 정보 접기·펼치기
+
+- 모델 학습 화면의 `학습 설정` 안내 아래에 기본 접힘 상태의 `모델 입력 정보 보기` 영역 추가
+- 서버가 실제 XGBoost 계약의 `FEATURE_NAMES`와 `LOOKBACK`을 제공하고, 화면이 피처 6개·설명·최근 168시간(7일) 입력 구간을 동적으로 표시하도록 연결
+- 최근 168시간 모델 입력 구간과 최소 업로드 기간 90일이 서로 다른 조건임을 명시
+- 관련 웹 테스트 23 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
+- 실제 브라우저 시각 검증은 브라우저 연결 호스트 오류로 미검증
