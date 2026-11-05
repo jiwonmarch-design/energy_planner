@@ -1,0 +1,18 @@
+{
+  "calls": 1,
+  "settings": {
+    "model": "gpt-6-sol",
+    "reasoning_effort": "high",
+    "max_output_tokens": 1200,
+    "timeout_seconds": 20.0
+  },
+  "response_status": "incomplete",
+  "incomplete_reason": "max_output_tokens",
+  "error_code": null,
+  "input_tokens": 14206,
+  "output_tokens": 1200,
+  "reasoning_tokens": 785,
+  "http_status": 200,
+  "stage": "response_status",
+  "validation": "failed"
+}

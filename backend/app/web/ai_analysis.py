@@ -18,7 +18,7 @@ from typing import Any, Callable, Mapping
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-4o-mini"
-MAX_OUTPUT_TOKENS = 1200
+DEFAULT_MAX_OUTPUT_TOKENS = 1200
 LOGGER = logging.getLogger(__name__)
 
 
@@ -129,7 +129,7 @@ def analysis_status(environ: Mapping[str, str] | None = None) -> dict[str, Any]:
         "enabled": enabled,
         "model": values.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         "reasoning_effort": values.get("OPENAI_REASONING_EFFORT", "").strip() or None,
-        "max_output_tokens": MAX_OUTPUT_TOKENS,
+        "max_output_tokens": _safe_max_output_tokens(values),
         "timeout_seconds": _safe_timeout(values),
     }
 
@@ -140,6 +140,15 @@ def _safe_timeout(values: Mapping[str, str]) -> float:
     except ValueError:
         configured = 20.0
     return min(60.0, max(3.0, configured))
+
+
+def _safe_max_output_tokens(values: Mapping[str, str]) -> int:
+    """Budget includes reasoning and visible JSON; preserve legacy defaults."""
+    try:
+        configured = int(values.get("OPENAI_MAX_OUTPUT_TOKENS", str(DEFAULT_MAX_OUTPUT_TOKENS)))
+    except ValueError:
+        configured = DEFAULT_MAX_OUTPUT_TOKENS
+    return min(16384, max(1200, configured))
 
 
 def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> dict[str, Any]:
@@ -337,7 +346,7 @@ def analyze_prediction(
     payload = {
         "model": model,
         "store": False,
-        "max_output_tokens": MAX_OUTPUT_TOKENS,
+        "max_output_tokens": _safe_max_output_tokens(values),
         "input": [
             {
                 "role": "system",

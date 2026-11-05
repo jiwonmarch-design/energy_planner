@@ -296,3 +296,12 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - Python 전체 71 PASS, 프런트 실패 후 예측/기존 보고서 유지 DOM 모의 검사 8 PASS, compileall·JavaScript 문법·diff 검사 PASS
 - 실제 API 호출 0회. 원인 확정을 위한 유료 진단 1회는 승인 응답 대기
 - 상세 기록: `analysis/report_failure_validation/report.md`
+
+## 2026-11-05 AI 보고서 출력 한도 부족 확인 및 수정
+
+- 사용자가 승인한 진단 1회로 동일 집계 입력·1200/high에서 HTTP 200, incomplete, reason=max_output_tokens 실제 재현. 출력 1200 중 추론 785토큰 사용
+- OPENAI_MAX_OUTPUT_TOKENS 환경설정 지원 추가, 로컬 설정 4096 적용. high·20초 timeout 유지, 미설정 기본1200과 상한16384 적용
+- 동일 조건 incomplete 모의 재현, 늘린 예산 전달·정상 모의 응답 처리 및 관찰/조치 근거 검증 유지 확인
+- 실제 유료 호출은 승인된 1회만 실행. 변경된 4096 설정의 실제 API 완료 여부는 추가 호출하지 않아 미검증
+- 전체 Python 74 PASS, 실패 후 예측/기존 보고서 유지 DOM 모의 검사 8 PASS. 서버 재시작 후 health에서 4096/high/20초 적용 확인
+- 안전한 실측 메타데이터: `analysis/report_failure_validation/live-diagnostic-once.json`

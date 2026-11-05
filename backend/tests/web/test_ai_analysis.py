@@ -102,6 +102,52 @@ def valid_response() -> dict:
 
 
 class AIAnalysisCases(unittest.TestCase):
+    def test_confirmed_token_limit_failure_with_larger_configured_budget(self):
+        # Replay the approved live diagnostic's metadata; no network requests.
+        limited = {
+            "status": "incomplete", "incomplete_details": {"reason": "max_output_tokens"},
+            "_http_status": 200, "output": [],
+            "usage": {"input_tokens": 14206, "output_tokens": 1200, "output_tokens_details": {"reasoning_tokens": 785}},
+        }
+        requests = []
+
+        def transport(payload, *_):
+            requests.append(payload)
+            return limited if payload["max_output_tokens"] == 1200 else valid_response()
+
+        values = {"OPENAI_API_KEY": "mock", "OPENAI_REASONING_EFFORT": "high"}
+        with self.assertLogs("backend.app.web.ai_analysis", level="WARNING"):
+            with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                analyze_prediction(report_payload(), environ=values, transport=transport)
+        self.assertEqual(raised.exception.diagnostics["incomplete_reason"], "max_output_tokens")
+        self.assertEqual(len(requests), 1)  # no automatic retry
+        values["OPENAI_MAX_OUTPUT_TOKENS"] = "4096"
+        result = analyze_prediction(report_payload(), environ=values, transport=transport)
+        self.assertEqual(requests[-1]["max_output_tokens"], 4096)
+        self.assertEqual(requests[-1]["reasoning"], {"effort": "high"})
+        self.assertEqual(result["ai"]["status"], "completed")
+        self.assertTrue(result["recommendations"])
+        self.assertEqual(analysis_status(values)["max_output_tokens"], 4096)
+
+    def test_output_budget_is_bounded_and_invalid_value_keeps_legacy_default(self):
+        for configured, expected in (("bad", 1200), ("0", 1200), ("100000", 16384), ("4096", 4096)):
+            with self.subTest(configured=configured):
+                self.assertEqual(analysis_status({"OPENAI_MAX_OUTPUT_TOKENS": configured})["max_output_tokens"], expected)
+
+    def test_larger_budget_preserves_both_evidence_gates(self):
+        for gate in ("observation", "action"):
+            with self.subTest(gate=gate):
+                response = valid_response()
+                value = json.loads(response["output"][0]["content"][0]["text"])
+                if gate == "observation":
+                    value["observation_evidence_ids"]["summary"] = ["unknown"]
+                else:
+                    value["findings"][0]["evidence_ids"] = ["forecast_total"]
+                response["output"][0]["content"][0]["text"] = json.dumps(value)
+                with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                    analyze_prediction(report_payload(), environ={"OPENAI_API_KEY": "mock", "OPENAI_MAX_OUTPUT_TOKENS": "4096", "OPENAI_REASONING_EFFORT": "high"}, transport=lambda *_: response)
+                self.assertEqual(raised.exception.diagnostics["stage"], "observation_evidence" if gate == "observation" else "actionable_evidence")
+
     def test_status_exposes_effective_nonsecret_request_settings(self):
         status = analysis_status({"OPENAI_API_KEY": "secret", "OPENAI_MODEL": "test-model", "OPENAI_REASONING_EFFORT": "high", "OPENAI_TIMEOUT_SECONDS": "20"})
         self.assertEqual(status["max_output_tokens"], 1200)

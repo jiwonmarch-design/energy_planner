@@ -41,8 +41,12 @@ python -m pip install -r backend/requirements.txt
 ```dotenv
 OPENAI_API_KEY=여기에_키를_붙여넣기
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_REASONING_EFFORT=
+OPENAI_MAX_OUTPUT_TOKENS=1200
 OPENAI_TIMEOUT_SECONDS=20
 ```
+
+`OPENAI_MAX_OUTPUT_TOKENS`는 추론과 최종 JSON 답변을 합친 출력 한도입니다. 로컬 `gpt-6-sol`·`high` 설정에서는 1,200토큰 미완료 응답이 확인되어 4,096으로 조정했습니다. 이 설정은 1,200~16,384 범위로 적용되며, 환경변수 변경 후 서버를 재시작합니다. 자동 유료 재시도는 하지 않습니다.
 
 ## 테스트
 
