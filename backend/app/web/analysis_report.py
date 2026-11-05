@@ -24,6 +24,9 @@ def _metric(metrics: Mapping[str, Any] | None, model: str | None) -> dict[str, f
     return {
         "mae": _number(value.get("mae")),
         "wape": _number(value.get("wape")),
+        "rmse": _number(value.get("rmse")),
+        "peak_mae": _number(value.get("peak_mae")),
+        "peak_time_error_hours": _number(value.get("peak_time_error_hours")),
     }
 
 
@@ -623,19 +626,38 @@ def build_analysis_report(prediction: Mapping[str, Any], job: Any) -> dict[str, 
         summary_parts.append(judgment_sentence)
 
     summary = " ".join(summary_parts)
-    test_wape_percent = (
-        selected_test["wape"] * 100.0 if selected_test["wape"] is not None else None
-    )
-    if test_wape_percent is None:
+    accuracy_parts: list[str] = []
+    if selected_test["mae"] is not None:
+        accuracy_parts.append(
+            "과거 테스트에서 시간당 사용량은 실제와 평균 "
+            f"{selected_test['mae']:.2f} kWh 차이가 났습니다."
+        )
+    if (
+        selected_test["peak_mae"] is not None
+        and selected_test["peak_time_error_hours"] is not None
+    ):
+        accuracy_parts.append(
+            "24시간 중 가장 많이 쓴 시간의 사용량은 평균 "
+            f"{selected_test['peak_mae']:.2f} kWh, 그 시점은 평균 "
+            f"{selected_test['peak_time_error_hours']:.1f}시간 차이가 났습니다."
+        )
+    elif selected_test["peak_mae"] is not None:
+        accuracy_parts.append(
+            "24시간 중 가장 많이 쓴 시간의 사용량은 실제와 평균 "
+            f"{selected_test['peak_mae']:.2f} kWh 차이가 났습니다."
+        )
+    elif selected_test["peak_time_error_hours"] is not None:
+        accuracy_parts.append(
+            "24시간 중 가장 많이 쓴 시점은 실제와 평균 "
+            f"{selected_test['peak_time_error_hours']:.1f}시간 차이가 났습니다."
+        )
+    if not accuracy_parts:
         accuracy_summary = (
-            "과거 검증 결과가 없어 평균 오차율을 확인할 수 없습니다. "
+            "과거 테스트 결과가 없어 시간당 사용량과 피크 오차를 확인할 수 없습니다. "
             "예상 사용량은 운영 일정을 점검하는 참고 자료로만 활용하세요."
         )
     else:
-        accuracy_summary = (
-            f"이 모델의 과거 검증에서 확인된 평균 오차율은 {test_wape_percent:.1f}%입니다. "
-            "정확한 사용량을 확정하는 값보다, 사용량이 높아질 시간대를 미리 확인하는 참고 자료로 활용하세요."
-        )
+        accuracy_summary = " ".join(accuracy_parts)
 
     observation_evidence_ids = {
         "summary": ["forecast_total", *comparison_ids],

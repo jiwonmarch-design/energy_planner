@@ -63,10 +63,30 @@ def report_payload() -> dict:
     job = SimpleNamespace(
         selected_model="xgboost",
         validation_metrics={
-            "xgboost": {"mae": 1.0, "wape": 0.1},
-            "last_24h": {"mae": 2.0, "wape": 0.2},
+            "xgboost": {
+                "mae": 1.0,
+                "wape": 0.1,
+                "rmse": 1.4,
+                "peak_mae": 1.5,
+                "peak_time_error_hours": 2.0,
+            },
+            "last_24h": {
+                "mae": 2.0,
+                "wape": 0.2,
+                "rmse": 2.4,
+                "peak_mae": 2.5,
+                "peak_time_error_hours": 3.0,
+            },
         },
-        test_metrics={"xgboost": {"mae": 1.2, "wape": 0.12}},
+        test_metrics={
+            "xgboost": {
+                "mae": 0.705349,
+                "wape": 0.295317,
+                "rmse": 1.056622,
+                "peak_mae": 1.079912,
+                "peak_time_error_hours": 4.181818,
+            }
+        },
     )
     return build_analysis_report(prediction_payload(), job)
 
@@ -350,8 +370,31 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertIn("어제 같은 시간대", report["summary"])
         self.assertIn("최근 8주 같은 요일 평균", report["summary"])
         self.assertIn("평소 사용 범위", report["peak_analysis"]["observation"])
-        self.assertIn("과거 검증에서 확인된 평균 오차율", report["model_quality"]["business_summary"])
+        self.assertIn("평균 0.71 kWh 차이", report["model_quality"]["business_summary"])
+        self.assertIn("평균 1.08 kWh", report["model_quality"]["business_summary"])
+        self.assertIn("평균 4.2시간", report["model_quality"]["business_summary"])
+        self.assertEqual(report["model_quality"]["test"]["rmse"], 1.056622)
+        self.assertEqual(report["model_quality"]["test"]["peak_mae"], 1.079912)
+        self.assertEqual(
+            report["model_quality"]["test"]["peak_time_error_hours"], 4.181818
+        )
         self.assertNotIn("단정할 수 없습니다", report["summary"] + report["peak_analysis"]["observation"])
+
+    def test_missing_legacy_metrics_remain_none_for_frontend_fallback(self):
+        job = SimpleNamespace(
+            selected_model="xgboost",
+            validation_metrics={"xgboost": {"mae": 1.0, "wape": 0.1}},
+            test_metrics={"xgboost": {"mae": 1.2, "wape": 0.12}},
+        )
+        report = build_analysis_report(prediction_payload(), job)
+
+        self.assertIsNone(report["model_quality"]["test"]["rmse"])
+        self.assertIsNone(report["model_quality"]["test"]["peak_mae"])
+        self.assertIsNone(report["model_quality"]["test"]["peak_time_error_hours"])
+        self.assertEqual(
+            report["model_quality"]["business_summary"],
+            "과거 테스트에서 시간당 사용량은 실제와 평균 1.20 kWh 차이가 났습니다.",
+        )
 
     def test_past_forecast_is_marked_as_historical_validation(self):
         report = report_payload()

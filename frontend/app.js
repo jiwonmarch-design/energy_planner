@@ -228,6 +228,7 @@ function updateAnalyzeAvailability() {
 function resetTrainingView(message = "STEP 01 데이터 품질 진단을 통과하면 학습을 시작할 수 있습니다.") {
   $("training-progress").hidden = false;
   $("workspace-model-results").hidden = true;
+  $("training-evaluation-details").open = false;
   $("workspace-job-status").textContent = "학습 대기";
   $("workspace-job-status").removeAttribute("data-status");
   $("train").disabled = true;
@@ -302,8 +303,7 @@ function resetDashboardPrediction() {
   $("forecast-change").textContent = "직전 24시간과 비교 전";
   $("peak-forecast").textContent = "사용량 계산 전";
   $("peak-time").textContent = "예측 전";
-  $("test-wape").textContent = "—";
-  $("test-wape-help").textContent = "과거 Test 구간의 평가 결과를 불러오고 있습니다.";
+  $("peak-usage").textContent = "—";
   $("forecast-period").textContent = "";
   $("forecast-period").hidden = true;
   $("forecast-narrative").textContent = "예측 결과를 요약하고 있습니다.";
@@ -314,10 +314,11 @@ function resetDashboardPrediction() {
   $("forecast-hour-slider").value = "0";
   $("forecast-selected-value").textContent = "예측 결과를 선택해 확인하세요.";
   $("history-legend").hidden = true;
-  $("dashboard-validation-body").replaceChildren();
   $("dashboard-selected-model").textContent = "—";
-  $("dashboard-test-wape").textContent = "—";
   $("dashboard-run-id").textContent = "—";
+  ["mae", "wape", "rmse", "peak-mae", "peak-time"].forEach((key) => {
+    $("dashboard-test-" + key).textContent = "평가 결과 없음";
+  });
   $("daily-usage-chart").innerHTML = "";
   $("period-composition-list").replaceChildren();
   $("period-donut").style.background = "conic-gradient(var(--line) 0 100%)";
@@ -928,39 +929,65 @@ function setTrainingProgress(percent, message) {
   progressbar.setAttribute("aria-valuetext", `${message} ${value}%`);
 }
 
-function metricText(metric) {
-  if (!metric || !Number.isFinite(metric.mae)) return "평가 결과 없음";
-  const wape = Number.isFinite(metric.wape) ? `${fmt(metric.wape * 100, 1)}%` : "—";
-  return `MAE ${fmt(metric.mae, 3)} kWh · WAPE ${wape}`;
+function metricNumber(metric, key) {
+  if (!metric || metric[key] === null || metric[key] === undefined) return null;
+  const value = Number(metric[key]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function metricDisplay(metric, key) {
+  const value = metricNumber(metric, key);
+  if (value === null) return "평가 결과 없음";
+  if (key === "wape") return `${fmt(value * 100, 1)}%`;
+  if (key === "peak_time_error_hours") return `${fmt(value, 1)} h`;
+  return `${fmt(value, 2)} kWh`;
+}
+
+function renderMetricComparisonTable(bodyId, metrics, selectedModel, stage) {
+  const fragment = document.createDocumentFragment();
+  ["xgboost", "last_24h", "last_168h"].forEach((name) => {
+    const row = document.createElement("tr");
+    if (selectedModel === name) row.className = "selected";
+    const model = document.createElement("th");
+    model.scope = "row";
+    model.textContent = modelDisplayName(name);
+    row.append(model);
+    ["mae", "wape", "rmse", "peak_mae", "peak_time_error_hours"].forEach((key) => {
+      const cell = document.createElement("td");
+      cell.textContent = metricDisplay(metrics?.[name], key);
+      row.append(cell);
+    });
+    const result = document.createElement("td");
+    result.textContent = selectedModel === name
+      ? (stage === "validation" ? "선택 모델" : "이번 예측에 사용")
+      : "비교 모델";
+    row.append(result);
+    fragment.append(row);
+  });
+  $(bodyId).replaceChildren(fragment);
+}
+
+function renderCompletedTrainingMetrics(job) {
+  $("training-evaluation-details").open = false;
+  $("workspace-selected-model").textContent = `${modelDisplayName(job.selected_model)} 선택`;
+  renderMetricComparisonTable("workspace-validation-body", job.validation_metrics, job.selected_model, "validation");
+  renderMetricComparisonTable("workspace-test-body", job.test_metrics, job.selected_model, "test");
+  const selectedTest = job.test_metrics?.[job.selected_model];
+  $("test-evaluation-note").textContent = selectedTest
+    ? `Validation에서 ${modelDisplayName(job.selected_model)}을 선택했습니다. Test는 모델 선택에 사용하지 않고 최종 평가만 수행했습니다.`
+    : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
 }
 
 function renderForecastValidation(job, runId = state.predictionResult?.run_id) {
   if (!job) return;
   const selectedTest = job.test_metrics?.[job.selected_model];
-  const wape = Number.isFinite(selectedTest?.wape) ? selectedTest.wape * 100 : null;
-  const wapeText = wape === null ? "확인 불가" : `${fmt(wape, 1)}%`;
-  $("test-wape").textContent = wapeText;
-  $("dashboard-test-wape").textContent = wapeText;
   $("dashboard-selected-model").textContent = modelDisplayName(job.selected_model);
   $("dashboard-run-id").textContent = runId || "예측 실행 후 표시";
-  $("test-wape-help").textContent = wape === null
-    ? "학습에 사용하지 않은 과거 Test 구간의 WAPE를 확인할 수 없습니다. 이번 예측의 오차 범위를 임의로 추정하지 않습니다."
-    : `학습에 사용하지 않은 과거 Test 구간에서, 총 실제 사용량 대비 절대 오차 합계가 ${fmt(wape, 1)}%였습니다. 이번 예측값의 ±${fmt(wape, 1)}% 범위를 보장하는 수치는 아닙니다.`;
-
-  const fragment = document.createDocumentFragment();
-  ["xgboost", "last_24h", "last_168h"].forEach((name) => {
-    const row = document.createElement("tr");
-    if (job.selected_model === name) row.className = "selected";
-    const model = document.createElement("td");
-    const metric = document.createElement("td");
-    const result = document.createElement("td");
-    model.textContent = modelDisplayName(name);
-    metric.textContent = metricText(job.validation_metrics?.[name]);
-    result.textContent = job.selected_model === name ? "이번 예측에 사용" : "비교 기준";
-    row.append(model, metric, result);
-    fragment.append(row);
-  });
-  $("dashboard-validation-body").replaceChildren(fragment);
+  $("dashboard-test-mae").textContent = metricDisplay(selectedTest, "mae");
+  $("dashboard-test-wape").textContent = metricDisplay(selectedTest, "wape");
+  $("dashboard-test-rmse").textContent = metricDisplay(selectedTest, "rmse");
+  $("dashboard-test-peak-mae").textContent = metricDisplay(selectedTest, "peak_mae");
+  $("dashboard-test-peak-time").textContent = metricDisplay(selectedTest, "peak_time_error_hours");
 }
 
 function renderPredictionOverview(result) {
@@ -973,7 +1000,8 @@ function renderPredictionOverview(result) {
   $("forecast-period").hidden = !period;
   $("total-forecast").innerHTML = `${fmt(forecastTotal)} <small>kWh</small>`;
   $("peak-time").textContent = formatKoreanHour(result.peak_timestamp, timeZone);
-  $("peak-forecast").textContent = `${fmt(result.peak_kwh)} kWh 예상`;
+  $("peak-usage").innerHTML = `${fmt(result.peak_kwh)} <small>kWh</small>`;
+  $("peak-forecast").textContent = `${formatKoreanHour(result.peak_timestamp, timeZone)} 예상`;
   $("data-last-observation").textContent = `데이터 마지막 시점: ${formatLocalDateTime(result.history_timestamps?.at(-1) || result.forecast_origin, timeZone)}`;
   $("forecast-timezone").textContent = `시간대: ${timeZone}`;
 
@@ -1027,17 +1055,7 @@ function renderJob(job) {
   setTrainingProgress(job.progress_percent ?? 100, progressMessage);
   $("train").disabled = true;
   $("workspace-model-results").hidden = false;
-  const names = { xgboost: "xgboost", last_24h: "last-24h", last_168h: "last-168h" };
-  Object.entries(names).forEach(([key, id]) => {
-    const metric = job.validation_metrics?.[key];
-    $("workspace-metric-" + id).textContent = metricText(metric);
-    $("workspace-model-" + id).classList.toggle("selected", job.selected_model === key);
-    $("workspace-result-" + id).textContent = job.selected_model === key ? "이번 예측에 사용" : "비교 기준";
-  });
-  const selectedTest = job.test_metrics?.[job.selected_model];
-  $("test-evaluation-note").textContent = selectedTest
-    ? `Validation에서 ${modelDisplayName(job.selected_model)} 선택 · Test는 모델 선택에 사용하지 않고 최종 평가만 수행 · ${metricText(selectedTest)}`
-    : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
+  renderCompletedTrainingMetrics(job);
   renderForecastValidation(job);
   updateNextAction();
 }
@@ -1246,9 +1264,20 @@ function percentText(value, unavailable = "미확인") {
 }
 
 function metricValue(metric, key, unit) {
-  if (metric?.[key] === null || metric?.[key] === undefined) return "미확인";
+  if (metric?.[key] === null || metric?.[key] === undefined) return "평가 결과 없음";
   const value = Number(metric[key]);
-  return Number.isFinite(value) ? `${fmt(key === "wape" ? value * 100 : value, 1)}${unit}` : "미확인";
+  const digits = ["wape", "peak_time_error_hours"].includes(key) ? 1 : 2;
+  return Number.isFinite(value) ? `${fmt(key === "wape" ? value * 100 : value, digits)}${unit}` : "평가 결과 없음";
+}
+
+function metricSetText(metric) {
+  return [
+    `MAE ${metricValue(metric, "mae", " kWh")}`,
+    `WAPE ${metricValue(metric, "wape", "%")}`,
+    `RMSE ${metricValue(metric, "rmse", " kWh")}`,
+    `피크 크기 ${metricValue(metric, "peak_mae", " kWh")}`,
+    `피크 시간 ${metricValue(metric, "peak_time_error_hours", " h")}`,
+  ].join(" · ");
 }
 
 function evidenceLabel(report, evidenceId) {
@@ -1496,18 +1525,24 @@ function renderAnalysisReport(report) {
 
   renderRecommendations(report);
   $("report-accuracy-summary").textContent = quality.business_summary
-    || "예측 정확도 자료가 없습니다. 운영 일정을 점검하는 참고 자료로만 활용하세요.";
+    || "과거 예측 오차 자료가 없습니다. 운영 일정을 점검하는 참고 자료로만 활용하세요.";
   renderTextList($("report-limitations"), report.limitations || []);
   $("report-validation-mae").textContent = metricValue(quality.validation, "mae", " kWh");
   $("report-validation-wape").textContent = metricValue(quality.validation, "wape", "%");
+  $("report-validation-rmse").textContent = metricValue(quality.validation, "rmse", " kWh");
+  $("report-validation-peak-mae").textContent = metricValue(quality.validation, "peak_mae", " kWh");
+  $("report-validation-peak-time").textContent = metricValue(quality.validation, "peak_time_error_hours", " h");
   $("report-test-mae").textContent = metricValue(quality.test, "mae", " kWh");
   $("report-test-wape").textContent = metricValue(quality.test, "wape", "%");
+  $("report-test-rmse").textContent = metricValue(quality.test, "rmse", " kWh");
+  $("report-test-peak-mae").textContent = metricValue(quality.test, "peak_mae", " kWh");
+  $("report-test-peak-time").textContent = metricValue(quality.test, "peak_time_error_hours", " h");
   $("report-baseline-performance").textContent = quality.mae_improvement_vs_best_baseline_percent !== null && quality.mae_improvement_vs_best_baseline_percent !== undefined && Number.isFinite(Number(quality.mae_improvement_vs_best_baseline_percent))
     ? `${fmt(quality.mae_improvement_vs_best_baseline_percent, 1)}%`
     : "직접 비교 미확인";
   const baselineModels = quality.baseline_validation || {};
   $("report-baseline-models").textContent = Object.entries(baselineModels).length
-    ? Object.entries(baselineModels).map(([name, metric]) => `${modelDisplayName(name)}: MAE ${metricValue(metric, "mae", " kWh")}, WAPE ${metricValue(metric, "wape", "%")}`).join(" / ")
+    ? Object.entries(baselineModels).map(([name, metric]) => `${modelDisplayName(name)}: ${metricSetText(metric)}`).join(" / ")
     : "비교 결과 없음";
   $("report-model").textContent = modelDisplayName(quality.selected_model);
   $("report-technical-note").textContent = quality.note || "";
@@ -1737,7 +1772,7 @@ function buildStandaloneReportHtml(report) {
   const css = `
     [hidden]{display:none!important}.observation-evidence{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.observation-evidence span{font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)}
     :root{--ink:#10213d;--sub:#596579;--line:#d8d5cd;--bg:#f3f0e8;--paper:#fffdf8;--blue:#1f4fdb;--success:#087a55;--danger:#a93434}
-    *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge,.report-purpose{display:inline-block;border:1px solid #b9c9f5;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-badge{background:#e9efff}.report-purpose{margin-left:6px;border-color:var(--line);color:var(--sub)}.report-kicker{margin:18px 0 5px!important;color:var(--sub)!important;font-size:10px!important;font-weight:700}.report-cover h4{font-size:34px;margin:8px 0}.report-cover p{margin:0}.report-supporting-copy{margin-top:8px!important;color:var(--sub);font-size:13px}.report-main-copy{font-size:15px;line-height:1.75}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-chart-block{margin-top:26px;border-top:1px solid var(--line);padding-top:22px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:20px}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.quality-grid{display:grid;grid-template-columns:1fr;gap:18px}.quality-grid dl{margin:0}.report-limitations{color:var(--sub);font-size:12px;line-height:1.8}.report-technical>summary{cursor:pointer;padding:20px 0;font-weight:700}.report-technical .quality-grid{padding:18px 0}.muted{color:var(--sub);font-size:12px}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}
+    *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge,.report-purpose{display:inline-block;border:1px solid #b9c9f5;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-badge{background:#e9efff}.report-purpose{margin-left:6px;border-color:var(--line);color:var(--sub)}.report-kicker{margin:18px 0 5px!important;color:var(--sub)!important;font-size:10px!important;font-weight:700}.report-cover h4{font-size:34px;margin:8px 0}.report-cover p{margin:0}.report-supporting-copy{margin-top:8px!important;color:var(--sub);font-size:13px}.report-main-copy{font-size:15px;line-height:1.75}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-chart-block{margin-top:26px;border-top:1px solid var(--line);padding-top:22px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:20px}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.quality-grid{display:grid;grid-template-columns:1fr;gap:18px}.quality-grid dl{margin:0}.report-metric-group h6{margin:0 0 10px;font-size:12px}.report-technical-context{margin-top:8px!important}.report-limitations{color:var(--sub);font-size:12px;line-height:1.8}.report-technical>summary{cursor:pointer;padding:20px 0;font-weight:700}.report-technical .quality-grid{padding:18px 0}.muted{color:var(--sub);font-size:12px}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}
     @media(max-width:720px){main{width:100%;margin:0;border:0;padding:18px}.report-cover,.quality-grid{grid-template-columns:1fr}.report-metrics,.simulator-results,.simulator-grid{grid-template-columns:1fr}.report-metrics>div,.simulator-results>div{border-right:0;border-bottom:1px solid var(--line)}.report-section-heading{display:block}.forecast-scrubber{grid-template-columns:1fr}.forecast-scrubber output{grid-column:1}}
     @media print{@page{size:A4;margin:13mm}body{background:#fff}main{width:100%;margin:0;border:0;padding:0}.report-section{break-inside:avoid;padding:18px 0}.series-toggle,.forecast-scrubber{display:none}.report-chart{max-height:76mm}.recommendation-list li{break-inside:avoid}.report-technical>*{display:block!important}.report-technical>summary{list-style:none}}
   `;
