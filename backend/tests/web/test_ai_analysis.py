@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import io
 import tempfile
 import unittest
+import urllib.error
+from unittest.mock import patch
 from types import SimpleNamespace
 
 from backend.app.ml.contracts import EligibilityError
@@ -11,6 +14,7 @@ from backend.app.web.ai_analysis import (
     AIAnalysisUpstreamError,
     analyze_prediction,
     analysis_status,
+    _request_openai,
 )
 from backend.app.web.analysis_report import build_analysis_report
 from backend.app.web.service import TrainingJob, TrainingJobManager
@@ -98,6 +102,76 @@ def valid_response() -> dict:
 
 
 class AIAnalysisCases(unittest.TestCase):
+    def test_status_exposes_effective_nonsecret_request_settings(self):
+        status = analysis_status({"OPENAI_API_KEY": "secret", "OPENAI_MODEL": "test-model", "OPENAI_REASONING_EFFORT": "high", "OPENAI_TIMEOUT_SECONDS": "20"})
+        self.assertEqual(status["max_output_tokens"], 1200)
+        self.assertEqual(status["timeout_seconds"], 20)
+        self.assertNotIn("secret", json.dumps(status))
+
+    def test_http_handler_exposes_failure_stage_without_replacing_forecast(self):
+        from backend.app.web.server import Handler
+
+        error = AIAnalysisUpstreamError("incomplete", stage="response_status", diagnostics={"http_status": 200, "response_status": "incomplete", "incomplete_reason": "max_output_tokens"})
+        result = {}
+        handler = object.__new__(Handler)
+        handler.path = "/api/ai-analysis/mock"
+        handler._request_json = lambda: {}
+        handler._json = lambda status, body: result.update(status=status, body=body)
+        handler.log_message = lambda *_: None
+        with patch("backend.app.web.server.MANAGER") as manager:
+            manager.analyze_prediction.side_effect = error
+            handler.do_POST()
+            manager.submit.assert_not_called()
+            manager.predict.assert_not_called()
+        self.assertEqual(result["status"], 502)
+        self.assertEqual(result["body"]["diagnostics"]["http_status"], 200)
+        self.assertEqual(result["body"]["diagnostics"]["stage"], "response_status")
+
+    def test_incomplete_response_reports_actual_reason_and_token_usage(self):
+        response = {
+            "_http_status": 200,
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "usage": {"output_tokens": 1200, "output_tokens_details": {"reasoning_tokens": 1200}},
+            # Even complete-looking text must not bypass the incomplete gate.
+            "output": valid_response()["output"],
+        }
+        with self.assertLogs("backend.app.web.ai_analysis", level="WARNING") as logged:
+            with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                analyze_prediction(report_payload(), environ={"OPENAI_API_KEY": "secret-never-log", "OPENAI_REASONING_EFFORT": "high"}, transport=lambda *_: response)
+        self.assertEqual(raised.exception.diagnostics["stage"], "response_status")
+        self.assertEqual(raised.exception.diagnostics["http_status"], 200)
+        self.assertEqual(raised.exception.diagnostics["incomplete_reason"], "max_output_tokens")
+        self.assertEqual(raised.exception.diagnostics["reasoning_tokens"], 1200)
+        self.assertIn("max_output_tokens", str(raised.exception))
+        self.assertNotIn("secret-never-log", str(logged.output))
+        self.assertNotIn("operational_candidates", str(logged.output))
+
+    def test_non_token_incomplete_reason_is_preserved_without_retry(self):
+        calls = []
+
+        def transport(*_):
+            calls.append(True)
+            return {"status": "incomplete", "incomplete_details": {"reason": "content_filter"}, "output": []}
+
+        with self.assertLogs("backend.app.web.ai_analysis", level="WARNING"):
+            with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                analyze_prediction(report_payload(), environ={"OPENAI_API_KEY": "mock"}, transport=transport)
+        self.assertEqual(raised.exception.diagnostics["incomplete_reason"], "content_filter")
+        self.assertEqual(len(calls), 1)
+
+    def test_http_error_keeps_status_and_code_without_error_message_or_key(self):
+        body = json.dumps({"error": {"code": "invalid_api_key", "message": "secret-never-log private-input"}}).encode()
+        error = urllib.error.HTTPError("https://api.openai.com/v1/responses", 401, "Unauthorized", {}, io.BytesIO(body))
+        with patch("backend.app.web.ai_analysis.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                _request_openai({}, "secret-never-log", 20)
+        self.assertEqual(raised.exception.diagnostics["stage"], "http_error")
+        self.assertEqual(raised.exception.diagnostics["http_status"], 401)
+        self.assertEqual(raised.exception.diagnostics["error_code"], "invalid_api_key")
+        self.assertNotIn("secret-never-log", str(raised.exception))
+        self.assertNotIn("private-input", str(raised.exception.diagnostics))
+
     def test_observations_use_allowed_evidence_without_action_candidates(self):
         report = report_payload()
         report["operational_candidates"] = []

@@ -286,3 +286,13 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 저장 run 재사용·모의 AI 응답 검증, 전체 Python 66 PASS, 렌더러/내보내기 DOM 모의 검사 두 시나리오 PASS
 - 실제 OpenAI 호출 0회. 브라우저 URL 확인 오류로 화면·실제 PDF 배치는 미검증
 - 상세 결과: `analysis/report_observation_validation/report.md`
+
+## 2026-11-05 AI 보고서 미완료 응답 실패 진단
+
+- 기존 서버 로그에서 예측 200 후 AI 보고서 502 2회 확인. 화면 문구는 API 응답 status 검사에서 발생하며 신규 관찰 필드/근거 검증 이전에 중단됨
+- 기존 코드가 status·incomplete reason·error code를 기록하지 않아 세부 원인은 복구 불가. max_output_tokens 원인 여부는 미확정
+- 안전한 HTTP/응답 상태·incomplete 사유·토큰 사용량·실패 stage 로깅 및 오류 응답 추가. 원본 CSV·키·AI 본문은 기록하지 않음
+- 실제 원인 확인 전 1200토큰/high/20초 유지, 자동 API 재시도 없음
+- Python 전체 71 PASS, 프런트 실패 후 예측/기존 보고서 유지 DOM 모의 검사 8 PASS, compileall·JavaScript 문법·diff 검사 PASS
+- 실제 API 호출 0회. 원인 확정을 위한 유료 진단 1회는 승인 응답 대기
+- 상세 기록: `analysis/report_failure_validation/report.md`

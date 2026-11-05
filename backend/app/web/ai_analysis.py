@@ -8,6 +8,7 @@ the uploaded CSV, API key, or a prompt that asks it to calculate a value.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import urllib.error
@@ -17,6 +18,8 @@ from typing import Any, Callable, Mapping
 
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-4o-mini"
+MAX_OUTPUT_TOKENS = 1200
+LOGGER = logging.getLogger(__name__)
 
 
 class AIAnalysisUnavailable(RuntimeError):
@@ -25,6 +28,43 @@ class AIAnalysisUnavailable(RuntimeError):
 
 class AIAnalysisUpstreamError(RuntimeError):
     """The optional upstream analysis request failed or returned invalid data."""
+
+    def __init__(self, message: str, *, stage: str = "response_parse", diagnostics: dict | None = None):
+        super().__init__(message)
+        self.diagnostics = {"stage": stage, **(diagnostics or {})}
+
+
+def _response_diagnostics(response: Mapping[str, Any]) -> dict[str, Any]:
+    """Allowlisted metadata only: never retain prompts, output text or headers."""
+    status = response.get("status")
+    details = response.get("incomplete_details")
+    reason = details.get("reason") if isinstance(details, Mapping) else None
+    error = response.get("error")
+    code = error.get("code") if isinstance(error, Mapping) else None
+    known_codes = {
+        "server_error", "rate_limit_exceeded", "invalid_prompt", "invalid_api_key",
+        "insufficient_quota", "model_not_found", "context_length_exceeded",
+        "invalid_value", "unsupported_value", "permission_denied", "content_policy_violation",
+    }
+    diagnostics = {
+        "response_status": status if status in {None, "completed", "incomplete", "failed", "cancelled", "queued", "in_progress"} else "unknown",
+        "incomplete_reason": reason if reason in {None, "max_output_tokens", "content_filter"} else "unknown",
+        "error_code": code if code is None or code in known_codes else "unknown",
+    }
+    usage = response.get("usage")
+    if isinstance(usage, Mapping):
+        for name in ("input_tokens", "output_tokens"):
+            count = usage.get(name)
+            if isinstance(count, int) and count >= 0:
+                diagnostics[name] = count
+        output_details = usage.get("output_tokens_details")
+        count = output_details.get("reasoning_tokens") if isinstance(output_details, Mapping) else None
+        if isinstance(count, int) and count >= 0:
+            diagnostics["reasoning_tokens"] = count
+    http_status = response.get("_http_status")
+    if isinstance(http_status, int) and 100 <= http_status <= 599:
+        diagnostics["http_status"] = http_status
+    return diagnostics
 
 
 ANALYSIS_SCHEMA: dict[str, Any] = {
@@ -89,6 +129,8 @@ def analysis_status(environ: Mapping[str, str] | None = None) -> dict[str, Any]:
         "enabled": enabled,
         "model": values.get("OPENAI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
         "reasoning_effort": values.get("OPENAI_REASONING_EFFORT", "").strip() or None,
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
+        "timeout_seconds": _safe_timeout(values),
     }
 
 
@@ -109,17 +151,28 @@ def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> di
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
+            value = json.loads(response.read().decode("utf-8"))
+            if not isinstance(value, dict):
+                raise AIAnalysisUpstreamError("OpenAI API 응답 형식이 올바르지 않습니다.", stage="response_decode")
+            value["_http_status"] = response.status
+            return value
     except urllib.error.HTTPError as exc:
+        try:
+            error_response = json.loads(exc.read(8192).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            error_response = {}
+        diagnostics = _response_diagnostics(error_response if isinstance(error_response, dict) else {})
+        diagnostics["http_status"] = exc.code
         raise AIAnalysisUpstreamError(
-            f"OpenAI API 요청이 거부되었습니다(HTTP {exc.code}). 키와 사용 한도를 확인하세요."
+            f"OpenAI API 요청이 거부되었습니다(HTTP {exc.code}, code={diagnostics['error_code'] or 'unknown'}).",
+            stage="http_error", diagnostics=diagnostics,
         ) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise AIAnalysisUpstreamError(
-            "OpenAI API에 연결하지 못했습니다. 잠시 후 다시 시도하세요."
+            "OpenAI API에 연결하지 못했습니다. 잠시 후 다시 시도하세요.", stage="transport",
         ) from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise AIAnalysisUpstreamError("OpenAI API 응답을 해석하지 못했습니다.") from exc
+        raise AIAnalysisUpstreamError("OpenAI API 응답을 해석하지 못했습니다.", stage="response_decode") from exc
 
 
 def _report_context(report: Mapping[str, Any]) -> dict[str, Any]:
@@ -174,7 +227,17 @@ def _report_context(report: Mapping[str, Any]) -> dict[str, Any]:
 
 def _parse_structured_response(response: Mapping[str, Any]) -> dict[str, Any]:
     if response.get("status") not in {None, "completed"}:
-        raise AIAnalysisUpstreamError("OpenAI API가 분석을 완료하지 못했습니다.")
+        diagnostics = _response_diagnostics(response)
+        detail = f"status={diagnostics['response_status']}, reason={diagnostics['incomplete_reason'] or 'unknown'}"
+        explanation = (
+            "추론과 답변이 출력 토큰 한도에 도달했습니다."
+            if diagnostics["incomplete_reason"] == "max_output_tokens"
+            else "완료되지 않은 응답은 보고서로 사용하지 않습니다."
+        )
+        raise AIAnalysisUpstreamError(
+            f"OpenAI API가 분석을 완료하지 못했습니다({detail}). {explanation}",
+            stage="response_status", diagnostics=diagnostics,
+        )
     text: str | None = None
     for output in response.get("output", []):
         for content in output.get("content", []):
@@ -274,7 +337,7 @@ def analyze_prediction(
     payload = {
         "model": model,
         "store": False,
-        "max_output_tokens": 1200,
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
         "input": [
             {
                 "role": "system",
@@ -294,20 +357,44 @@ def analyze_prediction(
     reasoning_effort = values.get("OPENAI_REASONING_EFFORT", "").strip()
     if reasoning_effort:
         payload["reasoning"] = {"effort": reasoning_effort}
-    response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
-    analysis = _parse_structured_response(response)
+    response = None
+    try:
+        response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
+        analysis = _parse_structured_response(response)
+    except AIAnalysisUpstreamError as exc:
+        if isinstance(response, Mapping):
+            exc.diagnostics = {**_response_diagnostics(response), **exc.diagnostics}
+        # This log deliberately excludes report data, response text and auth.
+        LOGGER.warning("OpenAI analysis failed: %s", json.dumps({
+            **exc.diagnostics,
+            "max_output_tokens": payload["max_output_tokens"],
+            "reasoning_effort": reasoning_effort if reasoning_effort in {"", "none", "minimal", "low", "medium", "high", "xhigh"} else "unknown",
+        }, ensure_ascii=True))
+        raise
     for field, evidence_ids in analysis["observation_evidence_ids"].items():
         if not set(evidence_ids).issubset(allowed_evidence_ids):
-            raise AIAnalysisUpstreamError("OpenAI API 운영 관찰에 확인되지 않은 근거가 포함되었습니다.")
+            raise AIAnalysisUpstreamError(
+                "OpenAI API 운영 관찰에 확인되지 않은 근거가 포함되었습니다.",
+                stage="observation_evidence", diagnostics={
+                    **_response_diagnostics(response), "field": field,
+                    "rejected_evidence_count": len(set(evidence_ids) - allowed_evidence_ids),
+                },
+            )
         if not evidence_ids:
             # An uncited interpretation falls back to the local observation.
             analysis[field] = ""
     for item in analysis["findings"]:
         evidence_ids = set(item["evidence_ids"])
         if not evidence_ids or not evidence_ids.issubset(actionable_evidence_ids):
-            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견에 조치 후보가 아닌 근거가 포함되었습니다.")
+            raise AIAnalysisUpstreamError(
+                "OpenAI API 핵심 발견에 조치 후보가 아닌 근거가 포함되었습니다.", stage="actionable_evidence",
+                diagnostics={**_response_diagnostics(response), "rejected_evidence_count": len(evidence_ids - actionable_evidence_ids)},
+            )
         if not evidence_ids.issubset(allowed_evidence_ids):
-            raise AIAnalysisUpstreamError("OpenAI API 핵심 발견에 확인되지 않은 근거가 포함되었습니다.")
+            raise AIAnalysisUpstreamError(
+                "OpenAI API 핵심 발견에 확인되지 않은 근거가 포함되었습니다.", stage="allowed_evidence",
+                diagnostics=_response_diagnostics(response),
+            )
 
     contains_number = lambda text: bool(re.search(r"[0-9０-９]", text))
     filtered_numeric = any(

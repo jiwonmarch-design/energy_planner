@@ -141,7 +141,10 @@ class Handler(BaseHTTPRequestHandler):
         except AIAnalysisUnavailable as exc:
             self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": str(exc), "type": type(exc).__name__})
         except AIAnalysisUpstreamError as exc:
-            self._json(HTTPStatus.BAD_GATEWAY, {"error": str(exc), "type": type(exc).__name__})
+            self.log_message("AI analysis failure: %s", json.dumps(exc.diagnostics, ensure_ascii=True))
+            self._json(HTTPStatus.BAD_GATEWAY, {
+                "error": str(exc), "type": type(exc).__name__, "diagnostics": exc.diagnostics,
+            })
         except Exception as exc:
             self._json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,

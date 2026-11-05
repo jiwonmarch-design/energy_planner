@@ -1,0 +1,53 @@
+{
+  "method": "real handlers with DOM double; not visual verification",
+  "checks": [
+    {
+      "existingReport": false,
+      "failure": "status=incomplete, reason=max_output_tokens",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": false,
+      "failure": "JSON parsing failure",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": false,
+      "failure": "observation evidence rejected",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": false,
+      "failure": "action evidence rejected",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": true,
+      "failure": "status=incomplete, reason=max_output_tokens",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": true,
+      "failure": "JSON parsing failure",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": true,
+      "failure": "observation evidence rejected",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    },
+    {
+      "existingReport": true,
+      "failure": "action evidence rejected",
+      "predictionAndReportPreserved": true,
+      "retryEnabled": true
+    }
+  ]
+}
