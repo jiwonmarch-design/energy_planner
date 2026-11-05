@@ -314,3 +314,12 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 최근 업로드된 `유큐브_시간별_전력사용량.csv` 읽기 전용 재진단: 최대 결측 72시간, 전체 유효 192시간 창 3,591개, Train 2,537/제외 2,319, Validation dense 503/제외 194·비중복 22/제외 8, Test 비중복 22/제외 8, 품질 WARNING·학습 적합성 PASS
 - 전체 Python 회귀 80 PASS, 프런트 품질 계약 DOM 모의 2시나리오 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
 - 실제 XGBoost 전체 학습과 실제 브라우저 시각 검증은 실행하지 않음
+
+## 2026-11-05 AI 보고서 transport timeout 대응
+
+- 신규 완료 job의 보고서 요청 3회가 모두 HTTP 응답·파싱 전 `transport` 단계에서 502로 종료된 로그 확인
+- OpenAI 엔드포인트 DNS·TLS·443 연결은 정상이며 인증 없는 확인 요청이 약 0.14초 만에 401을 반환해 로컬 네트워크 장애는 배제
+- `gpt-6-sol`·high·출력 4,096 설정에서 서버 대기 제한 20초가 가장 유력한 원인으로 판단해 로컬 `OPENAI_TIMEOUT_SECONDS`를 허용 상한 60초로 조정
+- transport 실패를 timeout/DNS/TLS/connection으로 안전하게 분류하고 제한 시간만 진단에 남기도록 보완. 예외 원문·API 키·보고서 데이터는 기록하지 않음
+- 전체 Python 회귀 81 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
+- 실제 OpenAI API 재호출은 0회. 60초 설정의 실제 보고서 완료 여부는 사용자의 다음 수동 생성 전까지 미검증

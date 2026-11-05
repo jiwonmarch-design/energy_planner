@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import io
+import socket
+import ssl
 import tempfile
 import unittest
 import urllib.error
@@ -216,6 +218,24 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertEqual(raised.exception.diagnostics["http_status"], 401)
         self.assertEqual(raised.exception.diagnostics["error_code"], "invalid_api_key")
         self.assertNotIn("secret-never-log", str(raised.exception))
+
+    def test_transport_failures_keep_only_safe_reason_categories(self):
+        cases = (
+            (urllib.error.URLError(TimeoutError("private timeout detail")), "timeout"),
+            (urllib.error.URLError(socket.gaierror("private dns detail")), "dns"),
+            (urllib.error.URLError(ssl.SSLError("private tls detail")), "tls"),
+            (urllib.error.URLError(ConnectionRefusedError("private connection detail")), "connection"),
+        )
+        for failure, expected in cases:
+            with self.subTest(expected=expected):
+                with patch("backend.app.web.ai_analysis.urllib.request.urlopen", side_effect=failure):
+                    with self.assertRaises(AIAnalysisUpstreamError) as raised:
+                        _request_openai({}, "secret-never-log", 20)
+                self.assertEqual(raised.exception.diagnostics["stage"], "transport")
+                self.assertEqual(raised.exception.diagnostics["transport_reason"], expected)
+                self.assertEqual(raised.exception.diagnostics["timeout_seconds"], 20)
+                self.assertNotIn("private", str(raised.exception))
+                self.assertNotIn("secret-never-log", str(raised.exception))
         self.assertNotIn("private-input", str(raised.exception.diagnostics))
 
     def test_observations_use_allowed_evidence_without_action_candidates(self):

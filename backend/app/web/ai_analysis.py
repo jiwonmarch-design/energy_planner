@@ -11,6 +11,8 @@ import json
 import logging
 import os
 import re
+import socket
+import ssl
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Mapping
@@ -151,6 +153,22 @@ def _safe_max_output_tokens(values: Mapping[str, str]) -> int:
     return min(16384, max(1200, configured))
 
 
+def _transport_diagnostics(exc: BaseException, timeout: float) -> dict[str, Any]:
+    """Classify transport failures without retaining exception text or secrets."""
+    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+    if isinstance(reason, TimeoutError):
+        category = "timeout"
+    elif isinstance(reason, ssl.SSLError):
+        category = "tls"
+    elif isinstance(reason, socket.gaierror):
+        category = "dns"
+    elif isinstance(reason, (ConnectionError, OSError)):
+        category = "connection"
+    else:
+        category = "unknown"
+    return {"transport_reason": category, "timeout_seconds": timeout}
+
+
 def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> dict[str, Any]:
     request = urllib.request.Request(
         OPENAI_RESPONSES_URL,
@@ -177,8 +195,14 @@ def _request_openai(payload: dict[str, Any], api_key: str, timeout: float) -> di
             stage="http_error", diagnostics=diagnostics,
         ) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
+        diagnostics = _transport_diagnostics(exc, timeout)
+        message = (
+            f"OpenAI API가 {timeout:g}초 안에 응답하지 않았습니다. 잠시 후 다시 시도하세요."
+            if diagnostics["transport_reason"] == "timeout"
+            else "OpenAI API에 연결하지 못했습니다. 잠시 후 다시 시도하세요."
+        )
         raise AIAnalysisUpstreamError(
-            "OpenAI API에 연결하지 못했습니다. 잠시 후 다시 시도하세요.", stage="transport",
+            message, stage="transport", diagnostics=diagnostics,
         ) from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise AIAnalysisUpstreamError("OpenAI API 응답을 해석하지 못했습니다.", stage="response_decode") from exc
