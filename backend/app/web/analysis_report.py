@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any, Mapping
+from zoneinfo import ZoneInfo
 
 
 def _number(value: Any) -> float | None:
@@ -437,16 +438,100 @@ def build_analysis_report(prediction: Mapping[str, Any], job: Any) -> dict[str, 
         f"향후 24시간 예상 사용량은 {total:,.1f}kWh이며, "
         f"가장 높은 시간의 예상 사용량은 {values[peak_index]:,.1f}kWh입니다."
     )
+    if not recommendations:
+        summary = (
+            "계산 가능한 비교 항목에서 기존 조치 기준을 충족하는 신호를 확인하지 못했습니다. "
+            "서로 다른 비교 기준과 예상 최고 시각의 과거 표본을 함께 확인할 수 있습니다."
+        )
+
+    # Observations explain existing comparisons; they do not change action gates.
+    comparison_ids = []
+    comparison_parts = []
+    for change, label, evidence_id in (
+        (previous_change, "직전 24시간", "previous_24h_comparison"),
+        (baseline_change, "과거 동일 요일·시간 평균", "same_weekday_comparison"),
+    ):
+        if change is not None:
+            direction = "증가" if change > 0 else "감소" if change < 0 else "변화 없음"
+            comparison_parts.append(f"{label} 대비 {abs(change):.1f}% {direction}")
+            comparison_ids.append(evidence_id)
+    comparison_observation = "; ".join(comparison_parts) + "." if comparison_parts else comparison_text
+    comparison_observation += " 비교 기준이 다르므로 전일 대비 변화만으로 이상이나 절감 효과를 단정하지 않습니다."
+
+    local_peak = datetime.fromisoformat(timestamps[peak_index]).astimezone(
+        ZoneInfo(prediction.get("building_timezone") or "UTC")
+    )
+    peak_label = f"{local_peak.hour:02d}시"
+    peak_history = baseline_statistics[peak_index] if statistics_available else {}
+    sample_count = int(peak_history.get("sample_count") or 0)
+    historical_mean = _number(peak_history.get("mean_kwh"))
+    historical_min = _number(peak_history.get("minimum_kwh"))
+    historical_max = _number(peak_history.get("maximum_kwh"))
+    historical_means = [_number(item.get("mean_kwh")) for item in baseline_statistics]
+    peak_context_available = (
+        sample_count >= 2 and historical_mean is not None
+        and historical_min is not None and historical_max is not None
+        and len(historical_means) == 24 and all(value is not None for value in historical_means)
+    )
+    historical_rank = None
+    peak_ids = ["forecast_peak"]
+    if peak_context_available:
+        historical_rank = 1 + sum(value > historical_mean for value in historical_means)
+        peak_observation = (
+            f"예상 최고 시각 {peak_label}의 예측은 {values[peak_index]:,.1f}kWh입니다. "
+            f"과거 동일 요일·시간 {sample_count}개 표본의 평균은 {historical_mean:,.1f}kWh, "
+            f"범위는 {historical_min:,.1f}~{historical_max:,.1f}kWh입니다. "
+            f"동일 요일 24개 시간 평균 중 {historical_rank}위입니다. "
+            "평균 순위와 변동 범위만으로 매주 높은 시간이라고 단정할 수 없습니다."
+        )
+        evidence.append({
+            "id": "peak_historical_context",
+            "label": "예상 피크 시각의 과거 동일 요일·시간",
+            "timestamp": timestamps[peak_index],
+            "value": historical_mean,
+            "unit": "kWh",
+            "sample_count": sample_count,
+            "historical_mean_rank": historical_rank,
+            "historical_minimum_kwh": historical_min,
+            "historical_maximum_kwh": historical_max,
+            "forecast_kwh": values[peak_index],
+            "basis": "최대 최근 8개 동일 요일 표본의 평균·범위와 24개 시간 평균 순위. 반복적 고사용 여부를 확정하지 않음",
+        })
+        peak_ids.append("peak_historical_context")
+    else:
+        peak_observation = (
+            f"{peak_label}는 이번 예측의 최고 시각입니다. "
+            "해당 시각의 과거 표본 또는 시간대별 평균 비교 근거가 부족해 평소에도 높은 시간인지는 판단을 보류합니다."
+        )
+    observation_evidence_ids = {
+        "summary": ["forecast_total", *comparison_ids],
+        "comparison": comparison_ids,
+        "peak_analysis": peak_ids,
+    }
 
     return {
-        "version": 2,
+        "version": 3,
         "source": "local_quantitative_analysis",
         "summary": summary,
+        "decision": {
+            "status": "action_available" if recommendations else "no_action",
+            "title": "우선 확인할 운영 조치가 있습니다" if recommendations else "현재 기준에서 추가 조치 권고 없음",
+        },
+        "observation_evidence_ids": observation_evidence_ids,
         "evidence": evidence,
         "peak_analysis": {
             "timestamp": timestamps[peak_index],
             "kwh": values[peak_index],
             "finding": "24개 시간별 예측값 중 가장 높은 시점입니다.",
+            "observation": peak_observation,
+            "historical_context": {
+                "status": "available" if peak_context_available else "insufficient",
+                "sample_count": sample_count,
+                "mean_kwh": historical_mean,
+                "minimum_kwh": historical_min,
+                "maximum_kwh": historical_max,
+                "mean_rank_among_24_hours": historical_rank,
+            },
             "caution": "시간당 kWh 피크를 청구용 최대수요전력과 동일하게 해석하지 마세요.",
             "high_usage_threshold_kwh": high_usage_threshold,
             "high_usage_segments": high_usage_segments,
@@ -459,6 +544,7 @@ def build_analysis_report(prediction: Mapping[str, Any], job: Any) -> dict[str, 
         "comparison": {
             "status": "available" if baseline_available else "insufficient",
             "finding": comparison_text,
+            "observation": comparison_observation,
             "method": baseline.get("method"),
             "change_percent": baseline_change,
             "elevated_hours": elevated,

@@ -1252,18 +1252,7 @@ function evidenceLabel(report, evidenceId) {
 function renderRecommendations(report) {
   const fragment = document.createDocumentFragment();
   const recommendations = (report.recommendations || []).slice(0, 3);
-  if (!recommendations.length) {
-    const item = document.createElement("li");
-    const copy = document.createElement("div");
-    const title = document.createElement("h6");
-    const reason = document.createElement("p");
-    copy.className = "recommendation-copy recommendation-no-action";
-    title.textContent = "추가 조치 권고 없음";
-    reason.textContent = report.no_action_reason || "현재 데이터에서 우선 조치가 필요한 뚜렷한 변화를 확인하지 못했습니다.";
-    copy.append(title, reason);
-    item.append(copy);
-    fragment.append(item);
-  }
+  $("report-actions-section").hidden = recommendations.length === 0;
   recommendations.forEach((recommendation) => {
     const item = document.createElement("li");
     const copy = document.createElement("div");
@@ -1424,6 +1413,29 @@ function renderAnalysisReport(report) {
   $("ai-report").hidden = false;
   $("report-source-badge").textContent = report.ai?.status === "completed" ? "로컬 수치 + AI 운영 해석" : "로컬 정량 분석";
   $("report-summary").textContent = report.summary || "확인 가능한 정량 결과를 표시합니다.";
+  $("report-summary-title").textContent = report.decision?.title
+    || (report.recommendations?.length ? "우선 확인할 운영 조치가 있습니다" : "현재 기준에서 추가 조치 권고 없음");
+  const observationIds = report.observation_evidence_ids || {};
+  const renderObservationEvidence = (id, ids) => {
+    const fragment = document.createDocumentFragment();
+    (ids || []).forEach((evidenceId) => {
+      const item = report.evidence?.find((value) => value.id === evidenceId);
+      if (!item) return;
+      const span = document.createElement("span");
+      span.textContent = item.label;
+      fragment.append(span);
+    });
+    $(id).replaceChildren(fragment);
+  };
+  renderObservationEvidence("report-summary-evidence", observationIds.summary);
+  for (const [key, id] of [["comparison", "comparison"], ["peak_analysis", "peak"]]) {
+    const observation = report[key] || {};
+    $("report-" + id + "-observation").textContent = observation.ai_interpretation || "";
+    $("report-" + id + "-observation").hidden = !observation.ai_interpretation
+      || observation.ai_interpretation === observation.observation;
+    $("report-" + id + "-facts").textContent = observation.observation || observation.finding || "";
+    renderObservationEvidence("report-" + id + "-evidence", observationIds[key]);
+  }
   $("report-generated-at").textContent = formatLocalDateTime(report.metadata.generated_at_utc, timeZone);
   $("report-data-period").textContent = report.metadata.data_start && report.metadata.data_end
     ? `${formatLocalDateTime(report.metadata.data_start, timeZone)}–${formatLocalDateTime(report.metadata.data_end, timeZone)} · ${fmt(report.metadata.data_rows, 0)}시간`
@@ -1439,9 +1451,8 @@ function renderAnalysisReport(report) {
   $("report-comparison-basis").textContent = report.chart.baseline_status === "available"
     ? report.chart.baseline_method
     : "동일 요일 실제 표본 부족";
-  $("report-priority-action").textContent = report.recommendations?.[0]?.action
-    || report.no_action_reason
-    || "현재 데이터에서 우선 조치가 필요한 뚜렷한 변화를 확인하지 못했습니다.";
+  $("report-priority-action").textContent = report.recommendations?.[0]?.action || "";
+  $("report-priority-action").parentElement.hidden = !report.recommendations?.length;
 
   renderRecommendations(report);
   renderTextList($("report-limitations"), report.limitations || []);
@@ -1669,6 +1680,7 @@ function buildStandaloneReportHtml(report) {
   });
   const snapshot = { report };
   const css = `
+    [hidden]{display:none!important}.report-observations{grid-column:1/-1;margin:0;display:grid;gap:16px}.report-observations>div{border-top:1px solid var(--line);padding-top:14px}.report-observations dt{font-size:13px;font-weight:700;margin-bottom:6px}.report-observations dd{margin:0}.report-observations p{font-size:14px;line-height:1.7;margin:0 0 6px}.observation-facts{color:var(--sub)}.observation-evidence{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.observation-evidence span{font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)}
     :root{--ink:#10213d;--sub:#596579;--line:#d8d5cd;--bg:#f3f0e8;--paper:#fffdf8;--blue:#1f4fdb;--success:#087a55;--danger:#a93434}
     *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge{display:inline-block;border:1px solid #b9c9f5;background:#e9efff;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-cover h4{font-size:34px;margin:14px 0 8px}.report-cover p{margin:0}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.report-priority{padding:14px;background:#edf2ff}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.simulator-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.simulator-grid label{font-size:11px;color:var(--sub)}.simulator-grid input,.simulator-grid select{width:100%;margin-top:5px;border:1px solid var(--line);background:#fff;padding:8px}.simulator-results{margin-top:16px}.simulator-results p{grid-column:1/-1;margin:0;border-top:1px solid var(--line);padding:12px;font-size:12px}.simulator-saving strong{color:var(--success)}.inline-error{border-left:3px solid var(--danger);background:#fde8e5;color:var(--danger);padding:10px;margin-bottom:10px}.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}.quality-grid dl{margin:0}.quality-grid ul{color:var(--sub);font-size:12px}.muted{color:var(--sub);font-size:12px}.status{border:1px solid var(--line);padding:6px 9px;font-size:11px}.report-privacy{display:none}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}.ai-footer-actions{display:none}
     @media(max-width:720px){main{width:100%;margin:0;border:0;padding:18px}.report-cover,.quality-grid{grid-template-columns:1fr}.report-metrics,.simulator-results,.simulator-grid{grid-template-columns:1fr}.report-metrics>div,.simulator-results>div{border-right:0;border-bottom:1px solid var(--line)}.report-section-heading{display:block}.forecast-scrubber{grid-template-columns:1fr}.forecast-scrubber output{grid-column:1}}

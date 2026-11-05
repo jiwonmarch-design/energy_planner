@@ -1,0 +1,19 @@
+{
+  "method": "DOM test double; not visual browser verification",
+  "checks": [
+    {
+      "scenario": "no_action",
+      "status": "PASS",
+      "previewAndHtmlNarrativesMatch": true,
+      "noActionDeduplicated": true,
+      "printUsesSameArticle": true
+    },
+    {
+      "scenario": "action",
+      "status": "PASS",
+      "previewAndHtmlNarrativesMatch": true,
+      "noActionDeduplicated": true,
+      "printUsesSameArticle": true
+    }
+  ]
+}

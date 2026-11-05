@@ -316,6 +316,14 @@ a { color: inherit; }
 .report-badge { display: inline-flex; border: 1px solid #b9c9f5; background: #e9efff; color: var(--blue); padding: 5px 8px; font-size: 10px; font-weight: 800; }
 .report-cover h4 { margin: 14px 0 9px; font-size: clamp(24px, 3vw, 38px); letter-spacing: -.045em; text-wrap: balance; }
 .report-cover p { max-width: 68ch; margin: 0; color: var(--ink); font-size: 16px; line-height: 1.75; text-wrap: pretty; }
+.report-observations { grid-column: 1 / -1; display: grid; gap: 16px; margin: 0; }
+.report-observations > div { border-top: 1px solid var(--line); padding-top: 14px; }
+.report-observations dt { margin-bottom: 6px; font-size: 13px; font-weight: 800; }
+.report-observations dd { margin: 0; }
+.report-observations p { max-width: 80ch; margin-bottom: 6px; font-size: 14px; line-height: 1.7; }
+.report-observations .observation-facts { color: var(--sub); }
+.observation-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.observation-evidence span { border-bottom: 1px solid var(--line); color: var(--sub); font-size: 11px; }
 .report-meta { margin: 0; border-top: 1px solid var(--line); }
 .report-meta > div { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; border-bottom: 1px solid var(--line); padding: 10px 0; }
 .report-meta dt { color: var(--sub); font-size: 10px; }

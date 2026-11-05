@@ -276,3 +276,13 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 로컬 `.env`에 `gpt-6-sol`·`high`를 적용하고 서버 상태 응답에서 로드된 설정 확인
 - 전체 Python 회귀 테스트 62 PASS, JavaScript 문법·Python compileall·Git diff 검사 PASS
 - 실제 OpenAI 외부 호출과 `gpt-6-sol` 공개 API 사용 가능 여부는 미검증
+
+## 2026-11-05 조치 후보 없는 보고서의 운영 관찰 개선
+
+- 기존 summary·peak_analysis·comparison을 재사용해 첫 화면에 운영 판단·전일/동일 요일 비교·피크의 과거 표본 근거를 함께 표시
+- 관찰 근거는 allowed_evidence_ids, 조치 findings는 actionable_evidence_ids로 검증. 조치 임계값·학습 설정·검증 방식 유지
+- 조치 없는 경우 반복되던 이유·빈 조치 영역을 정리하고 HTML 복제·인쇄 경로에도 같은 관찰을 포함
+- 저장된 2025-10-01 예측에서 전일 -5.009%·동일 요일 -0.466%, 06시 과거 표본 8개·평균 순위 17위 확인. 반복적 고사용 시간 판단은 보류
+- 저장 run 재사용·모의 AI 응답 검증, 전체 Python 66 PASS, 렌더러/내보내기 DOM 모의 검사 두 시나리오 PASS
+- 실제 OpenAI 호출 0회. 브라우저 URL 확인 오류로 화면·실제 PDF 배치는 미검증
+- 상세 결과: `analysis/report_observation_validation/report.md`

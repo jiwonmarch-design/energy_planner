@@ -33,6 +33,15 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         "summary": {"type": "string"},
         "peak_analysis": {"type": "string"},
         "comparison": {"type": "string"},
+        "observation_evidence_ids": {
+            "type": "object",
+            "properties": {
+                field: {"type": "array", "items": {"type": "string"}}
+                for field in ("summary", "peak_analysis", "comparison")
+            },
+            "required": ["summary", "peak_analysis", "comparison"],
+            "additionalProperties": False,
+        },
         "findings": {
             "type": "array",
             "maxItems": 3,
@@ -63,6 +72,7 @@ ANALYSIS_SCHEMA: dict[str, Any] = {
         "summary",
         "peak_analysis",
         "comparison",
+        "observation_evidence_ids",
         "findings",
         "no_action_reason",
         "limitations",
@@ -140,6 +150,7 @@ def _report_context(report: Mapping[str, Any]) -> dict[str, Any]:
         "model_quality": report.get("model_quality"),
         "operational_candidates": operational_candidates,
         "no_action_reason": report.get("no_action_reason"),
+        "observation_evidence_ids": report.get("observation_evidence_ids"),
         "hourly_comparison": [
             {
                 "timestamp": timestamp,
@@ -191,6 +202,12 @@ def _parse_structured_response(response: Mapping[str, Any]) -> dict[str, Any]:
     )
     if not all(isinstance(value[field], str) for field in scalar_fields):
         raise AIAnalysisUpstreamError("OpenAI API 분석 문구의 형식이 올바르지 않습니다.")
+    observations = value["observation_evidence_ids"]
+    if not isinstance(observations, dict) or set(observations) != {"summary", "peak_analysis", "comparison"}:
+        raise AIAnalysisUpstreamError("OpenAI API 운영 관찰 근거의 형식이 올바르지 않습니다.")
+    for ids in observations.values():
+        if not isinstance(ids, list) or not all(isinstance(item, str) for item in ids):
+            raise AIAnalysisUpstreamError("OpenAI API 운영 관찰 근거의 형식이 올바르지 않습니다.")
     if not isinstance(value["limitations"], list) or not all(
         isinstance(item, str) for item in value["limitations"]
     ):
@@ -235,13 +252,21 @@ def analyze_prediction(
     prompt = (
         "다음 JSON은 서버가 계산한 건물 전력 예측의 구조화된 정량 결과입니다. "
         "당신은 일반적인 절전 조언자가 아니라 전력 운영 의사결정 분석가입니다. "
-        "숫자를 새로 계산하거나 추정하지 말고 Python이 만든 operational_candidates만 검토하세요. "
+        "운영 관찰과 조치 권고를 구분하세요. summary, peak_analysis, comparison은 운영 관찰입니다. "
+        "관찰에는 allowed_evidence_ids의 전일 대비·동일 요일 대비·시간별 변동 범위를 사용할 수 있습니다. "
+        "각 관찰의 근거 ID를 observation_evidence_ids의 같은 이름 필드에 넣으세요. 근거가 없으면 판단 보류를 명시하세요. "
+        "summary는 운영 판단의 이유를 간결하게 설명하고, 비교 기준이 다른 두 증감률을 함께 해석하세요. "
+        "감소 자체를 이상이나 절감 효과로 단정하지 마세요. peak_analysis는 historical_context와 observation을 따르고, "
+        "피크 시각이 평소에도 높은 시간이라는 주장은 과거 표본·평균 순위만으로 확정하지 마세요. "
+        "comparison은 직전 실측과 동일 요일 기준의 차이를 설명하세요. 관찰 문장에 실행 조치를 권고하지 마세요. "
+        "숫자를 새로 계산하거나 추정하지 말고 조치 권고인 findings는 Python이 만든 operational_candidates만 검토하세요. "
         "문장에는 새로운 금액·비율·정확도·피크 수치를 만들지 마세요. "
         "수치 정보는 화면의 서버 근거가 별도로 표시하므로 문장에는 아라비아 숫자를 전혀 쓰지 마세요. "
         "설비별 데이터가 없으므로 특정 설비·원인·절감 효과·비용을 단정하거나 보장하지 마세요. "
         "findings는 중요도 순 최대 세 개이며 각 항목에 정량 근거 ID, 운영상 의미, 확인 또는 실행할 조치, 한계를 포함하세요. "
-        "evidence_ids에는 actionable_evidence_ids만 넣고 최소 한 개의 근거를 사용하세요. "
+        "findings의 evidence_ids에는 actionable_evidence_ids만 넣고 최소 한 개의 근거를 사용하세요. "
         "operational_candidates가 비어 있거나 의미 있는 변화가 없으면 findings를 빈 배열로 두고 no_action_reason에 불필요한 조치를 권고하지 않는 이유를 작성하세요. "
+        "후보가 없어도 근거 있는 운영 관찰은 작성하세요. 추가 조치 없음 문구를 summary와 no_action_reason에서 반복하지 마세요. "
         "실제 요금제가 없으므로 경제적 효과를 확정적으로 표현하지 마세요. "
         "확인할 수 없는 내용은 limitations에 명시하세요. 모든 문장은 한국어로 작성하세요.\n\n"
         + json.dumps(context, ensure_ascii=False, separators=(",", ":"))
@@ -271,6 +296,12 @@ def analyze_prediction(
         payload["reasoning"] = {"effort": reasoning_effort}
     response = (transport or _request_openai)(payload, api_key, _safe_timeout(values))
     analysis = _parse_structured_response(response)
+    for field, evidence_ids in analysis["observation_evidence_ids"].items():
+        if not set(evidence_ids).issubset(allowed_evidence_ids):
+            raise AIAnalysisUpstreamError("OpenAI API 운영 관찰에 확인되지 않은 근거가 포함되었습니다.")
+        if not evidence_ids:
+            # An uncited interpretation falls back to the local observation.
+            analysis[field] = ""
     for item in analysis["findings"]:
         evidence_ids = set(item["evidence_ids"])
         if not evidence_ids or not evidence_ids.issubset(actionable_evidence_ids):
@@ -336,21 +367,26 @@ def analyze_prediction(
     )
     return {
         **report,
-        "summary": analysis["summary"] if not contains_number(analysis["summary"]) else report["summary"],
+        "summary": analysis["summary"] if analysis["summary"].strip() and not contains_number(analysis["summary"]) else report["summary"],
+        "observation_evidence_ids": {
+            field: ids if analysis[field].strip() and not contains_number(analysis[field])
+            else report.get("observation_evidence_ids", {}).get(field, [])
+            for field, ids in analysis["observation_evidence_ids"].items()
+        },
         "peak_analysis": {
             **report.get("peak_analysis", {}),
             "ai_interpretation": (
                 analysis["peak_analysis"]
-                if not contains_number(analysis["peak_analysis"])
-                else report.get("peak_analysis", {}).get("finding")
+                if analysis["peak_analysis"].strip() and not contains_number(analysis["peak_analysis"])
+                else ""
             ),
         },
         "comparison": {
             **report.get("comparison", {}),
             "ai_interpretation": (
                 analysis["comparison"]
-                if not contains_number(analysis["comparison"])
-                else report.get("comparison", {}).get("finding")
+                if analysis["comparison"].strip() and not contains_number(analysis["comparison"])
+                else ""
             ),
         },
         "recommendations": recommendations or report.get("recommendations", []),

@@ -68,9 +68,14 @@ def report_payload() -> dict:
 
 def valid_response() -> dict:
     value = {
-        "summary": "예상 피크 시간의 운영 일정을 우선 확인하세요.",
-        "peak_analysis": "피크 전후의 동시 사용 일정을 확인할 필요가 있습니다.",
-        "comparison": "동일 요일 기준과 차이가 큰 시간대를 확인하세요.",
+        "summary": "동일 요일 기준에서 벗어난 시간대가 있습니다.",
+        "peak_analysis": "예상 사용량이 가장 높은 시각과 고사용 구간이 확인됩니다.",
+        "comparison": "동일 요일 평균과 직전 실측 대비 차이가 나타납니다.",
+        "observation_evidence_ids": {
+            "summary": ["forecast_total"],
+            "peak_analysis": ["forecast_peak"],
+            "comparison": ["same_weekday_comparison", "previous_24h_comparison"],
+        },
         "findings": [
             {
                 "title": "운영 일정 확인",
@@ -93,6 +98,58 @@ def valid_response() -> dict:
 
 
 class AIAnalysisCases(unittest.TestCase):
+    def test_observations_use_allowed_evidence_without_action_candidates(self):
+        report = report_payload()
+        report["operational_candidates"] = []
+        report["recommendations"] = []
+        response = valid_response()
+        value = json.loads(response["output"][0]["content"][0]["text"])
+        value["findings"] = []
+        value["summary"] = " 전일 기준과 동일 요일 기준의 변화 폭이 다릅니다."
+        response["output"][0]["content"][0]["text"] = json.dumps(value)
+        captured = {}
+
+        def transport(payload, *_):
+            captured.update(json.loads(payload["input"][1]["content"].split("\n\n", 1)[1]))
+            return response
+
+        result = analyze_prediction(report, environ={"OPENAI_API_KEY": "mock"}, transport=transport)
+        self.assertEqual(captured["actionable_evidence_ids"], [])
+        self.assertIn("previous_24h_comparison", captured["allowed_evidence_ids"])
+        self.assertEqual(result["recommendations"], [])
+        self.assertEqual(result["summary"], value["summary"])
+        self.assertEqual(result["comparison"]["ai_interpretation"], value["comparison"])
+
+    def test_observation_unknown_evidence_is_rejected(self):
+        response = valid_response()
+        value = json.loads(response["output"][0]["content"][0]["text"])
+        value["observation_evidence_ids"]["comparison"] = ["invented"]
+        response["output"][0]["content"][0]["text"] = json.dumps(value)
+        with self.assertRaisesRegex(AIAnalysisUpstreamError, "운영 관찰"):
+            analyze_prediction(report_payload(), environ={"OPENAI_API_KEY": "mock"}, transport=lambda *_: response)
+
+    def test_uncited_observation_falls_back_to_server_facts(self):
+        response = valid_response()
+        value = json.loads(response["output"][0]["content"][0]["text"])
+        value["observation_evidence_ids"]["peak_analysis"] = []
+        response["output"][0]["content"][0]["text"] = json.dumps(value)
+        report = report_payload()
+        result = analyze_prediction(report, environ={"OPENAI_API_KEY": "mock"}, transport=lambda *_: response)
+        self.assertEqual(result["peak_analysis"]["ai_interpretation"], "")
+        self.assertEqual(result["peak_analysis"]["observation"], report["peak_analysis"]["observation"])
+
+    def test_peak_history_requires_samples_and_defers_habitual_peak_claim(self):
+        prediction = prediction_payload()
+        job = SimpleNamespace(selected_model="xgboost")
+        report = build_analysis_report(prediction, job)
+        self.assertEqual(report["peak_analysis"]["historical_context"]["sample_count"], 8)
+        self.assertIn("단정할 수 없습니다", report["peak_analysis"]["observation"])
+        prediction["same_weekday_baseline"]["statistics_by_hour"][-1]["sample_count"] = 1
+        report = build_analysis_report(prediction, job)
+        self.assertEqual(report["peak_analysis"]["historical_context"]["status"], "insufficient")
+        self.assertIn("판단을 보류", report["peak_analysis"]["observation"])
+        self.assertNotIn("peak_historical_context", {item["id"] for item in report["evidence"]})
+
     def test_local_report_marks_missing_comparison_and_model_quality(self):
         prediction = prediction_payload()
         prediction["same_weekday_baseline"] = {
