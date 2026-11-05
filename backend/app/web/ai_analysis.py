@@ -69,6 +69,34 @@ def _response_diagnostics(response: Mapping[str, Any]) -> dict[str, Any]:
     return diagnostics
 
 
+def _limitation_categories(text: str) -> set[str]:
+    categories = (
+        ("equipment", ("설비", "원인")),
+        ("cost", ("요금", "비용", "절감 금액", "절감액")),
+        ("power", ("최대수요전력", "kW")),
+        ("history", ("같은 요일", "과거 표본", "비교 자료")),
+        ("historical_report", ("과거 데이터 검증", "운영 계획")),
+        ("accuracy", ("검증 결과", "오차율", "정확")),
+    )
+    matches = {
+        name for name, keywords in categories
+        if any(keyword in text for keyword in keywords)
+    }
+    return matches or {re.sub(r"\s+", " ", text).strip()}
+
+
+def _deduplicate_limitations(items: list[str]) -> list[str]:
+    result: list[str] = []
+    seen_categories: set[str] = set()
+    for item in items:
+        categories = _limitation_categories(item)
+        if not item.strip() or categories & seen_categories:
+            continue
+        seen_categories.update(categories)
+        result.append(item)
+    return result
+
+
 ANALYSIS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -347,14 +375,17 @@ def analyze_prediction(
     actionable_evidence_ids = set(context["actionable_evidence_ids"])
     prompt = (
         "다음 JSON은 서버가 계산한 건물 전력 예측의 구조화된 정량 결과입니다. "
-        "당신은 일반적인 절전 조언자가 아니라 전력 운영 의사결정 분석가입니다. "
+        "당신은 비개발자가 빠르게 읽는 사내 전력 운영 보고서를 작성합니다. "
+        "결론을 문장 첫 부분에 두고 한 문장에는 하나의 판단만 쓰세요. "
+        "수치의 계산과 표시는 서버가 담당하므로, 당신은 수치가 업무상 무엇을 뜻하는지만 쉬운 말로 설명하세요. "
         "운영 관찰과 조치 권고를 구분하세요. summary, peak_analysis, comparison은 운영 관찰입니다. "
         "관찰에는 allowed_evidence_ids의 전일 대비·동일 요일 대비·시간별 변동 범위를 사용할 수 있습니다. "
-        "각 관찰의 근거 ID를 observation_evidence_ids의 같은 이름 필드에 넣으세요. 근거가 없으면 판단 보류를 명시하세요. "
+        "각 관찰의 근거 ID를 observation_evidence_ids의 같은 이름 필드에 넣으세요. 근거가 없으면 추정하지 말고 limitations에 한 번만 적으세요. "
         "summary는 운영 판단의 이유를 간결하게 설명하고, 비교 기준이 다른 두 증감률을 함께 해석하세요. "
-        "감소 자체를 이상이나 절감 효과로 단정하지 마세요. peak_analysis는 historical_context와 observation을 따르고, "
+        "감소 자체를 이상이나 절감 효과로 단정하지 마세요. 변화율이 커 보여도 서버가 제공한 절대 변화량을 함께 고려해 과장하지 마세요. "
+        "peak_analysis는 historical_context와 observation을 따르고, "
         "피크 시각이 평소에도 높은 시간이라는 주장은 과거 표본·평균 순위만으로 확정하지 마세요. "
-        "comparison은 직전 실측과 동일 요일 기준의 차이를 설명하세요. 관찰 문장에 실행 조치를 권고하지 마세요. "
+        "comparison은 어제 같은 시간대와 최근 8주 같은 요일 평균의 차이를 설명하세요. 관찰 문장에 실행 조치를 권고하지 마세요. "
         "숫자를 새로 계산하거나 추정하지 말고 조치 권고인 findings는 Python이 만든 operational_candidates만 검토하세요. "
         "문장에는 새로운 금액·비율·정확도·피크 수치를 만들지 마세요. "
         "수치 정보는 화면의 서버 근거가 별도로 표시하므로 문장에는 아라비아 숫자를 전혀 쓰지 마세요. "
@@ -363,6 +394,11 @@ def analyze_prediction(
         "findings의 evidence_ids에는 actionable_evidence_ids만 넣고 최소 한 개의 근거를 사용하세요. "
         "operational_candidates가 비어 있거나 의미 있는 변화가 없으면 findings를 빈 배열로 두고 no_action_reason에 불필요한 조치를 권고하지 않는 이유를 작성하세요. "
         "후보가 없어도 근거 있는 운영 관찰은 작성하세요. 추가 조치 없음 문구를 summary와 no_action_reason에서 반복하지 마세요. "
+        "'직전 실측 기간' 대신 '어제 같은 시간대', '과거 동일 요일·시간 평균' 대신 '최근 8주 같은 요일 평균', "
+        "'과거 관측 범위 안' 대신 '평소 사용 범위 안', '사후 실측이 확보되면' 대신 '실제 사용량이 나온 뒤', "
+        "'연속 고사용 구간' 대신 '사용량이 계속 높은 시간대'라고 쓰세요. "
+        "Validation, Test, WAPE, 기준모델 같은 개발 용어는 본문에 쓰지 마세요. "
+        "'단정할 수 없습니다'를 여러 항목에서 반복하지 말고 확인할 수 없는 내용은 limitations에 모으세요. "
         "실제 요금제가 없으므로 경제적 효과를 확정적으로 표현하지 마세요. "
         "확인할 수 없는 내용은 limitations에 명시하세요. 모든 문장은 한국어로 작성하세요.\n\n"
         + json.dumps(context, ensure_ascii=False, separators=(",", ":"))
@@ -374,7 +410,7 @@ def analyze_prediction(
         "input": [
             {
                 "role": "system",
-                "content": "서버가 확인한 운영 신호만 선별하고 일반론을 배제하는 전력 운영 의사결정 분석가입니다.",
+                "content": "서버가 확인한 근거만 사용해 비개발자를 위한 간결한 전력 운영 업무 보고서를 작성합니다.",
             },
             {"role": "user", "content": prompt},
         ],
@@ -452,7 +488,9 @@ def analyze_prediction(
         ]
     )
     safe_limitations = [item for item in analysis["limitations"] if not contains_number(item)]
-    limitations = list(dict.fromkeys([*report.get("limitations", []), *safe_limitations]))
+    limitations = _deduplicate_limitations(
+        [*report.get("limitations", []), *safe_limitations]
+    )
     safe_findings = [
         item
         for item in analysis["findings"]
@@ -466,28 +504,16 @@ def analyze_prediction(
             )
         )
     ]
-    recommendations = [
-        {
-            "priority": index + 1,
-            "title": item["title"],
-            "action": item["recommended_action"],
-            "reason": item["operational_meaning"],
-            "evidence_ids": item["evidence_ids"],
-            "caveat": item["limitation"],
-        }
-        for index, item in enumerate(safe_findings[:3])
-    ]
     local_recommendations = report.get("recommendations", [])
-    if not recommendations and actionable_evidence_ids:
-        recommendations = local_recommendations
-    safe_no_action_reason = (
-        analysis["no_action_reason"]
-        if not contains_number(analysis["no_action_reason"])
-        else report.get("no_action_reason", "")
-    )
     return {
         **report,
-        "summary": analysis["summary"] if analysis["summary"].strip() and not contains_number(analysis["summary"]) else report["summary"],
+        # The server owns every visible numerical sentence. AI text is optional
+        # supporting interpretation and can never replace those facts.
+        "summary_ai_interpretation": (
+            analysis["summary"]
+            if analysis["summary"].strip() and not contains_number(analysis["summary"])
+            else ""
+        ),
         "observation_evidence_ids": {
             field: ids if analysis[field].strip() and not contains_number(analysis[field])
             else report.get("observation_evidence_ids", {}).get(field, [])
@@ -509,10 +535,15 @@ def analyze_prediction(
                 else ""
             ),
         },
-        "recommendations": recommendations or report.get("recommendations", []),
+        "recommendations": local_recommendations,
         "ai_findings": safe_findings,
         "no_action_reason": (
-            "" if recommendations else safe_no_action_reason or report.get("no_action_reason", "")
+            "" if local_recommendations else report.get("no_action_reason", "")
+        ),
+        "ai_no_action_reason": (
+            analysis["no_action_reason"]
+            if not contains_number(analysis["no_action_reason"])
+            else ""
         ),
         "limitations": limitations,
         "model_quality": {

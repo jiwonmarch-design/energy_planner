@@ -36,6 +36,15 @@ function fmt(number, digits = 1) {
   return Number(number).toLocaleString("ko-KR", { maximumFractionDigits: digits });
 }
 
+function fmtKwhDifference(number) {
+  const value = Math.abs(Number(number));
+  const digits = value < 0.1 ? 3 : value < 1 ? 2 : 1;
+  return value.toLocaleString("ko-KR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
 function localDateParts(value, timeZone) {
   const parts = new Intl.DateTimeFormat("ko-KR", {
     timeZone,
@@ -1252,8 +1261,10 @@ function evidenceLabel(report, evidenceId) {
   if (item.value !== null && item.value !== undefined && Number.isFinite(Number(item.value))) {
     const value = Number(item.value);
     const signed = ["same_weekday_largest_deviation", "previous_24h_largest_change"].includes(item.id)
-      && value > 0 ? "+" : "";
-    parts.push(`${signed}${fmt(value, 1)}${item.unit === "%" ? "%" : ` ${item.unit || ""}`.trimEnd()}`);
+      ? value > 0 ? "+" : value < 0 ? "−" : ""
+      : "";
+    const displayedValue = item.unit === "kWh" ? fmtKwhDifference(value) : fmt(value, 1);
+    parts.push(`${signed}${displayedValue}${item.unit === "%" ? "%" : ` ${item.unit || ""}`.trimEnd()}`);
   }
   if (item.relative_percent !== null && item.relative_percent !== undefined && Number.isFinite(Number(item.relative_percent))) {
     const relative = Number(item.relative_percent);
@@ -1262,7 +1273,7 @@ function evidenceLabel(report, evidenceId) {
   if (item.historical_minimum_kwh !== null && item.historical_minimum_kwh !== undefined
     && item.historical_maximum_kwh !== null && item.historical_maximum_kwh !== undefined
     && Number.isFinite(Number(item.historical_minimum_kwh)) && Number.isFinite(Number(item.historical_maximum_kwh))) {
-    parts.push(`과거 범위 ${fmt(item.historical_minimum_kwh, 1)}–${fmt(item.historical_maximum_kwh, 1)} kWh`);
+    parts.push(`평소 사용 범위 ${fmt(item.historical_minimum_kwh, 1)}–${fmt(item.historical_maximum_kwh, 1)} kWh`);
   }
   return parts.join(" · ");
 }
@@ -1270,7 +1281,12 @@ function evidenceLabel(report, evidenceId) {
 function renderRecommendations(report) {
   const fragment = document.createDocumentFragment();
   const recommendations = (report.recommendations || []).slice(0, 3);
-  $("report-actions-section").hidden = recommendations.length === 0;
+  $("report-actions-section").hidden = false;
+  $("report-no-action").hidden = recommendations.length > 0;
+  $("report-no-action").textContent = recommendations.length
+    ? ""
+    : report.no_action_reason || "추가로 조정할 항목은 없습니다. 실제 사용량 흐름을 확인하세요.";
+  $("report-recommendations").hidden = recommendations.length === 0;
   recommendations.forEach((recommendation) => {
     const item = document.createElement("li");
     const copy = document.createElement("div");
@@ -1278,20 +1294,18 @@ function renderRecommendations(report) {
     const title = document.createElement("h6");
     const action = document.createElement("p");
     const reason = document.createElement("p");
-    const caveat = document.createElement("p");
     const evidence = document.createElement("div");
     title.textContent = recommendation.title;
     action.className = "recommendation-action";
     action.textContent = recommendation.action;
     reason.textContent = `근거: ${recommendation.reason}`;
-    caveat.textContent = `주의: ${recommendation.caveat}`;
     evidence.className = "recommendation-evidence";
     (recommendation.evidence_ids || []).forEach((id) => {
       const tag = document.createElement("span");
       tag.textContent = evidenceLabel(report, id);
       evidence.append(tag);
     });
-    copy.append(title, action, reason, caveat, evidence);
+    copy.append(title, action, reason, evidence);
     item.append(copy);
     fragment.append(item);
   });
@@ -1430,9 +1444,14 @@ function renderAnalysisReport(report) {
   const quality = report.model_quality || {};
   $("ai-report").hidden = false;
   $("report-source-badge").textContent = report.ai?.status === "completed" ? "로컬 수치 + AI 운영 해석" : "로컬 정량 분석";
+  $("report-purpose-badge").textContent = report.metadata?.report_purpose_label || "운영 계획 참고";
+  $("report-purpose-badge").dataset.purpose = report.metadata?.report_purpose || "operations_plan";
   $("report-summary").textContent = report.summary || "확인 가능한 정량 결과를 표시합니다.";
   $("report-summary-title").textContent = report.decision?.title
-    || (report.recommendations?.length ? "우선 확인할 운영 조치가 있습니다" : "현재 기준에서 추가 조치 권고 없음");
+    || (report.recommendations?.length ? "확인이 필요한 시간대가 있습니다" : "큰 이상 신호는 없습니다");
+  const summaryInterpretation = report.summary_ai_interpretation || "";
+  $("report-summary-interpretation").textContent = summaryInterpretation;
+  $("report-summary-interpretation").hidden = !summaryInterpretation;
   const observationIds = report.observation_evidence_ids || {};
   const renderObservationEvidence = (id, ids) => {
     const fragment = document.createDocumentFragment();
@@ -1446,14 +1465,19 @@ function renderAnalysisReport(report) {
     $(id).replaceChildren(fragment);
   };
   renderObservationEvidence("report-summary-evidence", observationIds.summary);
-  for (const [key, id] of [["comparison", "comparison"], ["peak_analysis", "peak"]]) {
-    const observation = report[key] || {};
-    $("report-" + id + "-observation").textContent = observation.ai_interpretation || "";
-    $("report-" + id + "-observation").hidden = !observation.ai_interpretation
-      || observation.ai_interpretation === observation.observation;
-    $("report-" + id + "-facts").textContent = observation.observation || observation.finding || "";
-    renderObservationEvidence("report-" + id + "-evidence", observationIds[key]);
-  }
+  const comparison = report.comparison || {};
+  const comparisonInterpretation = comparison.ai_interpretation || "";
+  $("report-comparison-observation").textContent = comparisonInterpretation;
+  $("report-comparison-observation").hidden = !comparisonInterpretation
+    || comparisonInterpretation === summaryInterpretation;
+  $("report-comparison-facts").textContent = comparison.observation || comparison.finding || "";
+  renderObservationEvidence("report-comparison-evidence", observationIds.comparison);
+  const peak = report.peak_analysis || {};
+  $("report-peak-observation").textContent = peak.ai_interpretation || "";
+  $("report-peak-observation").hidden = !peak.ai_interpretation
+    || peak.ai_interpretation === peak.observation;
+  $("report-peak-facts").textContent = peak.observation || peak.finding || "";
+  renderObservationEvidence("report-peak-evidence", observationIds.peak_analysis);
   $("report-generated-at").textContent = formatLocalDateTime(report.metadata.generated_at_utc, timeZone);
   $("report-data-period").textContent = report.metadata.data_start && report.metadata.data_end
     ? `${formatLocalDateTime(report.metadata.data_start, timeZone)}–${formatLocalDateTime(report.metadata.data_end, timeZone)} · ${fmt(report.metadata.data_rows, 0)}시간`
@@ -1461,30 +1485,35 @@ function renderAnalysisReport(report) {
   $("report-forecast-period").textContent = forecastPeriodText(report.chart.timestamps, timeZone).replace(/^예측 대상\s*/, "");
   $("report-total").textContent = `${fmt(quantitative.total_kwh, 1)} kWh`;
   $("report-total-change").textContent = quantitative.previous_24h_change_percent !== null && quantitative.previous_24h_change_percent !== undefined && Number.isFinite(Number(quantitative.previous_24h_change_percent))
-    ? `직전 24시간 대비 ${percentText(quantitative.previous_24h_change_percent)}`
-    : "직전 24시간 비교 미확인";
+    ? `어제 같은 시간대보다 ${percentText(quantitative.previous_24h_change_percent)} · ${fmtKwhDifference(quantitative.previous_24h_difference_kwh)} kWh 차이`
+    : "어제 같은 시간대 비교 미확인";
   $("report-peak").textContent = formatKoreanHour(quantitative.peak_timestamp, timeZone);
   $("report-peak-value").textContent = `${fmt(quantitative.peak_kwh, 1)} kWh 예상`;
   $("report-comparison").textContent = percentText(quantitative.same_weekday_change_percent, "비교 불가");
   $("report-comparison-basis").textContent = report.chart.baseline_status === "available"
-    ? report.chart.baseline_method
-    : "동일 요일 실제 표본 부족";
-  $("report-priority-action").textContent = report.recommendations?.[0]?.action || "";
-  $("report-priority-action").parentElement.hidden = !report.recommendations?.length;
+    ? "최근 최대 8주 같은 요일·시간 실측 평균"
+    : "최근 같은 요일 자료 부족";
 
   renderRecommendations(report);
+  $("report-accuracy-summary").textContent = quality.business_summary
+    || "예측 정확도 자료가 없습니다. 운영 일정을 점검하는 참고 자료로만 활용하세요.";
   renderTextList($("report-limitations"), report.limitations || []);
   $("report-validation-mae").textContent = metricValue(quality.validation, "mae", " kWh");
   $("report-validation-wape").textContent = metricValue(quality.validation, "wape", "%");
   $("report-test-mae").textContent = metricValue(quality.test, "mae", " kWh");
   $("report-test-wape").textContent = metricValue(quality.test, "wape", "%");
   $("report-baseline-performance").textContent = quality.mae_improvement_vs_best_baseline_percent !== null && quality.mae_improvement_vs_best_baseline_percent !== undefined && Number.isFinite(Number(quality.mae_improvement_vs_best_baseline_percent))
-    ? `Validation MAE ${percentText(-quality.mae_improvement_vs_best_baseline_percent)} 개선`
+    ? `${fmt(quality.mae_improvement_vs_best_baseline_percent, 1)}%`
     : "직접 비교 미확인";
+  const baselineModels = quality.baseline_validation || {};
+  $("report-baseline-models").textContent = Object.entries(baselineModels).length
+    ? Object.entries(baselineModels).map(([name, metric]) => `${modelDisplayName(name)}: MAE ${metricValue(metric, "mae", " kWh")}, WAPE ${metricValue(metric, "wape", "%")}`).join(" / ")
+    : "비교 결과 없음";
   $("report-model").textContent = modelDisplayName(quality.selected_model);
+  $("report-technical-note").textContent = quality.note || "";
   $("report-chart-description").textContent = report.chart.baseline_status === "available"
-    ? `예측값과 ${report.chart.baseline_method}을 비교합니다.`
-    : "동일 요일 실제 표본이 부족해 예측값만 표시합니다.";
+    ? "예측값과 최근 8주 같은 요일·시간의 실측 평균을 비교합니다."
+    : "최근 같은 요일 자료가 부족해 예측값만 표시합니다.";
   $("report-baseline-toggle").disabled = report.chart.baseline_status !== "available";
   $("report-baseline-toggle").checked = report.chart.baseline_status === "available";
   $("report-baseline-legend").hidden = report.chart.baseline_status !== "available";
@@ -1508,7 +1537,7 @@ function updateReportSelection(index, { showTooltip = false } = {}) {
   state.reportSelectedIndex = safeIndex;
   $("report-hour-slider").value = String(safeIndex);
   $("report-hour-slider").setAttribute("aria-valuetext", `${formatLocalDateTime(report.chart.timestamps[safeIndex], timeZone)}, 예측 ${fmt(forecast[safeIndex], 1)} kWh`);
-  $("report-selected-value").textContent = `${formatLocalDateTime(report.chart.timestamps[safeIndex], timeZone)} · 예측 ${fmt(forecast[safeIndex], 1)} kWh${showBaseline ? ` · 동일 요일 ${fmt(baseline[safeIndex], 1)} kWh · 차이 ${difference >= 0 ? "+" : ""}${fmt(difference, 1)} kWh` : ""}`;
+  $("report-selected-value").textContent = `${formatLocalDateTime(report.chart.timestamps[safeIndex], timeZone)} · 예측 ${fmt(forecast[safeIndex], 1)} kWh${showBaseline ? ` · 최근 8주 같은 요일 평균 ${fmt(baseline[safeIndex], 1)} kWh · 차이 ${difference >= 0 ? "+" : ""}${fmt(difference, 1)} kWh` : ""}`;
   const point = document.querySelector(`[data-report-index="${safeIndex}"]`);
   const guide = $("report-hover-guide");
   const active = $("report-hover-point");
@@ -1570,7 +1599,7 @@ function drawReportChart(report) {
   }).join("");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.innerHTML = `<g aria-hidden="true">${yGrid}${xTicks}<text x="${compact ? 24 : 18}" y="${top + plotHeight / 2}" transform="rotate(-90 ${compact ? 24 : 18} ${top + plotHeight / 2})" text-anchor="middle" fill="#4f5c70" font-size="${compact ? 16 : 11}" font-weight="700">사용량 (kWh)</text>${baselineLine}<polyline points="${points(forecast)}" fill="none" stroke="#1f4fdb" stroke-width="4" stroke-dasharray="9 7" stroke-linecap="round" stroke-linejoin="round"/>${dots}<line id="report-hover-guide" x1="${left}" x2="${left}" y1="${top}" y2="${top + plotHeight}" stroke="#1f4fdb" stroke-width="1.5" stroke-dasharray="4 5"/><circle id="report-hover-point" cx="${left}" cy="${top + plotHeight}" r="6" fill="#fffdf8" stroke="#1f4fdb" stroke-width="3"/></g>`;
-  svg.setAttribute("aria-label", showBaseline ? "24시간 예측과 과거 동일 요일 시간별 평균 비교 그래프" : "24시간 예측 그래프. 동일 요일 비교 자료는 부족합니다.");
+  svg.setAttribute("aria-label", showBaseline ? "24시간 예측과 최근 8주 같은 요일 시간별 평균 비교 그래프" : "24시간 예측 그래프. 최근 같은 요일 비교 자료는 부족합니다.");
   $("report-baseline-legend").hidden = !showBaseline;
   const select = (event) => {
     const rect = svg.getBoundingClientRect();
@@ -1650,7 +1679,15 @@ async function generateAIReport() {
     state.aiAnalysisComplete = true;
     renderAnalysisReport(result);
   } catch (caught) {
-    state.reportError = `AI 보고서를 생성하지 못했습니다. ${caught.message}`;
+    try {
+      const localReport = await api(`/api/analysis-report/${state.job.job_id}`, requestBody());
+      state.analysisReport = localReport;
+      state.aiAnalysisComplete = true;
+      state.reportError = "AI 해석을 불러오지 못해 서버가 계산한 수치와 기본 문장으로 보고서를 표시합니다.";
+      renderAnalysisReport(localReport);
+    } catch (fallbackError) {
+      state.reportError = `보고서를 생성하지 못했습니다. ${fallbackError.message || caught.message}`;
+    }
   } finally {
     state.reportRequestInProgress = false;
     $("report").removeAttribute("aria-busy");
@@ -1698,17 +1735,17 @@ function buildStandaloneReportHtml(report) {
   });
   const snapshot = { report };
   const css = `
-    [hidden]{display:none!important}.report-observations{grid-column:1/-1;margin:0;display:grid;gap:16px}.report-observations>div{border-top:1px solid var(--line);padding-top:14px}.report-observations dt{font-size:13px;font-weight:700;margin-bottom:6px}.report-observations dd{margin:0}.report-observations p{font-size:14px;line-height:1.7;margin:0 0 6px}.observation-facts{color:var(--sub)}.observation-evidence{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.observation-evidence span{font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)}
+    [hidden]{display:none!important}.observation-evidence{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.observation-evidence span{font-size:11px;color:var(--sub);border-bottom:1px solid var(--line)}
     :root{--ink:#10213d;--sub:#596579;--line:#d8d5cd;--bg:#f3f0e8;--paper:#fffdf8;--blue:#1f4fdb;--success:#087a55;--danger:#a93434}
-    *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge{display:inline-block;border:1px solid #b9c9f5;background:#e9efff;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-cover h4{font-size:34px;margin:14px 0 8px}.report-cover p{margin:0}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line)}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.report-priority{padding:14px;background:#edf2ff}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.simulator-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.simulator-grid label{font-size:11px;color:var(--sub)}.simulator-grid input,.simulator-grid select{width:100%;margin-top:5px;border:1px solid var(--line);background:#fff;padding:8px}.simulator-results{margin-top:16px}.simulator-results p{grid-column:1/-1;margin:0;border-top:1px solid var(--line);padding:12px;font-size:12px}.simulator-saving strong{color:var(--success)}.inline-error{border-left:3px solid var(--danger);background:#fde8e5;color:var(--danger);padding:10px;margin-bottom:10px}.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}.quality-grid dl{margin:0}.quality-grid ul{color:var(--sub);font-size:12px}.muted{color:var(--sub);font-size:12px}.status{border:1px solid var(--line);padding:6px 9px;font-size:11px}.report-privacy{display:none}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}.ai-footer-actions{display:none}
+    *{box-sizing:border-box}html{color-scheme:light}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,"Malgun Gothic",sans-serif;line-height:1.55}main{width:min(1120px,calc(100% - 32px));margin:28px auto;background:var(--paper);border:1px solid var(--line);padding:32px}button,input,select{font:inherit}button,input,select{min-height:44px}.ai-report{display:block}.report-cover{display:grid;grid-template-columns:1.35fr .65fr;gap:32px;padding-bottom:26px;border-bottom:1px solid var(--line)}.report-badge,.report-purpose{display:inline-block;border:1px solid #b9c9f5;color:var(--blue);padding:5px 8px;font-size:11px;font-weight:700}.report-badge{background:#e9efff}.report-purpose{margin-left:6px;border-color:var(--line);color:var(--sub)}.report-kicker{margin:18px 0 5px!important;color:var(--sub)!important;font-size:10px!important;font-weight:700}.report-cover h4{font-size:34px;margin:8px 0}.report-cover p{margin:0}.report-supporting-copy{margin-top:8px!important;color:var(--sub);font-size:13px}.report-main-copy{font-size:15px;line-height:1.75}.report-meta{margin:0;border-top:1px solid var(--line)}.report-meta>div,.quality-grid dl>div{display:grid;grid-template-columns:100px 1fr;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.report-meta dt,.quality-grid dt{color:var(--sub);font-size:12px}.report-meta dd,.quality-grid dd{margin:0;font-size:12px;font-weight:700}.report-section{padding:28px 0;border-bottom:1px solid var(--line)}.report-section h5{margin:0 0 14px;font-size:20px}.report-section-heading{display:flex;justify-content:space-between;gap:16px}.report-section-heading p{color:var(--sub);font-size:12px}.report-chart-block{margin-top:26px;border-top:1px solid var(--line);padding-top:22px}.report-metrics,.simulator-results{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:20px}.report-metrics>div,.simulator-results>div{padding:16px;border-right:1px solid var(--line)}.report-metrics span,.report-metrics small,.simulator-results span{display:block;color:var(--sub);font-size:11px}.report-metrics strong,.simulator-results strong{display:block;margin:6px 0;font-size:22px}.chart-wrap{position:relative}.report-chart{display:block;width:100%;height:auto}.tooltip{position:absolute;top:8px;z-index:2;max-width:340px;background:var(--ink);color:#fff;padding:8px;font-size:11px}.chart-legend{display:flex;gap:18px;color:var(--sub);font-size:12px}.chart-legend i{display:inline-block;width:20px;height:3px;margin-right:6px}.chart-legend .forecast{background:repeating-linear-gradient(90deg,var(--blue) 0 7px,transparent 7px 11px)}.chart-legend .baseline{background:#737e8d}.forecast-scrubber{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin-top:14px}.forecast-scrubber input{width:100%}.forecast-scrubber output{grid-column:2;color:var(--sub);font-size:12px}.recommendation-list{list-style:none;padding:0;border-top:1px solid var(--line)}.recommendation-list li{padding:16px 0;border-bottom:1px solid var(--line)}.recommendation-copy h6{font-size:15px;margin:0 0 6px}.recommendation-copy p{margin:4px 0;color:var(--sub);font-size:12px}.recommendation-action{color:var(--ink)!important;font-weight:700}.recommendation-evidence span{display:inline-block;border:1px solid #b9c9f5;padding:3px 6px;margin:4px 4px 0 0;font-size:10px}.quality-grid{display:grid;grid-template-columns:1fr;gap:18px}.quality-grid dl{margin:0}.report-limitations{color:var(--sub);font-size:12px;line-height:1.8}.report-technical>summary{cursor:pointer;padding:20px 0;font-weight:700}.report-technical .quality-grid{padding:18px 0}.muted{color:var(--sub);font-size:12px}.report-footer{margin-top:22px;color:var(--sub);font-size:11px;text-align:center}.series-toggle{display:flex;align-items:center;gap:7px}.series-toggle input{width:18px}
     @media(max-width:720px){main{width:100%;margin:0;border:0;padding:18px}.report-cover,.quality-grid{grid-template-columns:1fr}.report-metrics,.simulator-results,.simulator-grid{grid-template-columns:1fr}.report-metrics>div,.simulator-results>div{border-right:0;border-bottom:1px solid var(--line)}.report-section-heading{display:block}.forecast-scrubber{grid-template-columns:1fr}.forecast-scrubber output{grid-column:1}}
-    @media print{@page{size:A4;margin:13mm}body{background:#fff}main{width:100%;margin:0;border:0;padding:0}.report-section{break-inside:avoid;padding:18px 0}.simulator-grid,.series-toggle,.forecast-scrubber{display:none}.report-chart{max-height:76mm}.recommendation-list li{break-inside:avoid}}
+    @media print{@page{size:A4;margin:13mm}body{background:#fff}main{width:100%;margin:0;border:0;padding:0}.report-section{break-inside:avoid;padding:18px 0}.series-toggle,.forecast-scrubber{display:none}.report-chart{max-height:76mm}.recommendation-list li{break-inside:avoid}.report-technical>*{display:block!important}.report-technical>summary{list-style:none}}
   `;
   const script = `
     const payload=JSON.parse(document.getElementById('report-data').textContent);const report=payload.report;const $=id=>document.getElementById(id);const nf=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:1});
     const timeZone=report.metadata.building_timezone||'UTC';const formatTime=v=>new Intl.DateTimeFormat('ko-KR',{timeZone,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(v));
     function draw(){const svg=$('report-chart'),f=report.chart.forecast_kwh.map(Number),b=(report.chart.same_weekday_baseline_kwh||[]).map(Number),show=$('report-baseline-toggle').checked&&b.length===24,w=960,h=340,l=78,r=24,t=34,bt=58,pw=w-l-r,ph=h-t-bt,max=Math.max(...f,...(show?b:[]),1)*1.12,p=(v,i)=>[l+i*pw/23,t+ph-v/max*ph],pts=s=>s.map((v,i)=>p(v,i).join(',')).join(' ');let grid='';for(let i=0;i<5;i++){const y=t+i*ph/4;grid+='<line x1="'+l+'" y1="'+y+'" x2="'+(w-r)+'" y2="'+y+'" stroke="#dedbd3"/><text x="'+(l-10)+'" y="'+(y+4)+'" text-anchor="end" fill="#657184" font-size="11">'+nf.format(max*(1-i/4))+'</text>'}const base=show?'<polyline points="'+pts(b)+'" fill="none" stroke="#737e8d" stroke-width="3"/>':'';const dots=f.map((v,i)=>{const q=p(v,i);return '<circle data-i="'+i+'" cx="'+q[0]+'" cy="'+q[1]+'" r="4" fill="#1f4fdb"/>'}).join('');svg.innerHTML='<g aria-hidden="true">'+grid+base+'<polyline points="'+pts(f)+'" fill="none" stroke="#1f4fdb" stroke-width="4" stroke-dasharray="9 7"/>'+dots+'<line id="guide" x1="'+l+'" x2="'+l+'" y1="'+t+'" y2="'+(t+ph)+'" stroke="#1f4fdb" stroke-dasharray="4 5"/></g>';$('report-baseline-legend').hidden=!show;const pick=e=>{const rect=svg.getBoundingClientRect(),x=(e.clientX-rect.left)/rect.width*w,i=Math.round((Math.max(l,Math.min(w-r,x))-l)/pw*23);select(i,true)};svg.onpointermove=pick;svg.onclick=pick;svg.onpointerleave=()=>{$('report-chart-tooltip').hidden=true};select(Number($('report-hour-slider').value)||0,false)}
-    function select(i,tip){const f=report.chart.forecast_kwh.map(Number),b=(report.chart.same_weekday_baseline_kwh||[]).map(Number),show=$('report-baseline-toggle').checked&&b.length===24;i=Math.max(0,Math.min(23,i));$('report-hour-slider').value=String(i);let text=formatTime(report.chart.timestamps[i])+' · 예측 '+nf.format(f[i])+' kWh';if(show)text+=' · 동일 요일 '+nf.format(b[i])+' kWh · 차이 '+nf.format(f[i]-b[i])+' kWh';$('report-selected-value').textContent=text;const point=document.querySelector('[data-i="'+i+'"]'),guide=$('guide');if(point&&guide){guide.setAttribute('x1',point.getAttribute('cx'));guide.setAttribute('x2',point.getAttribute('cx'))}const tt=$('report-chart-tooltip');tt.textContent=text;tt.hidden=!tip}
+    function select(i,tip){const f=report.chart.forecast_kwh.map(Number),b=(report.chart.same_weekday_baseline_kwh||[]).map(Number),show=$('report-baseline-toggle').checked&&b.length===24;i=Math.max(0,Math.min(23,i));$('report-hour-slider').value=String(i);let text=formatTime(report.chart.timestamps[i])+' · 예측 '+nf.format(f[i])+' kWh';if(show)text+=' · 최근 8주 같은 요일 평균 '+nf.format(b[i])+' kWh · 차이 '+nf.format(f[i]-b[i])+' kWh';$('report-selected-value').textContent=text;const point=document.querySelector('[data-i="'+i+'"]'),guide=$('guide');if(point&&guide){guide.setAttribute('x1',point.getAttribute('cx'));guide.setAttribute('x2',point.getAttribute('cx'))}const tt=$('report-chart-tooltip');tt.textContent=text;tt.hidden=!tip}
     $('report-baseline-toggle').addEventListener('change',draw);$('report-hour-slider').addEventListener('input',e=>select(Number(e.target.value),false));draw();
   `;
   return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f3f0e8"><title>Energy Planner 전력 운영 분석 보고서</title><style>${css}</style></head><body><main><h1 style="font-size:16px;margin:0 0 22px">Energy Planner · 전력 운영 분석 보고서</h1>${clone.outerHTML}<p class="report-footer">이 파일에는 원본 CSV와 OpenAI API 키가 포함되지 않습니다.</p></main><script id="report-data" type="application/json">${safeJsonForHtml(snapshot)}</script><script>${script}</script></body></html>`;

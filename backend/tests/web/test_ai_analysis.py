@@ -257,7 +257,8 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertEqual(captured["actionable_evidence_ids"], [])
         self.assertIn("previous_24h_comparison", captured["allowed_evidence_ids"])
         self.assertEqual(result["recommendations"], [])
-        self.assertEqual(result["summary"], value["summary"])
+        self.assertEqual(result["summary"], report["summary"])
+        self.assertEqual(result["summary_ai_interpretation"], value["summary"])
         self.assertEqual(result["comparison"]["ai_interpretation"], value["comparison"])
 
     def test_observation_unknown_evidence_is_rejected(self):
@@ -283,11 +284,11 @@ class AIAnalysisCases(unittest.TestCase):
         job = SimpleNamespace(selected_model="xgboost")
         report = build_analysis_report(prediction, job)
         self.assertEqual(report["peak_analysis"]["historical_context"]["sample_count"], 8)
-        self.assertIn("단정할 수 없습니다", report["peak_analysis"]["observation"])
+        self.assertIn("평소 사용 범위", report["peak_analysis"]["observation"])
         prediction["same_weekday_baseline"]["statistics_by_hour"][-1]["sample_count"] = 1
         report = build_analysis_report(prediction, job)
         self.assertEqual(report["peak_analysis"]["historical_context"]["status"], "insufficient")
-        self.assertIn("판단을 보류", report["peak_analysis"]["observation"])
+        self.assertIn("확인할 수 없습니다", report["peak_analysis"]["observation"])
         self.assertNotIn("peak_historical_context", {item["id"] for item in report["evidence"]})
 
     def test_local_report_marks_missing_comparison_and_model_quality(self):
@@ -305,7 +306,7 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertEqual(report["chart"]["same_weekday_baseline_kwh"], [])
         self.assertIsNone(report["model_quality"]["test"]["wape"])
         self.assertEqual(report["comparison"]["variability"]["status"], "insufficient")
-        self.assertTrue(any("표본" in item for item in report["limitations"]))
+        self.assertTrue(any("자료가 부족" in item for item in report["limitations"]))
 
     def test_local_report_calculates_operational_decision_metrics(self):
         report = report_payload()
@@ -326,6 +327,72 @@ class AIAnalysisCases(unittest.TestCase):
         self.assertIn("same_weekday_largest_deviation", evidence_ids)
         self.assertIn("previous_24h_largest_change", evidence_ids)
         self.assertIn("peak_period_share", evidence_ids)
+
+    def test_business_report_uses_requested_ordering_terms_and_accuracy_copy(self):
+        report = report_payload()
+        self.assertIn("다음 24시간 예상 사용량", report["summary"])
+        self.assertIn("어제 같은 시간대", report["summary"])
+        self.assertIn("최근 8주 같은 요일 평균", report["summary"])
+        self.assertIn("평소 사용 범위", report["peak_analysis"]["observation"])
+        self.assertIn("과거 검증에서 확인된 평균 오차율", report["model_quality"]["business_summary"])
+        self.assertNotIn("단정할 수 없습니다", report["summary"] + report["peak_analysis"]["observation"])
+
+    def test_past_forecast_is_marked_as_historical_validation(self):
+        report = report_payload()
+        self.assertEqual(report["metadata"]["report_purpose"], "historical_validation")
+        self.assertEqual(report["metadata"]["report_purpose_label"], "과거 데이터 검증 결과")
+        self.assertTrue(any("현재 운영 계획으로 사용할 수 없습니다" in item for item in report["limitations"]))
+
+    def test_small_total_change_and_usual_peak_soften_action_title(self):
+        prediction = prediction_payload()
+        prediction["timestamps"] = [
+            f"2099-01-01T{hour:02d}:00:00+00:00" for hour in range(24)
+        ]
+        values = [float(value) for value in range(1, 25)]
+        prediction["predictions_kwh"] = values
+        prediction["history_kwh"] = values
+        prediction["actual_summary"]["total_24h_kwh"] = sum(values)
+        prediction["same_weekday_baseline"]["values_kwh"] = values
+        prediction["same_weekday_baseline"]["total_kwh"] = sum(values)
+        for index, item in enumerate(prediction["same_weekday_baseline"]["statistics_by_hour"]):
+            value = values[index]
+            item.update(
+                mean_kwh=value,
+                variance_kwh2=1.0,
+                standard_deviation_kwh=1.0,
+                minimum_kwh=value - 2.0,
+                maximum_kwh=value + 2.0,
+                range_kwh=4.0,
+            )
+        report = build_analysis_report(prediction, SimpleNamespace(selected_model="xgboost"))
+        self.assertTrue(report["recommendations"])
+        self.assertEqual(report["decision"]["tone"], "calm_attention")
+        self.assertEqual(report["decision"]["title"], "큰 이상 신호는 없지만 일부 시간대를 확인하세요")
+        self.assertIn("오후 6시~오후 11시", report["summary"])
+
+    def test_large_relative_change_keeps_small_absolute_change_visible(self):
+        prediction = prediction_payload()
+        prediction["predictions_kwh"] = [0.02] * 24
+        prediction["history_kwh"] = [0.01] * 24
+        prediction["actual_summary"]["total_24h_kwh"] = 0.24
+        prediction["same_weekday_baseline"]["values_kwh"] = [0.02] * 24
+        prediction["same_weekday_baseline"]["total_kwh"] = 0.48
+        for item in prediction["same_weekday_baseline"]["statistics_by_hour"]:
+            item.update(
+                mean_kwh=0.02,
+                variance_kwh2=0.000025,
+                standard_deviation_kwh=0.005,
+                minimum_kwh=0.01,
+                maximum_kwh=0.03,
+                range_kwh=0.02,
+            )
+        report = build_analysis_report(prediction, SimpleNamespace(selected_model="xgboost"))
+        self.assertIn("100.0%(0.24kWh)", report["summary"])
+        previous_action = next(
+            item for item in report["recommendations"]
+            if "previous_24h_largest_change" in item["evidence_ids"]
+        )
+        self.assertIn("0.010kWh(100.0%)", previous_action["reason"])
 
     def test_local_report_does_not_invent_action_when_changes_are_flat(self):
         prediction = prediction_payload()
@@ -351,7 +418,8 @@ class AIAnalysisCases(unittest.TestCase):
         report = build_analysis_report(prediction, job)
         self.assertEqual(report["operational_candidates"], [])
         self.assertEqual(report["recommendations"], [])
-        self.assertIn("임의로 권고하지", report["no_action_reason"])
+        self.assertTrue(report["no_action_reason"])
+        self.assertNotIn("임의로", report["no_action_reason"])
 
     def test_missing_key_is_disabled_without_affecting_forecast(self):
         self.assertFalse(analysis_status({})["enabled"])
@@ -456,7 +524,8 @@ class AIAnalysisCases(unittest.TestCase):
             transport=lambda *_: response,
         )
         self.assertEqual(result["recommendations"], [])
-        self.assertIn("권고하지 않습니다", result["no_action_reason"])
+        self.assertEqual(result["no_action_reason"], report["no_action_reason"])
+        self.assertIn("권고하지 않습니다", result["ai_no_action_reason"])
 
     def test_ai_narrative_cannot_introduce_numeric_claims(self):
         response = valid_response()

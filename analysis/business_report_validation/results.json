@@ -1,0 +1,29 @@
+{
+  "method": "mock DOM contract",
+  "results": [
+    {
+      "scenario": "action",
+      "status": "PASS",
+      "previewAndHtmlTextMatch": true,
+      "printUsesSameArticle": true
+    },
+    {
+      "scenario": "no_action",
+      "status": "PASS",
+      "previewAndHtmlTextMatch": true,
+      "printUsesSameArticle": true
+    },
+    {
+      "scenario": "historical",
+      "status": "PASS",
+      "previewAndHtmlTextMatch": true,
+      "printUsesSameArticle": true
+    },
+    {
+      "scenario": "large_relative_small_absolute",
+      "status": "PASS",
+      "previewAndHtmlTextMatch": true,
+      "printUsesSameArticle": true
+    }
+  ]
+}
