@@ -1,0 +1,40 @@
+{
+  "source": "frontend/reference-system.css and live computed styles",
+  "colors": {
+    "bg": "#F3F0E8",
+    "paper": "#FFFDF8",
+    "blue": "#1F4FDB",
+    "deep": "#143AA8",
+    "ink": "#10213D",
+    "sub": "#596579",
+    "line": "#D8D5CD",
+    "green": "#087A55",
+    "red": "#A93434"
+  },
+  "webFonts": {
+    "palette": {
+      "blue": "#1f4fdb",
+      "blue-deep": "#143aa8",
+      "blue-soft": "#8da9ff",
+      "ink": "#10213d",
+      "sub": "#596579",
+      "line": "#d8d5cd",
+      "bg": "#f3f0e8",
+      "paper": "#fffdf8",
+      "success": "#087a55",
+      "danger": "#a93434"
+    },
+    "bodyFont": "Bahnschrift, Pretendard, \"Malgun Gothic\", \"Apple SD Gothic Neo\", sans-serif",
+    "heroFont": "\"Arial Black\", Arial, Helvetica, sans-serif",
+    "heroText": "EnergyPlannermini",
+    "description": "시간별 전력 데이터를 업로드하면 품질을 진단하고, 머신러닝 모델로 향후 24시간 사용량을 예측합니다."
+  },
+  "presentationFonts": [
+    "Malgun Gothic",
+    "Arial Black"
+  ],
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  }
+}
