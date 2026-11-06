@@ -2094,47 +2094,33 @@ function initHeroWave() {
   wave.innerHTML = markup;
 }
 
-function initBrandCurve() {
-  const hero = $("landing-home");
-  const energy = $("brand-energy-toggle");
-  if (!hero || !energy) return;
+function initHomeGuide() {
+  const tabs = [...document.querySelectorAll(".home-guide-tab")];
+  const panels = [...document.querySelectorAll(".home-guide-panel")];
+  if (!tabs.length || tabs.length !== panels.length) return;
 
-  let pinned = false;
-  let hovered = false;
-  let focused = false;
-  const render = () => {
-    hero.classList.toggle("brand-curve-on", pinned || hovered || focused);
-    energy.setAttribute("aria-pressed", String(pinned));
+  const activate = (index, { focus = false } = {}) => {
+    tabs.forEach((tab, tabIndex) => {
+      const selected = tabIndex === index;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      panels[tabIndex].hidden = !selected;
+    });
+    if (focus) tabs[index].focus();
   };
 
-  energy.addEventListener("pointerenter", (event) => {
-    if (event.pointerType === "touch") return;
-    hovered = true;
-    render();
-  });
-  energy.addEventListener("pointerleave", () => {
-    hovered = false;
-    render();
-  });
-  energy.addEventListener("focus", () => {
-    focused = energy.matches(":focus-visible");
-    render();
-  });
-  energy.addEventListener("blur", () => {
-    focused = false;
-    render();
-  });
-  energy.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    pinned = !pinned;
-    focused = false;
-    render();
-  });
-  energy.addEventListener("click", () => {
-    pinned = !pinned;
-    focused = false;
-    render();
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activate(index));
+    tab.addEventListener("keydown", (event) => {
+      let nextIndex = index;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+      else if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+      else if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      activate(nextIndex, { focus: true });
+    });
   });
 }
 
@@ -2156,7 +2142,7 @@ window.addEventListener("resize", () => {
 
 drawEmptyChart();
 initHeroWave();
-initBrandCurve();
+initHomeGuide();
 initIntegratedNavigation();
 renderWorkspaceSteps();
 if (location.hash) {
