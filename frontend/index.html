@@ -33,8 +33,9 @@
           <div class="service-preview-tabs" role="tablist" aria-label="미리보기 단계">
             <button id="preview-tab-1" type="button" role="tab" aria-selected="true" aria-controls="preview-panel-1" tabindex="0">01 에너지 플래너</button>
             <button id="preview-tab-2" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-2" tabindex="-1">02 데이터 준비</button>
-            <button id="preview-tab-3" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-3" tabindex="-1">03 예측 보기</button>
-            <button id="preview-tab-4" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-4" tabindex="-1">04 운영에 활용</button>
+            <button id="preview-tab-3" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-3" tabindex="-1">03 모델 학습·비교</button>
+            <button id="preview-tab-4" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-4" tabindex="-1">04 예측 보기</button>
+            <button id="preview-tab-5" type="button" role="tab" aria-selected="false" aria-controls="preview-panel-5" tabindex="-1">05 운영에 활용</button>
           </div>
           <div class="service-preview-panels">
             <div id="preview-panel-1" class="service-preview-panel" role="tabpanel" aria-labelledby="preview-tab-1" tabindex="0">
@@ -48,13 +49,17 @@
               <p>최소 90일치 기록을 올리면 빠진 시간과 학습 가능 여부를 확인합니다.</p>
             </div>
             <div id="preview-panel-3" class="service-preview-panel" role="tabpanel" aria-labelledby="preview-tab-3" tabindex="0" hidden>
+              <p class="service-preview-training-copy">이 건물의 전력 기록으로 모델을 새로 학습하고, 검증에서 오차가 가장 적었던 예측 방식을 선택합니다.</p>
+              <div class="service-preview-training-flow" aria-label="모델 학습과 예측 방식 선택 흐름"><strong>건물 데이터로 학습</strong><span aria-hidden="true">→</span><strong>여러 예측 방식 비교</strong><span aria-hidden="true">→</span><strong>검증 오차가 가장 낮은 방식 선택</strong></div>
+            </div>
+            <div id="preview-panel-4" class="service-preview-panel" role="tabpanel" aria-labelledby="preview-tab-4" tabindex="0" hidden>
               <h3>향후 24시간 전력 사용량</h3>
               <div class="service-preview-graph-label"><span>사용량 (kWh)</span><span>설명용 예시</span></div>
               <svg class="service-preview-curve" viewBox="0 0 320 90" preserveAspectRatio="none" role="img" aria-label="예시 예측 곡선. 15시에 사용량이 가장 높습니다."><path class="preview-gridline" d="M0 22H320 M0 52H320 M0 82H320"/><path class="preview-trace" d="M0 67 C28 72 44 77 65 71 S93 53 113 50 S144 52 164 38 S189 17 209 23 S235 46 256 53 S292 58 320 67"/><circle cx="200" cy="22" r="4"/></svg>
               <div class="service-preview-graph-label"><span>00시</span><strong>15시 · 예시 피크</strong><span>23시</span></div>
               <p>건물 데이터로 모델을 학습하고, 검증 결과로 고른 방식으로 예측합니다.</p>
             </div>
-            <div id="preview-panel-4" class="service-preview-panel" role="tabpanel" aria-labelledby="preview-tab-4" tabindex="0" hidden>
+            <div id="preview-panel-5" class="service-preview-panel" role="tabpanel" aria-labelledby="preview-tab-5" tabindex="0" hidden>
               <h3>피크 시간에 잡힌 작업을 옮긴다면?</h3>
               <div class="service-preview-sample service-preview-shift">15시 작업 <span aria-hidden="true">→</span> 18시로 이동 <small>예시</small></div>
               <p>시간 변경 시뮬레이터에서 부하와 가상 비용 변화를 살펴보고, AI 운영 보고서로 예측 결과를 요약할 수 있습니다.</p>

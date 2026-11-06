@@ -16,15 +16,26 @@ async function previewChecks({ evaluate, record, send, screenshot }) {
   const opened = await evaluate("({ open: document.getElementById('service-preview').open, selected: document.querySelector('.service-preview-tabs [aria-selected=\"true\"]').id, heroHeight: document.getElementById('top').getBoundingClientRect().height })");
   record("open_defaults_to_01", opened.open && opened.selected === "preview-tab-1", opened);
   record("hero_geometry_unchanged", opened.heroHeight === initial.heroHeight, opened);
-  const headings = ["에너지 플래너란?", "건물 한 곳의 시간별 CSV", "향후 24시간 전력 사용량", "피크 시간에 잡힌 작업을 옮긴다면?"];
+  const labels = await evaluate("[...document.querySelectorAll('.service-preview-tabs button')].map(tab => tab.textContent)");
+  const expectedLabels = ["01 에너지 플래너", "02 데이터 준비", "03 모델 학습·비교", "04 예측 보기", "05 운영에 활용"];
+  record("five_tab_order", JSON.stringify(labels) === JSON.stringify(expectedLabels), labels);
+  const headings = ["에너지 플래너란?", "계량기 하나의 시간별 CSV", "이 건물의 전력 기록으로 모델을 새로 학습하고, 검증에서 오차가 가장 적었던 예측 방식을 선택합니다.", "향후 24시간 전력 사용량", "피크 시간에 잡힌 작업을 옮긴다면?"];
   const heights = [];
-  for (let index = 0; index < 4; index++) {
+  for (let index = 0; index < 5; index++) {
     await click("#preview-tab-" + (index + 1));
-    const result = await evaluate("(() => { const active = [...document.querySelectorAll('.service-preview-panel')].filter(p => !p.hidden); return { count: active.length, heading: active[0].querySelector('h3').textContent, id: active[0].id, height: document.querySelector('.service-preview-card').getBoundingClientRect().height }; })()");
+    const result = await evaluate("(() => { const active = [...document.querySelectorAll('.service-preview-panel')].filter(p => !p.hidden); return { count: active.length, heading: active[0].querySelector('h3, .service-preview-training-copy').textContent, id: active[0].id, height: document.querySelector('.service-preview-card').getBoundingClientRect().height }; })()");
     heights.push(result.height);
-    record("tab_" + (index + 1), result.count === 1 && result.heading === headings[index] && result.id === "preview-panel-" + (index + 1), result);
+    const headingMatches = result.heading === headings[index] || (index === 1 && result.heading === "건물 한 곳의 시간별 CSV");
+    record("tab_" + (index + 1), result.count === 1 && headingMatches && result.id === "preview-panel-" + (index + 1), result);
   }
   record("tab_height_stable", Math.max(...heights) - Math.min(...heights) <= 1, heights);
+  await click("#preview-tab-3");
+  const training = await evaluate("(() => { const p = document.getElementById('preview-panel-3'); return {children: p.children.length, flow: [...p.querySelectorAll('.service-preview-training-flow strong')].map(s => s.textContent), text: p.textContent}; })()");
+  record("training_copy_and_flow_only", training.children === 2 && JSON.stringify(training.flow) === JSON.stringify(["건물 데이터로 학습", "여러 예측 방식 비교", "검증 오차가 가장 낮은 방식 선택"]), training);
+  await screenshot("preview-training-1440.png");
+  await send("Input.dispatchKeyEvent", {type: "keyDown", key: "End", code: "End", windowsVirtualKeyCode: 35});
+  await send("Input.dispatchKeyEvent", {type: "keyUp", key: "End", code: "End", windowsVirtualKeyCode: 35});
+  record("keyboard_end_selects_05", await evaluate("document.activeElement.id === 'preview-tab-5' && document.getElementById('preview-tab-5').getAttribute('aria-selected') === 'true'"), {});
   await click("#preview-tab-1");
   await screenshot("preview-open-1440.png");
   await click("#service-preview > summary");
@@ -36,13 +47,14 @@ async function previewChecks({ evaluate, record, send, screenshot }) {
   for (const width of [390, 320]) {
     await send("Emulation.setDeviceMetricsOverride", {width, height: 844, deviceScaleFactor: 1, mobile: true});
     const sizes = [];
-    for (let index = 1; index <= 4; index++) {
+    for (let index = 1; index <= 5; index++) {
       await click("#preview-tab-" + index);
       const result = await evaluate("(() => { const intro = document.querySelector('.service-preview-intro').getBoundingClientRect(); const card = document.querySelector('.service-preview-card').getBoundingClientRect(); const panel = document.getElementById('preview-panel-" + index + "'); return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, panelOverflow: panel.scrollWidth - panel.clientWidth, stacked: card.top >= intro.bottom, height: card.height }; })()");
       sizes.push(result.height);
       record("mobile_" + width + "_tab_" + index, result.overflow === 0 && result.panelOverflow === 0 && result.stacked, result);
     }
     record("mobile_" + width + "_stable_height", Math.max(...sizes) - Math.min(...sizes) <= 1, sizes);
+    await click("#preview-tab-3");
     await screenshot("preview-open-" + width + ".png");
   }
   await evaluate("document.body.classList.add('print-ai-report'); true");
@@ -59,9 +71,9 @@ if (hero(previousHtml) !== hero(currentHtml)) throw new Error("Existing hero mar
 
 // Reuse the existing isolated launcher and original hero interaction checks.
 let launcher = fs.readFileSync("analysis/home_first_visit_validation/browser_qa.mjs", "utf8")
-  .split("let socket;")[0].replaceAll("analysis/home_first_visit_validation", "analysis/collapsible_preview_validation");
+  .split("let socket;")[0].replaceAll("analysis/home_first_visit_validation", "analysis/service_preview_training_validation");
 let checks = fs.readFileSync("analysis/forecast_home_validation/hero_recheck.mjs", "utf8")
-  .split("const primary =")[0].replaceAll("analysis/forecast_home_validation", "analysis/collapsible_preview_validation")
+  .split("const primary =")[0].replaceAll("analysis/forecast_home_validation", "analysis/service_preview_training_validation")
   .replaceAll(":9232", ":9236");
 checks += "\n await (" + previewChecks.toString() + ")({ evaluate, record, send, screenshot });\n";
 checks += "record('runtime_errors', errors.length === 0, errors);\n";
