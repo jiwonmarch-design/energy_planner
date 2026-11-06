@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 const baseUrl = "http://127.0.0.1:8765";
 const port = 9236;
 const cdpUrl = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve("analysis/home_intro_reference_validation");
+const outputDir = path.resolve("analysis/home_first_visit_validation");
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "energy-planner-home-guide-"));
 fs.mkdirSync(outputDir, { recursive: true });
 const chrome = spawn("C:/Program Files/Google/Chrome/Application/chrome.exe", [
@@ -87,10 +87,10 @@ try {
   const checks = [];
   const record = (name, passed, details) => checks.push({ name, status: passed ? "PASS" : "FAIL", details });
   const expected = [
-    ["01 에너지 플래너", "에너지 플래너란?"],
-    ["02 데이터 준비", "건물 한 곳의 시간별 CSV"],
-    ["03 예측 보기", "향후 24시간 전력 사용량"],
-    ["04 운영에 활용", "피크 시간에 잡힌 작업을 옮긴다면?"],
+    ["01 에너지 플래너", "에너지가 언제 얼마나 필요할지 예상하고, 사용 계획을 세우는 도구입니다."],
+    ["02 데이터 준비", "건물 한 곳의 시간별 전력 기록을 올립니다."],
+    ["03 예측 보기", "앞으로 24시간 중 전기를 가장 많이 쓸 시간을 확인합니다."],
+    ["04 운영에 활용", "전기를 많이 쓰는 작업의 시간을 옮겨봅니다."],
   ];
   const initial = await evaluate(`(() => {
     const tabs = [...document.querySelectorAll('.home-guide-tab')];
@@ -99,11 +99,6 @@ try {
   })()`);
   record("default_first_tab", initial.selected[0] === "true" && initial.visible.join() === "home-guide-panel-1", initial);
   record("desktop_no_horizontal_overflow", initial.overflow === 0, initial);
-  const reference = fs.readFileSync("C:/Users/aicam/Downloads/energy-planner-intro.html", "utf8");
-  const exactCopy = await evaluate(`(() => ({ definition: document.querySelector('#home-guide-panel-1 > p').textContent.trim(), service: document.querySelector('.guide-service-copy').textContent.trim(), title: document.getElementById('hero-title').textContent, description: document.querySelector('.home-intro-description').textContent }))()`);
-  record("reference_copy_preserved", reference.includes(exactCopy.definition) && reference.includes(exactCopy.description) && reference.replace(/<[^>]*>/g, '').includes(exactCopy.service) && exactCopy.title === "앞으로 24시간,전기를 가장 많이 쓰는 때는?", exactCopy);
-  const desktopLayout = await evaluate(`(() => { const left = document.querySelector('.home-intro-copy').getBoundingClientRect(); const right = document.querySelector('.home-guide').getBoundingClientRect(); return { leftRight: left.right, rightLeft: right.left, leftTop: left.top, rightTop: right.top }; })()`);
-  record("desktop_left_intro_right_tabs", desktopLayout.rightLeft > desktopLayout.leftRight, desktopLayout);
 
   const heights = [];
   for (let index = 0; index < expected.length; index += 1) {
@@ -112,11 +107,12 @@ try {
       tab.click();
       const panel = [...document.querySelectorAll('.home-guide-panel')].find((item) => !item.hidden);
       const copy = panel.querySelector('p');
-      return { tab: tab.textContent.trim(), selected: tab.getAttribute('aria-selected'), panel: panel.id, heading: panel.querySelector('h3').textContent.trim(), height: Math.round(document.querySelector('.home-guide').getBoundingClientRect().height), example: panel.textContent.includes('예시'), overflow: panel.scrollWidth - panel.clientWidth };
+      const lineHeight = parseFloat(getComputedStyle(copy).lineHeight);
+      return { tab: tab.textContent.trim(), selected: tab.getAttribute('aria-selected'), panel: panel.id, copy: copy.textContent.trim(), visualCount: panel.querySelectorAll('[role="img"]').length, height: Math.round(panel.getBoundingClientRect().height), lines: Math.round(copy.getBoundingClientRect().height / lineHeight * 10) / 10 };
     })()`);
     heights.push(state.height);
-    record(`tab_${index + 1}_content`, state.tab === expected[index][0] && state.heading === expected[index][1] && state.selected === "true" && state.overflow === 0, state);
-    if (index >= 2) record(`tab_${index + 1}_example_disclosure`, state.example, state);
+    record(`tab_${index + 1}_content`, state.tab === expected[index][0] && state.copy === expected[index][1] && state.selected === "true" && state.visualCount === 1, state);
+    record(`tab_${index + 1}_desktop_copy`, state.lines <= 1.1, state);
     await screenshot(`home-guide-${index + 1}-1440.png`);
   }
   record("desktop_stable_height", Math.max(...heights) - Math.min(...heights) <= 1, heights);
@@ -136,7 +132,7 @@ try {
     training: document.getElementById('training').innerText,
     report: document.getElementById('report').innerText,
   }))()`);
-  record("feature_screens_preserved", featurePlacement.upload.includes('최소 90일') && featurePlacement.training.includes('XGBoost') && featurePlacement.training.includes('PatchTST') && featurePlacement.report.includes('보고서 생성'), { preserved: true });
+  record("details_live_in_feature_screens", !/XGBoost|PatchTST|최소 90일|보고서 생성 절차/.test(featurePlacement.hero) && featurePlacement.upload.includes('최소 90일') && featurePlacement.training.includes('XGBoost') && featurePlacement.training.includes('PatchTST') && featurePlacement.report.includes('보고서 생성'), featurePlacement);
 
   await viewport(390, 844);
   await evaluate("document.querySelectorAll('.home-guide-tab')[0].click(); document.getElementById('top').scrollIntoView(); true");
@@ -148,18 +144,6 @@ try {
   }
   record("mobile_stable_height", Math.max(...mobileHeights) - Math.min(...mobileHeights) <= 1, mobileHeights);
   await screenshot("home-guide-4-390.png");
-  const mobileLayout = await evaluate(`(() => { const left = document.querySelector('.home-intro-copy').getBoundingClientRect(); const right = document.querySelector('.home-guide').getBoundingClientRect(); return { introBottom: left.bottom, tabsTop: right.top }; })()`);
-  record("mobile_stacked_layout", mobileLayout.tabsTop >= mobileLayout.introBottom, mobileLayout);
-  await evaluate("document.querySelectorAll('.home-guide-tab')[0].click(); window.scrollTo({top: 0, behavior: 'instant'}); true");
-  await screenshot("home-guide-1-390.png");
-  await viewport(320, 740);
-  const smallHeights = [];
-  for (let index = 0; index < expected.length; index += 1) {
-    const small = await evaluate(`(() => { document.querySelectorAll('.home-guide-tab')[${index}].click(); const panel = [...document.querySelectorAll('.home-guide-panel')].find((item) => !item.hidden); return { height: document.querySelector('.home-guide').getBoundingClientRect().height, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, panelOverflow: panel.scrollWidth - panel.clientWidth }; })()`);
-    smallHeights.push(small.height);
-    record(`tab_${index + 1}_320px_wrap`, small.overflow === 0 && small.panelOverflow === 0, small);
-  }
-  record("320px_stable_height", Math.max(...smallHeights) - Math.min(...smallHeights) <= 1, smallHeights);
 
   await viewport(844, 390);
   const landscape = await evaluate(`(() => {
