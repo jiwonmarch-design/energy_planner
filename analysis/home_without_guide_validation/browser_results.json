@@ -1,0 +1,193 @@
+[
+  {
+    "name": "responsive_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "responsive_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "responsive_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "timezone_before_upload",
+    "status": "PASS",
+    "details": {
+      "first": "panel timezone-panel",
+      "second": "panel upload-panel",
+      "firstLeft": 457,
+      "secondLeft": 816
+    }
+  },
+  {
+    "name": "click_toggle",
+    "status": "PASS",
+    "details": {
+      "pressed": "true",
+      "active": true
+    }
+  },
+  {
+    "name": "keyboard_toggle",
+    "status": "PASS",
+    "details": {
+      "pressed": "false",
+      "active": false,
+      "focused": true
+    }
+  },
+  {
+    "name": "reduced_motion",
+    "status": "PASS",
+    "details": {
+      "past": "0s",
+      "future": "0s"
+    }
+  },
+  {
+    "name": "presentation_guide_absent",
+    "status": "PASS",
+    "details": {
+      "noGuide": true
+    }
+  },
+  {
+    "name": "runtime_errors",
+    "status": "PASS",
+    "details": []
+  }
+]
