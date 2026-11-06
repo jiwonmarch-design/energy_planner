@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from backend.app.ml.artifacts import save_run_artifacts
+from backend.app.ml.artifacts import load_patchtst_artifacts, save_run_artifacts
 from backend.app.ml.contracts import (
     ENSEMBLE_50_50,
     PATCHTST,
@@ -61,6 +61,35 @@ def fast_patchtst_config() -> PatchTSTConfig:
 
 
 class PatchTSTPipelineCases(unittest.TestCase):
+    def test_revin_model_preserves_input_level_shift(self):
+        config = dataclasses.replace(
+            fast_patchtst_config(),
+            use_revin=True,
+            revin_affine=True,
+        )
+        model = create_patchtst_model(config)
+        model.eval()
+        base = np.linspace(1.0, 5.0, 168, dtype=np.float32)[None, :]
+        shifted = base + 17.0
+
+        import torch
+
+        with torch.inference_mode():
+            base_prediction = model(torch.from_numpy(base)).numpy()
+            shifted_prediction = model(torch.from_numpy(shifted)).numpy()
+        np.testing.assert_allclose(
+            shifted_prediction - base_prediction,
+            17.0,
+            atol=2e-5,
+        )
+
+    def test_new_patchtst_defaults_use_revin_and_overlapping_patches(self):
+        config = PatchTSTConfig()
+        self.assertTrue(config.use_revin)
+        self.assertTrue(config.revin_affine)
+        self.assertLess(config.stride, config.patch_length)
+        self.assertEqual((config.lookback - config.patch_length) % config.stride, 0)
+
     def test_selection_chooses_lowest_mae_eligible_candidate_and_keeps_tie_order(self):
         actual = np.full((12, 24), 10.0)
         baseline = evaluate_predictions(actual, actual + 2.0)
@@ -95,9 +124,13 @@ class PatchTSTPipelineCases(unittest.TestCase):
             parameter.data.zero_()
         scaler = PatchTSTScaler(mean=20.0, scale=5.0)
         xgboost_models = [ConstantRegressor(10.0) for _ in range(24)]
+        patch_expected = float(data["kwh"].iloc[-168:].mean())
 
         with tempfile.TemporaryDirectory() as temporary:
-            for model_kind, expected in ((PATCHTST, 20.0), (ENSEMBLE_50_50, 15.0)):
+            for model_kind, expected in (
+                (PATCHTST, patch_expected),
+                (ENSEMBLE_50_50, (10.0 + patch_expected) / 2.0),
+            ):
                 run = save_run_artifacts(
                     temporary,
                     building_id="building-a",
@@ -127,6 +160,74 @@ class PatchTSTPipelineCases(unittest.TestCase):
                 self.assertEqual(result.output_shape, (1, 24))
                 np.testing.assert_allclose(result.predictions_kwh, expected, atol=1e-6)
                 self.assertFalse(result.retrained)
+
+    def test_pre_revin_patchtst_config_remains_loadable(self):
+        frame = hourly_frame(90)
+        data = validate_and_normalize_frame(
+            frame,
+            "Asia/Seoul",
+            source_timezone_mode="explicit_offset",
+        )
+        quality = diagnose_quality(data)
+        plan = make_split_plan(data.index, quality.status, warning_approved=True)
+        legacy_config = dataclasses.replace(
+            fast_patchtst_config(),
+            stride=24,
+            use_revin=False,
+            revin_affine=False,
+            gradient_clip_norm=None,
+        )
+        model = create_patchtst_model(legacy_config)
+        scaler = PatchTSTScaler(mean=20.0, scale=5.0)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            run = save_run_artifacts(
+                temporary,
+                building_id="legacy-building",
+                run_id="legacy-run",
+                model_kind=PATCHTST,
+                building_timezone="Asia/Seoul",
+                training_config=fast_xgboost_config(),
+                patchtst_config=legacy_config,
+                split_manifest=dataclasses.asdict(plan),
+                evaluation_schedule={"frozen_before_training": True},
+                quality_report=quality,
+                validation_metrics={},
+                test_metrics={},
+                selection={"selected_model": PATCHTST},
+                data_hash="synthetic",
+                patchtst_model=model,
+                patchtst_scaler=scaler,
+                patchtst_history=[],
+            )
+            config_path = run / "patchtst_config.json"
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+            for name in (
+                "use_revin",
+                "revin_affine",
+                "revin_epsilon",
+                "gradient_clip_norm",
+            ):
+                payload.pop(name)
+            config_path.write_text(json.dumps(payload), encoding="utf-8")
+            manifest_path = run / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            import hashlib
+
+            manifest["file_sha256"]["patchtst_config.json"] = hashlib.sha256(
+                config_path.read_bytes()
+            ).hexdigest()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            _, loaded_config, state_dict, _ = load_patchtst_artifacts(
+                run,
+                expected_building_id="legacy-building",
+            )
+            self.assertFalse(loaded_config.use_revin)
+            self.assertFalse(loaded_config.revin_affine)
+            self.assertIsNone(loaded_config.gradient_clip_norm)
+            loaded = create_patchtst_model(loaded_config)
+            loaded.load_state_dict(state_dict, strict=True)
 
     def test_training_job_runs_two_models_five_candidates_and_reload_prediction(self):
         csv_text = hourly_frame(90).to_csv(index=False)

@@ -73,23 +73,27 @@ class TrainingConfig:
 
 @dataclass(frozen=True)
 class PatchTSTConfig:
-    """Deterministic first-version PatchTST settings for one kWh channel."""
+    """Deterministic single-channel PatchTST settings."""
 
     input_channels: int = 1
     lookback: int = LOOKBACK
     horizon: int = HORIZON
     patch_length: int = 24
-    stride: int = 24
+    stride: int = 12
     d_model: int = 32
     n_heads: int = 4
     encoder_layers: int = 2
     dim_feedforward: int = 64
     dropout: float = 0.1
-    epochs: int = 20
+    epochs: int = 80
     batch_size: int = 64
-    learning_rate: float = 0.001
+    learning_rate: float = 0.0005
     weight_decay: float = 0.0001
-    patience: int = 4
+    patience: int = 12
+    use_revin: bool = True
+    revin_affine: bool = True
+    revin_epsilon: float = 0.00001
+    gradient_clip_norm: float | None = 1.0
     seed: int = 42
     num_threads: int = 1
 

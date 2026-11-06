@@ -273,9 +273,17 @@ def load_patchtst_artifacts(
     ):
         raise ArtifactError("requested run does not contain a PatchTST candidate")
     try:
-        config = PatchTSTConfig(
-            **json.loads((run_dir / "patchtst_config.json").read_text(encoding="utf-8"))
+        config_payload = json.loads(
+            (run_dir / "patchtst_config.json").read_text(encoding="utf-8")
         )
+        # Runs created before the RevIN/overlapping-patch enhancement do not
+        # contain these fields. Keep their exact original model graph in memory;
+        # immutable artifact files are never rewritten.
+        config_payload.setdefault("use_revin", False)
+        config_payload.setdefault("revin_affine", False)
+        config_payload.setdefault("revin_epsilon", 0.00001)
+        config_payload.setdefault("gradient_clip_norm", None)
+        config = PatchTSTConfig(**config_payload)
         scaler = PatchTSTScaler(
             **json.loads((run_dir / "patchtst_scaler.json").read_text(encoding="utf-8"))
         )

@@ -78,6 +78,9 @@ def create_patchtst_model(config: PatchTSTConfig):
     class SingleChannelPatchTST(nn.Module):
         def __init__(self) -> None:
             super().__init__()
+            if config.use_revin and config.revin_affine:
+                self.revin_weight = nn.Parameter(torch.ones(1))
+                self.revin_bias = nn.Parameter(torch.zeros(1))
             self.patch_projection = nn.Linear(config.patch_length, config.d_model)
             self.position = nn.Parameter(torch.zeros(1, patch_count, config.d_model))
             layer = nn.TransformerEncoderLayer(
@@ -102,10 +105,32 @@ def create_patchtst_model(config: PatchTSTConfig):
         def forward(self, values):
             if values.ndim != 2 or values.shape[1] != config.lookback:
                 raise ValueError(f"expected PatchTST input shape [B,{config.lookback}]")
-            patches = values.unfold(1, config.patch_length, config.stride)
+            if config.use_revin:
+                center = values.mean(dim=1, keepdim=True).detach()
+                scale = torch.sqrt(
+                    values.var(dim=1, keepdim=True, unbiased=False) + config.revin_epsilon
+                ).detach()
+                model_values = (values - center) / scale
+                if config.revin_affine:
+                    model_values = model_values * self.revin_weight + self.revin_bias
+            else:
+                model_values = values
+                center = None
+                scale = None
+            patches = model_values.unfold(1, config.patch_length, config.stride)
             encoded = self.patch_projection(patches) + self.position
             encoded = self.encoder(encoded)
-            return self.head(encoded.reshape(len(values), -1))
+            result = self.head(encoded.reshape(len(values), -1))
+            if config.use_revin:
+                if config.revin_affine:
+                    safe_weight = torch.where(
+                        self.revin_weight.abs() < config.revin_epsilon,
+                        torch.full_like(self.revin_weight, config.revin_epsilon),
+                        self.revin_weight,
+                    )
+                    result = (result - self.revin_bias) / safe_weight
+                result = result * scale + center
+            return result
 
     return SingleChannelPatchTST()
 
@@ -169,6 +194,8 @@ def train_patchtst(
                 predictions = model(train_x[batch_index])
                 loss = loss_function(predictions, train_y[batch_index])
                 loss.backward()
+                if config.gradient_clip_norm is not None:
+                    nn.utils.clip_grad_norm_(model.parameters(), config.gradient_clip_norm)
                 optimizer.step()
                 total_loss += float(loss.detach()) * len(batch_index)
 

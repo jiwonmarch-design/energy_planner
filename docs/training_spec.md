@@ -24,7 +24,7 @@ XGBoost 표본은 과거 168시간의 다음 6개 피처를 사용합니다.
 5. `weekday_cos`
 6. `is_weekend`
 
-원본 입력 shape은 `[N, 168, 6]`이며 시간 우선·피처 순서를 유지해 `[N, 1008]`로 펼칩니다. PatchTST는 같은 표본의 `kwh`만 추출한 `[N,168,1]` 단일 채널을 사용합니다. 타깃은 origin 직후 24시간의 kWh `[N, 24]`입니다. 트리 모델에는 별도 표준화를 적용하지 않고, PatchTST 입력·타깃은 Train 입력 kWh에서 계산한 평균과 표준편차만 사용합니다.
+원본 입력 shape은 `[N, 168, 6]`이며 시간 우선·피처 순서를 유지해 `[N, 1008]`로 펼칩니다. PatchTST는 같은 표본의 `kwh`만 추출한 `[N,168,1]` 단일 채널을 사용합니다. 타깃은 origin 직후 24시간의 kWh `[N, 24]`입니다. 트리 모델에는 별도 표준화를 적용하지 않습니다. PatchTST는 Train 입력 kWh에서 계산한 전역 평균·표준편차를 입력·타깃에 적용한 뒤, 모델 안에서 각 168시간 입력 window의 평균·분산으로 RevIN과 역변환을 수행합니다.
 
 ## 4. 모델 구조
 
@@ -47,23 +47,25 @@ XGBoost 표본은 과거 168시간의 다음 6개 피처를 사용합니다.
 
 CPU와 단일 thread를 사용해 반복 실행의 결정성을 우선합니다. 실제 Office 신규 학습은 별도 승인 후 실행합니다.
 
-PatchTST는 길이 24, stride 24로 7개 patch를 만들고 positional embedding을 더한 뒤 Transformer encoder와 direct head로 24시간을 한 번에 출력합니다.
+PatchTST는 입력 window별 RevIN을 적용한 뒤 길이 24, stride 12의 50% 중첩 patch 13개를 만들고 positional embedding을 더한 뒤 Transformer encoder와 direct head로 24시간을 한 번에 출력합니다. 예측은 같은 window 통계로 역정규화한 다음 Train 전용 전역 scaler를 복원합니다. 기존 RevIN 이전 run은 저장 config에 해당 필드가 없으면 legacy 전역 scaler 경로로 읽습니다.
 
 | PatchTST 설정 | 기본값 |
 |---|---:|
 | channels / input / output | 1 / 168 / 24 |
-| patch length / stride | 24 / 24 |
+| patch length / stride | 24 / 12 |
 | d model / heads / layers | 32 / 4 / 2 |
 | feedforward / dropout | 64 / 0.1 |
-| epochs / batch | 20 / 64 |
-| learning rate / weight decay | 0.001 / 0.0001 |
-| patience / seed / threads | 4 / 42 / 1 |
+| epochs / batch | 80 / 64 |
+| learning rate / weight decay | 0.0005 / 0.0001 |
+| patience / gradient clip | 12 / 1.0 |
+| RevIN / affine / epsilon | 사용 / 사용 / 0.00001 |
+| seed / threads | 42 / 1 |
 
 ## 5. 학습과 조기 종료
 
 - Train dense window로 적합하고 Validation dense window MAE로 조기 종료합니다.
 - horizon별 `best_iteration`, `stopped_iteration`, `best_validation_mae`를 기록합니다.
-- PatchTST는 epoch별 Train MSE와 Validation MAE를 기록하고 patience 기준으로 최적 state를 복원합니다.
+- PatchTST는 epoch별 Train MSE와 Validation MAE를 기록하고 patience 기준으로 최적 state를 복원하며 gradient norm을 1.0으로 제한합니다.
 - NaN·Inf 학습 지표 또는 출력은 즉시 실패합니다.
 - 실패 시 자동 재시도, 하이퍼파라미터 자동 탐색, 다른 seed 재실행을 하지 않습니다.
 

@@ -370,3 +370,11 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 최신 완료 저장 job `b7457c03...`에서 XGBoost·25.7% 개선 문구 확인, 합성 표시 데이터로 PatchTST·50:50·두 baseline과 지표 누락 폴백 16/16 PASS
 - 실제 Headless Chrome 1440px·390px에서 카드 위계·색상·4px 강조선·기본 접힘·모바일 가로 오버플로·콘솔 오류 없음 10/10 PASS
 - 검증 결과: `analysis/training_selection_card_validation/`
+
+## 2026-11-06 timestamp·kWh 계약 유지 PatchTST 성능 개선
+
+- CSV 입력 계약과 168→24 단일 kWh 채널은 유지하면서 신규 PatchTST에 window별 affine RevIN과 길이 24·stride 12의 50% 중첩 patch를 적용
+- 최대 80 epoch·patience 12·learning rate 0.0005·gradient clipping 1.0으로 학습 안정성과 수렴 여유를 확대
+- RevIN 이전 저장 run은 누락된 config를 legacy 전역 scaler 모드로 복원해 state dict와 추론 호환 유지
+- 동일한 90일 테스트용 합성 CSV·고정 Validation 15개 시점 비교에서 기존 MAE 0.226343 → 개선 MAE 0.104527(53.8% 감소), RMSE 0.350039 → 0.182081, WAPE 1.0335% → 0.4773%
+- 합성 학습 시간은 기존 4.74초 → 개선 16.10초. 실제 Office 신규 학습·운영 승격은 실행하지 않음
