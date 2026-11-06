@@ -8,11 +8,17 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .artifacts import load_gru_artifacts, load_manifest, load_xgboost_artifacts
+from .artifacts import (
+    load_gru_artifacts,
+    load_manifest,
+    load_patchtst_artifacts,
+    load_xgboost_artifacts,
+)
 from .baselines import LAST_168H, LAST_24H, baseline_predictions
-from .contracts import ArtifactError, HORIZON, LOOKBACK
+from .contracts import ENSEMBLE_50_50, PATCHTST, XGBOOST, ArtifactError, HORIZON, LOOKBACK
 from .features import build_features
 from .train import predict_xgboost
+from .patchtst import load_patchtst_model, predict_patchtst
 
 
 @dataclass
@@ -42,11 +48,26 @@ def predict_from_run(
         raise ValueError("latest 168 hours are incomplete")
     origin = normalized_data.index[-1]
     model_kind = manifest["model_kind"]
-    if model_kind == "xgboost":
+    if model_kind == XGBOOST:
         _, _, models = load_xgboost_artifacts(run_dir, expected_building_id=building_id)
         features = build_features(normalized_data.loc[latest], manifest["feature_timezone"])
         x = features.to_numpy(dtype=np.float32)[None, :, :]
         prediction = predict_xgboost(models, x)
+    elif model_kind in {PATCHTST, ENSEMBLE_50_50}:
+        features = build_features(normalized_data.loc[latest], manifest["feature_timezone"])
+        x = features.to_numpy(dtype=np.float32)[None, :, :]
+        _, patch_config, state_dict, patch_scaler = load_patchtst_artifacts(
+            run_dir, expected_building_id=building_id
+        )
+        patch_model = load_patchtst_model(patch_config, state_dict)
+        patch_prediction = predict_patchtst(patch_model, patch_scaler, x)
+        if model_kind == PATCHTST:
+            prediction = patch_prediction
+        else:
+            _, _, models = load_xgboost_artifacts(
+                run_dir, expected_building_id=building_id
+            )
+            prediction = (predict_xgboost(models, x) + patch_prediction) / 2.0
     elif model_kind == "gru":
         # Read-only compatibility for immutable pre-XGBoost runs.
         _, config, state_dict, scalers = load_gru_artifacts(

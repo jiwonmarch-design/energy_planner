@@ -9,6 +9,9 @@ from typing import Any
 
 LOOKBACK = 168
 HORIZON = 24
+XGBOOST = "xgboost"
+PATCHTST = "patchtst"
+ENSEMBLE_50_50 = "xgboost_patchtst_50_50"
 FEATURE_NAMES = (
     "kwh",
     "hour_sin",
@@ -66,6 +69,29 @@ class TrainingConfig:
     seed: int = 42
     n_jobs: int = 1
     tree_method: str = "hist"
+
+
+@dataclass(frozen=True)
+class PatchTSTConfig:
+    """Deterministic first-version PatchTST settings for one kWh channel."""
+
+    input_channels: int = 1
+    lookback: int = LOOKBACK
+    horizon: int = HORIZON
+    patch_length: int = 24
+    stride: int = 24
+    d_model: int = 32
+    n_heads: int = 4
+    encoder_layers: int = 2
+    dim_feedforward: int = 64
+    dropout: float = 0.1
+    epochs: int = 20
+    batch_size: int = 64
+    learning_rate: float = 0.001
+    weight_decay: float = 0.0001
+    patience: int = 4
+    seed: int = 42
+    num_threads: int = 1
 
 
 @dataclass
@@ -154,6 +180,9 @@ class SelectionDecision:
     xgboost_eligible: bool
     reason_codes: list[str] = field(default_factory=list)
     xgboost_mae_improvement: float | None = None
+    eligible_candidates: list[str] = field(default_factory=list)
+    candidate_reason_codes: dict[str, list[str]] = field(default_factory=dict)
+    candidate_mae_improvements: dict[str, float | None] = field(default_factory=dict)
 
 
 def to_jsonable(value: Any) -> Any:

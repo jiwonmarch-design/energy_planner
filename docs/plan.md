@@ -23,7 +23,7 @@
 ### PLAN-02 ML 파이프라인 — 완료
 
 - 계약·품질·분할·피처·시퀀스·스케일링
-- XGBoost 학습과 Last-24h·Last-168h 비교
+- XGBoost·PatchTST 학습과 50:50 평균·Last-24h·Last-168h 비교
 - Validation 선택, Test 보고, 불변 run 저장과 재사용 추론
 
 ### PLAN-03 품질 고도화 — 완료
@@ -105,7 +105,7 @@
 
 ### PLAN-11 실제 브라우저 QA — 완료
 
-- Chrome에서 데스크톱 업로드·진단·XGBoost 학습·예측 흐름 확인
+- Chrome에서 데스크톱 업로드·진단·두 모델 학습·다섯 후보 자동 선정·예측 흐름 확인
 - 390px·320px 세로 레이아웃, 터치 대상과 가로 오버플로 확인
 - 서버 재시작 후 완료 job 복구와 추가 학습 없는 저장 run 예측 확인
 - 스크린샷과 JSON 검증 결과를 `analysis/integrated_mvp_validation/`에 보존

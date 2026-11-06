@@ -11,8 +11,17 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from .contracts import HORIZON, SequenceBatch, TrainingConfig
+from .contracts import (
+    ENSEMBLE_50_50,
+    PATCHTST,
+    XGBOOST,
+    HORIZON,
+    PatchTSTConfig,
+    SequenceBatch,
+    TrainingConfig,
+)
 from .model import create_xgboost_regressor, flatten_features
+from .patchtst import predict_patchtst, train_patchtst
 
 
 @dataclass
@@ -39,6 +48,7 @@ class PipelineOutcome:
     stopped_epoch: int
     validation_metrics: dict[str, Any]
     test_metrics: dict[str, Any]
+    model_training_seconds: dict[str, float]
     data_preparation_seconds: float
     training_seconds: float
     artifact_save_seconds: float
@@ -125,11 +135,12 @@ def run_training_pipeline(
     run_id: str,
     warning_approved: bool = False,
     config: TrainingConfig = TrainingConfig(),
+    patchtst_config: PatchTSTConfig = PatchTSTConfig(),
     source_timezone_mode="iana_civil_time",
     source_timezone_metadata: str | None = None,
     progress_callback: Callable[[int, str], None] | None = None,
 ) -> PipelineOutcome:
-    """Train and evaluate an XGBoost candidate without promotion or retraining."""
+    """Train XGBoost and PatchTST, then select only on frozen Validation windows."""
     from .artifacts import save_run_artifacts
     from .baselines import LAST_168H, LAST_24H, baseline_predictions
     from .contracts import to_jsonable
@@ -167,21 +178,46 @@ def run_training_pipeline(
     data_preparation_seconds = perf_counter() - total_started
     report_progress(25, "학습·Validation·Test 데이터를 준비했습니다.")
 
-    training_started = perf_counter()
-    outcome = train_xgboost(
+    xgboost_started = perf_counter()
+    xgboost_outcome = train_xgboost(
         train_dense,
         validation_dense,
         config,
         progress_callback=lambda completed, total: report_progress(
-            25 + round(completed / total * 50),
+            25 + round(completed / total * 25),
             f"24개 예측 시점별 XGBoost 모델을 학습하고 있습니다. ({completed}/{total})",
         ),
     )
-    training_seconds = perf_counter() - training_started
+    xgboost_seconds = perf_counter() - xgboost_started
 
-    report_progress(80, "Validation 성능으로 후보 모델을 비교하고 있습니다.")
+    patchtst_started = perf_counter()
+    patchtst_outcome = train_patchtst(
+        train_dense,
+        validation_dense,
+        patchtst_config,
+        progress_callback=lambda completed, total: report_progress(
+            50 + round(completed / total * 25),
+            f"PatchTST 단일 채널 모델을 학습하고 있습니다. ({completed}/{total})",
+        ),
+    )
+    patchtst_seconds = perf_counter() - patchtst_started
+    training_seconds = xgboost_seconds + patchtst_seconds
+    model_training_seconds = {
+        XGBOOST: xgboost_seconds,
+        PATCHTST: patchtst_seconds,
+    }
+
+    report_progress(80, "Validation 성능으로 다섯 예측 방식을 비교하고 있습니다.")
+    validation_xgboost = predict_xgboost(xgboost_outcome.models, validation_eval.x)
+    validation_patchtst = predict_patchtst(
+        patchtst_outcome.model,
+        patchtst_outcome.scaler,
+        validation_eval.x,
+    )
     validation_predictions = {
-        "xgboost": predict_xgboost(outcome.models, validation_eval.x),
+        XGBOOST: validation_xgboost,
+        PATCHTST: validation_patchtst,
+        ENSEMBLE_50_50: (validation_xgboost + validation_patchtst) / 2.0,
         LAST_24H: baseline_predictions(data.kwh, validation_eval.origins, LAST_24H),
         LAST_168H: baseline_predictions(data.kwh, validation_eval.origins, LAST_168H),
     }
@@ -190,14 +226,24 @@ def run_training_pipeline(
         for name, values in validation_predictions.items()
     }
     selection = select_on_validation(
-        validation_metrics_objects["xgboost"],
+        validation_metrics_objects[XGBOOST],
         validation_metrics_objects[LAST_24H],
         validation_metrics_objects[LAST_168H],
+        validation_metrics_objects[PATCHTST],
+        validation_metrics_objects[ENSEMBLE_50_50],
     )
 
-    report_progress(88, "선택 모델의 Test 성능을 최종 평가하고 있습니다.")
+    report_progress(88, "선정 확정 후 잠긴 Test에서 다섯 방식을 평가하고 있습니다.")
+    test_xgboost = predict_xgboost(xgboost_outcome.models, test_eval.x)
+    test_patchtst = predict_patchtst(
+        patchtst_outcome.model,
+        patchtst_outcome.scaler,
+        test_eval.x,
+    )
     test_predictions = {
-        "xgboost": predict_xgboost(outcome.models, test_eval.x),
+        XGBOOST: test_xgboost,
+        PATCHTST: test_patchtst,
+        ENSEMBLE_50_50: (test_xgboost + test_patchtst) / 2.0,
         LAST_24H: baseline_predictions(data.kwh, test_eval.origins, LAST_24H),
         LAST_168H: baseline_predictions(data.kwh, test_eval.origins, LAST_168H),
     }
@@ -234,6 +280,7 @@ def run_training_pipeline(
         model_kind=selection.selected_model,
         building_timezone=building_timezone,
         training_config=config,
+        patchtst_config=patchtst_config,
         split_manifest=to_jsonable(plan),
         evaluation_schedule=schedule,
         quality_report=quality,
@@ -242,8 +289,11 @@ def run_training_pipeline(
         test_metrics=test_metrics,
         selection=selection,
         data_hash=digest.hexdigest(),
-        xgboost_models=outcome.models,
-        training_history=outcome.history,
+        xgboost_models=xgboost_outcome.models,
+        training_history=xgboost_outcome.history,
+        patchtst_model=patchtst_outcome.model,
+        patchtst_scaler=patchtst_outcome.scaler,
+        patchtst_history=patchtst_outcome.history,
         derived_input_csv=canonical_input.to_csv(index=False).encode("utf-8"),
         source_timezone_mode=source_timezone_mode,
         source_timezone_metadata=source_timezone_metadata,
@@ -259,10 +309,11 @@ def run_training_pipeline(
         test_evaluation_windows=len(test_eval.x),
         input_shape=tuple(train_dense.x.shape),
         output_shape=tuple(train_dense.y.shape),
-        best_epoch=outcome.best_epoch,
-        stopped_epoch=outcome.stopped_epoch,
+        best_epoch=xgboost_outcome.best_epoch,
+        stopped_epoch=xgboost_outcome.stopped_epoch,
         validation_metrics=validation_metrics,
         test_metrics=test_metrics,
+        model_training_seconds=model_training_seconds,
         data_preparation_seconds=data_preparation_seconds,
         training_seconds=training_seconds,
         artifact_save_seconds=artifact_save_seconds,

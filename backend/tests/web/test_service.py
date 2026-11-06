@@ -34,16 +34,20 @@ def csv_for(days: int, *, constant: float | None = None) -> str:
 
 
 class WebServiceCases(unittest.TestCase):
-    def test_model_input_info_matches_active_xgboost_contract(self):
+    def test_model_input_info_matches_active_training_contract(self):
         result = model_input_info()
 
-        self.assertEqual(result["model_kind"], "xgboost")
+        self.assertEqual(result["model_kind"], "xgboost_patchtst")
+        self.assertEqual(result["trained_models"], ["xgboost", "patchtst"])
+        self.assertEqual(len(result["candidate_methods"]), 5)
         self.assertEqual(result["feature_count"], len(FEATURE_NAMES))
         self.assertEqual(
             tuple(feature["name"] for feature in result["features"]),
             FEATURE_NAMES,
         )
         self.assertEqual(result["lookback_hours"], LOOKBACK)
+        self.assertEqual(result["patchtst_channels"], ["kwh"])
+        self.assertEqual(result["forecast_horizon_hours"], 24)
         self.assertEqual(result["minimum_upload_days"], 90)
 
     def test_timezone_mode_is_inferred_from_timestamp_offsets(self):

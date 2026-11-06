@@ -219,11 +219,14 @@ a { color: inherit; }
 .model-lookback { display: grid; gap: 3px; margin: 11px 0 0; font-size: 12px; line-height: 1.55; }
 .model-lookback strong { color: var(--ink); font-weight: 750; }
 .model-lookback span { color: var(--sub); }
-.model-results { margin-top: 18px; }
-.training-complete-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px 14px; margin: 0; }
-.training-complete-summary span { color: var(--success); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
-.training-complete-summary strong { color: var(--ink); font-size: 15px; }
-.training-evaluation-details { margin-top: 5px; color: var(--sub); }
+.model-results { margin-top: 18px; border-color: #d8e2ff; border-left: 4px solid var(--blue); background: #edf2ff; }
+.training-selection-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.training-selection-copy { display: grid; min-width: 0; gap: 6px; }
+.training-selection-label { color: #506686; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.training-selected-model { color: var(--blue-deep); font-size: clamp(25px, 3.3vw, 38px); font-weight: 900; line-height: 1.15; letter-spacing: -.045em; text-wrap: balance; overflow-wrap: anywhere; }
+.training-complete-badge { flex: 0 0 auto; border: 1px solid #b9c9f5; background: #fff; color: var(--blue); padding: 5px 8px; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.training-selection-reason { max-width: 72ch; margin: 13px 0 0; color: #506686; font-size: 13px; line-height: 1.7; }
+.training-evaluation-details { margin-top: 15px; border-top: 1px solid #d8e2ff; color: var(--sub); }
 .training-evaluation-content { border-top: 1px solid #eeece6; padding-top: 20px; }
 .table-wrap { overflow: auto; }
 .table { width: 100%; border-collapse: collapse; text-align: left; }

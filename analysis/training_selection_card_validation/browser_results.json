@@ -1,0 +1,163 @@
+[
+  {
+    "name": "saved_result_first",
+    "status": "PASS",
+    "details": {
+      "jobId": "b7457c03888c4efd98c3503d3e4c7a55",
+      "selectedModel": "xgboost",
+      "savedImprovement": 25.681700215676685,
+      "model": "XGBoost",
+      "reason": "검증에서 기준 예측보다 평균 오차를 25.7% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "card_visual_hierarchy",
+    "status": "PASS",
+    "details": {
+      "model": "XGBoost",
+      "reason": "검증에서 기준 예측보다 평균 오차를 25.7% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "details_default_closed",
+    "status": "PASS",
+    "details": {
+      "model": "XGBoost",
+      "reason": "검증에서 기준 예측보다 평균 오차를 25.7% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "copy_xgboost",
+    "status": "PASS",
+    "details": {
+      "model": "XGBoost",
+      "reason": "검증에서 기준 예측보다 평균 오차를 8.2% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "copy_patchtst",
+    "status": "PASS",
+    "details": {
+      "model": "PatchTST",
+      "reason": "검증에서 기준 예측보다 평균 오차를 20% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "copy_xgboost_patchtst_50_50",
+    "status": "PASS",
+    "details": {
+      "model": "XGBoost + PatchTST 50:50",
+      "reason": "검증에서 기준 예측보다 평균 오차를 25% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "copy_last_24h",
+    "status": "PASS",
+    "details": {
+      "model": "직전 24시간 반복",
+      "reason": "학습 모델이 채택 기준을 충족하지 않아 직전 24시간의 사용량을 사용합니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "copy_last_168h",
+    "status": "PASS",
+    "details": {
+      "model": "지난주 같은 시간 반복",
+      "reason": "학습 모델이 채택 기준을 충족하지 않아 지난주 같은 시간의 사용량을 사용합니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 38,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 1425,
+      "scrollWidth": 1425
+    }
+  },
+  {
+    "name": "mobile_no_horizontal_overflow",
+    "status": "PASS",
+    "details": {
+      "model": "XGBoost",
+      "reason": "검증에서 기준 예측보다 평균 오차를 25.7% 줄였습니다.",
+      "detailsOpen": false,
+      "background": "rgb(237, 242, 255)",
+      "borderLeftWidth": "4px",
+      "borderLeftColor": "rgb(31, 79, 219)",
+      "modelFontSize": 25,
+      "reasonFontSize": 13,
+      "labelFontSize": 11,
+      "viewportWidth": 390,
+      "scrollWidth": 390
+    }
+  },
+  {
+    "name": "runtime_errors",
+    "status": "PASS",
+    "details": []
+  }
+]

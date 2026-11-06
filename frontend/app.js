@@ -97,6 +97,8 @@ function formatChartTime(value, timeZone, includeDate = false) {
 function modelDisplayName(name) {
   return {
     xgboost: "XGBoost",
+    patchtst: "PatchTST",
+    xgboost_patchtst_50_50: "XGBoost + PatchTST 50:50",
     last_24h: "직전 24시간 반복",
     last_168h: "지난주 같은 시간 반복",
   }[name] || name || "확인 불가";
@@ -232,7 +234,7 @@ function resetTrainingView(message = "STEP 01 데이터 품질 진단을 통과�
   $("workspace-job-status").textContent = "학습 대기";
   $("workspace-job-status").removeAttribute("data-status");
   $("train").disabled = true;
-  $("train").textContent = "XGBoost 학습 시작 ↗";
+  $("train").textContent = "모델 학습 시작 ↗";
   setTrainingProgress(0, message);
   $("workspace-prediction-summary").textContent = "24시간 예측 실행 전입니다.";
 }
@@ -414,7 +416,7 @@ function updateNextAction() {
     "training",
     completed ? "complete" : running ? "in-progress" : failed ? "fail" : currentAnalysis && state.analysis?.training_eligible ? "current" : "waiting",
     completed ? "완료" : running ? "진행 중" : failed ? "확인 필요" : currentAnalysis && state.analysis?.training_eligible ? "다음 단계" : "대기",
-    completed ? "저장된 모델과 평가 결과가 준비되었습니다." : running ? "XGBoost와 기준 모델을 평가하고 있습니다." : failed ? "오류를 확인한 뒤 같은 버튼으로 다시 시작할 수 있습니다." : currentAnalysis && state.analysis?.training_eligible ? "XGBoost 모델 학습을 시작해 주세요." : "품질 진단 통과 후 학습할 수 있습니다.",
+    completed ? "저장된 모델과 평가 결과가 준비되었습니다." : running ? "XGBoost와 PatchTST를 학습하고 다섯 예측 방식을 평가하고 있습니다." : failed ? "오류를 확인한 뒤 같은 버튼으로 다시 시작할 수 있습니다." : currentAnalysis && state.analysis?.training_eligible ? "두 모델의 학습과 비교를 시작해 주세요." : "품질 진단 통과 후 학습할 수 있습니다.",
   );
   setDashboardReadiness(
     "prediction",
@@ -434,7 +436,7 @@ function updateNextAction() {
     gateActionText = "학습 진행 상태 보기";
   } else if (failed) {
     gateTitle = "모델 학습 상태를 확인해 주세요.";
-    gateDescription = "학습 오류 안내를 확인한 뒤 XGBoost 학습을 다시 시작할 수 있습니다.";
+    gateDescription = "학습 오류 안내를 확인한 뒤 모델 학습을 다시 시작할 수 있습니다.";
     gateActionTarget = "training";
     gateActionText = "학습 상태 확인";
   } else if (completed && canPredict) {
@@ -445,7 +447,7 @@ function updateNextAction() {
     gateDescription = "저장된 모델은 준비됐지만 현재 CSV 입력을 다시 진단해야 합니다.";
     gateActionText = "예측 입력 준비";
   } else if (currentAnalysis && state.analysis?.training_eligible) {
-    gateTitle = "XGBoost 모델 학습을 시작해 주세요.";
+    gateTitle = "XGBoost와 PatchTST 모델 학습을 시작해 주세요.";
     gateDescription = "데이터 품질 진단을 통과했습니다. 학습이 완료되면 예측을 실행할 수 있습니다.";
     gateActionTarget = "training";
     gateActionText = "모델 학습으로 이동";
@@ -795,7 +797,7 @@ function renderQuality(result) {
   }
   $("train").disabled = !result.training_eligible;
   setTrainingProgress(0, result.training_eligible
-    ? "품질 진단을 통과했습니다. XGBoost 모델 학습을 시작할 수 있습니다."
+    ? "품질 진단을 통과했습니다. XGBoost와 PatchTST 모델 학습을 시작할 수 있습니다."
     : "품질 진단의 차단 사유를 해결한 뒤 다시 진단해 주세요.");
   $("workspace-job-status").textContent = result.training_eligible ? "학습 준비 완료" : "학습 불가";
   $("workspace-job-status").dataset.status = result.training_eligible ? "READY" : "BLOCKED";
@@ -945,7 +947,7 @@ function metricDisplay(metric, key) {
 
 function renderMetricComparisonTable(bodyId, metrics, selectedModel, stage) {
   const fragment = document.createDocumentFragment();
-  ["xgboost", "last_24h", "last_168h"].forEach((name) => {
+  ["xgboost", "patchtst", "xgboost_patchtst_50_50", "last_24h", "last_168h"].forEach((name) => {
     const row = document.createElement("tr");
     if (selectedModel === name) row.className = "selected";
     const model = document.createElement("th");
@@ -959,8 +961,8 @@ function renderMetricComparisonTable(bodyId, metrics, selectedModel, stage) {
     });
     const result = document.createElement("td");
     result.textContent = selectedModel === name
-      ? (stage === "validation" ? "선택 모델" : "이번 예측에 사용")
-      : "비교 모델";
+      ? (stage === "validation" ? "채택된 예측 방식" : "채택 방식 Test")
+      : "비교 후보";
     row.append(result);
     fragment.append(row);
   });
@@ -969,13 +971,41 @@ function renderMetricComparisonTable(bodyId, metrics, selectedModel, stage) {
 
 function renderCompletedTrainingMetrics(job) {
   $("training-evaluation-details").open = false;
-  $("workspace-selected-model").textContent = `${modelDisplayName(job.selected_model)} 선택`;
+  $("workspace-selected-model").textContent = modelDisplayName(job.selected_model);
+  $("workspace-selection-reason").textContent = selectionReason(job);
   renderMetricComparisonTable("workspace-validation-body", job.validation_metrics, job.selected_model, "validation");
   renderMetricComparisonTable("workspace-test-body", job.test_metrics, job.selected_model, "test");
   const selectedTest = job.test_metrics?.[job.selected_model];
   $("test-evaluation-note").textContent = selectedTest
-    ? `Validation에서 ${modelDisplayName(job.selected_model)}을 선택했습니다. Test는 모델 선택에 사용하지 않고 최종 평가만 수행했습니다.`
-    : "Test는 Validation에서 선택한 모델의 최종 성능 확인에만 사용합니다.";
+    ? `Validation에서 ${modelDisplayName(job.selected_model)}을 채택했습니다. Test는 방식 선정이나 50:50 비율 조정에 사용하지 않고 최종 평가만 수행했습니다.`
+    : "Test는 Validation에서 채택한 예측 방식의 최종 성능 확인에만 사용합니다.";
+}
+
+function selectionReason(job) {
+  const selectedModel = job?.selected_model;
+  if (selectedModel === "last_24h") {
+    return "학습 모델이 채택 기준을 충족하지 않아 직전 24시간의 사용량을 사용합니다.";
+  }
+  if (selectedModel === "last_168h") {
+    return "학습 모델이 채택 기준을 충족하지 않아 지난주 같은 시간의 사용량을 사용합니다.";
+  }
+  if (!["xgboost", "patchtst", "xgboost_patchtst_50_50"].includes(selectedModel)) {
+    return "저장된 검증 결과에서 채택 이유를 확인할 수 없습니다.";
+  }
+
+  const metrics = job?.validation_metrics || {};
+  const selectedMae = metricNumber(metrics[selectedModel], "mae");
+  const baselineMaes = ["last_24h", "last_168h"]
+    .map((name) => metricNumber(metrics[name], "mae"))
+    .filter((value) => value !== null);
+  const bestBaselineMae = baselineMaes.length ? Math.min(...baselineMaes) : null;
+  if (selectedMae !== null && bestBaselineMae !== null && bestBaselineMae > 0) {
+    const improvementPercent = ((bestBaselineMae - selectedMae) / bestBaselineMae) * 100;
+    if (Number.isFinite(improvementPercent) && improvementPercent > 0) {
+      return `검증에서 기준 예측보다 평균 오차를 ${fmt(improvementPercent, 1)}% 줄였습니다.`;
+    }
+  }
+  return "검증 성능과 채택 기준을 충족해 이 예측 방식을 사용합니다.";
 }
 
 function renderForecastValidation(job, runId = state.predictionResult?.run_id) {
@@ -1018,7 +1048,7 @@ function renderPredictionOverview(result) {
     $("forecast-change").textContent = "직전 24시간 실측이 0kWh여서 증감률 계산 불가";
   }
   $("forecast-narrative").textContent = `${formatMonthDay(result.timestamps[0], timeZone)} 예상 사용량은 ${fmt(forecastTotal)}kWh입니다. ${comparisonSentence}, 가장 많이 사용할 것으로 예상되는 시간은 ${formatKoreanHour(result.peak_timestamp, timeZone)}입니다.`;
-  $("sample-note").textContent = "학습과 모델 선택을 완료했습니다. 저장된 결과로 이번 예측을 생성했습니다.";
+  $("sample-note").textContent = "학습과 예측 방식 선정을 완료했습니다. 저장된 결과로 이번 예측을 생성했습니다.";
   renderForecastValidation(state.job, result.run_id);
 }
 
@@ -1842,6 +1872,7 @@ function renderModelInputInfo(info) {
   const featureCount = Number(info?.feature_count);
   const lookbackHours = Number(info?.lookback_hours);
   const minimumUploadDays = Number(info?.minimum_upload_days);
+  const patchtstChannels = Array.isArray(info?.patchtst_channels) ? info.patchtst_channels : [];
   const list = $("model-feature-list");
 
   if (!features.length || !Number.isInteger(featureCount) || !Number.isInteger(lookbackHours)) {
@@ -1852,7 +1883,9 @@ function renderModelInputInfo(info) {
     return;
   }
 
-  $("model-feature-count").textContent = `실제 학습 피처 ${featureCount}개`;
+  $("model-feature-count").textContent = patchtstChannels.length
+    ? `XGBoost 피처 ${featureCount}개 · PatchTST ${patchtstChannels.join(", ")} 단일 채널`
+    : `실제 학습 피처 ${featureCount}개`;
   const grouped = new Map();
   features.forEach((feature) => {
     const name = String(feature?.name || "").trim();

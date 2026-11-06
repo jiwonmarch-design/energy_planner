@@ -2,7 +2,7 @@
 
 ## 1. 범위와 기준
 
-이 문서는 `docs/prd.md`를 구현하는 현재 로컬 MVP의 기술 구조와 인터페이스를 정의합니다. 데이터 임계값과 XGBoost 상세 정책은 기존 `data_contract.md`, `data_quality_policy.md`, `training_spec.md`를 재정의하지 않고 참조합니다.
+이 문서는 `docs/prd.md`를 구현하는 현재 로컬 MVP의 기술 구조와 인터페이스를 정의합니다. 데이터 임계값과 XGBoost·PatchTST 상세 정책은 기존 `data_contract.md`, `data_quality_policy.md`, `training_spec.md`를 재정의하지 않고 참조합니다.
 
 ## 2. 시스템 구성
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | 데이터 계약·품질 | `backend/app/ml/contracts.py`, `quality.py` | 구현됨 |
 | 피처·분할·시퀀스 | `features.py`, `split.py`, `sequences.py` | 구현됨 |
-| XGBoost 변환·학습 | `model.py`, `train.py` | 구현됨 |
+| XGBoost·PatchTST 학습 | `model.py`, `patchtst.py`, `train.py` | 구현됨 |
 | baseline·평가 | `baselines.py`, `evaluate.py` | 구현됨 |
 | 산출물·추론 | `artifacts.py`, `inference.py` | 구현됨 |
 | 웹 서비스 | `backend/app/web/service.py`, `server.py` | 로컬 MVP 구현 |
@@ -108,15 +108,18 @@ BDG2 모드는 실제 민간시각의 DST를 복원하지 않습니다.
 
 학습 실패 시 자동 재시도하지 않으며 일반 예측은 학습 함수를 호출하지 않습니다.
 
+PatchTST는 `kwh` 단일 채널 `[B,168]`을 길이 24, stride 24의 7개 patch로 나누고, 2개 Transformer encoder layer와 direct head로 `[B,24]`를 출력합니다. 기본값은 d_model 32, head 4, feedforward 64, epoch 20, batch 64, patience 4, seed 42, CPU 1 thread입니다. 입력과 타깃은 Train 입력 kWh의 평균·표준편차만 사용해 같은 단위로 표준화합니다.
+
 ## 9. 모델 평가와 선택
 
 - 지표: MAE, RMSE, WAPE, MAPE, peak MAE, peak time error
-- 비교 모델: XGBoost, Last-24h, Last-168h
+- 비교 방식: XGBoost, PatchTST, 두 출력의 시각별 50:50 평균, Last-24h, Last-168h
 - 선택 입력: Validation 지표만 허용
-- XGBoost MAE가 최우수 baseline보다 5% 이상 개선돼야 합니다.
-- XGBoost RMSE·WAPE는 최우수 baseline보다 각각 5% 초과 악화되면 안 됩니다.
-- 비유한 또는 음수 XGBoost 예측은 후보에서 제외합니다.
-- 조건 미충족 시 Validation MAE 최저 baseline을 선택합니다.
+- 세 학습 기반 후보 각각의 MAE가 최우수 baseline보다 5% 이상 개선돼야 합니다.
+- 세 학습 기반 후보 각각의 RMSE·WAPE는 최우수 baseline보다 5% 초과 악화되면 안 됩니다.
+- 비유한 또는 음수 출력은 해당 후보에서 제외합니다.
+- 통과 후보 중 Validation MAE가 가장 낮은 방식을 채택하며 정확한 동률은 XGBoost → PatchTST → 50:50 평균 순서로 처리합니다.
+- 세 후보가 모두 조건을 충족하지 못하면 Validation MAE 최저 baseline을 선택합니다.
 - Test는 선택 후 한 번 평가하며 재선택 API에 전달하지 않습니다.
 
 ## 10. 산출물 명세
@@ -149,7 +152,7 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 1. building ID와 manifest hash를 검증합니다.
 2. 최신 168시간의 실제 시간 연속성을 확인합니다.
 3. `feature_timezone` 또는 호환 fallback 시간대로 피처를 생성합니다.
-4. XGBoost이면 저장된 24개 horizon 모델을 사용하고, baseline이면 과거 관측값을 사용합니다.
+4. XGBoost이면 저장된 24개 horizon 모델, PatchTST이면 저장 state dict·config·scaler, 50:50 평균이면 두 저장 모델의 동일 시각 출력을 평균하고, baseline이면 과거 관측값을 사용합니다.
 5. `[1,24]`, 유한, 비음수 출력을 검사합니다.
 6. retrained는 항상 false입니다.
 
@@ -165,7 +168,7 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 | `POST /api/analysis-report/{job_id}` | 외부 호출 없는 로컬 정량 분석 보고서 |
 | `POST /api/ai-analysis/{job_id}` | 정량 보고서의 선택형 OpenAI 운영 해석 보강 |
 
-동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. `progress_percent`는 데이터 준비, 24개 예측 시점별 XGBoost 학습, Validation, Test, 산출물 저장의 실제 완료 단계를 0~100 정수로 제공합니다. 공개 job 메타데이터는 `artifacts/web_jobs/_jobs/`에 저장하며 원본 CSV는 저장하지 않습니다. 완료 job은 재시작 후 복구하고, 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구합니다.
+동일 건물에 QUEUED/RUNNING 작업이 있으면 중복 학습 요청을 거부합니다. `progress_percent`는 데이터 준비, 24개 예측 시점별 XGBoost 학습, PatchTST epoch 학습, Validation 다섯 방식 비교, 잠긴 Test 평가, 산출물 저장의 실제 완료 단계를 0~100 정수로 제공합니다. 공개 job 메타데이터는 `artifacts/web_jobs/_jobs/`에 저장하며 원본 CSV는 저장하지 않습니다. 완료 job은 재시작 후 복구하고, 중단된 QUEUED/RUNNING job은 자동 재학습 없이 FAILED로 복구합니다.
 
 ## 13. 화면 동작
 
@@ -178,7 +181,7 @@ manifest는 건물·run·모델·shape·피처·시간대·데이터 해시·파
 
 - API의 PASS/WARNING/FAIL, 사유와 학습 자격을 표시합니다.
 - 품질 진단은 시간순 Train·Validation·Test별 유효 192시간 표본 수와 제외 수를 표시합니다. `분리 불가`는 시간 경계를 만들지 못한 경우에만, 경계는 만들었지만 최소 표본이 부족하면 `유효 표본 부족`으로 구분합니다.
-- 완료 job의 Validation·Test 지표와 선택 모델은 모델 학습 단계에서 표시합니다. 결과 대시보드 상단은 24시간 예상 사용량, 예상 피크, 선택 모델의 과거 Test WAPE를 우선하며 모델명·Validation 비교·학습 기록은 접을 수 있는 상세 결과에서 제공합니다.
+- 완료 job의 다섯 후보 Validation·Test 지표와 채택된 예측 방식은 `모델 학습 및 비교` 단계에서 표시합니다. 결과 대시보드 상단은 24시간 예상 사용량, 예상 피크, 채택 방식의 과거 Test WAPE를 우선하며 방식명·Validation 비교·학습 기록은 접을 수 있는 상세 결과에서 제공합니다.
 - 예측 전에는 빈 KPI·그래프·예시 수치를 숨기고 4단계 준비 상태와 다음 행동을 표시합니다. 실제 예측 성공 후에만 결과 영역을 공개합니다.
 - 예측 응답은 건물 시간대, 미래 24개 시각·값과 직전 24개 실측 시각·값을 제공하며 화면은 예측 대상 기간과 데이터 마지막 시점을 건물 시간대로 표시합니다.
 - 예측 대시보드는 미래 예측을 파란 점선으로 표시하고, 사용자가 비교를 켜면 직전 24시간 실측을 같은 시간축의 회색 실선으로 겹칩니다. 호버 가이드, 최고점 라벨, 키보드·터치용 시간 선택 슬라이더와 24행 표 대체 표현을 함께 제공합니다.

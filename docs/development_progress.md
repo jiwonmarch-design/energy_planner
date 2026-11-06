@@ -350,3 +350,23 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 최신 저장 작업 `69504acc...`를 재학습 없이 복원해 XGBoost 선택, Test WAPE 29.5%, 피크 크기 오차 1.08kWh, 피크 시간 오차 4.2시간과 기본 접힘을 계약 테스트로 확인. 이전 저장 결과의 누락 필드는 `평가 결과 없음` 처리
 - 전체 Python 88 PASS, 프런트 지표·품질 계약 테스트 및 JavaScript 문법 PASS
 - 브라우저 접근 호스트 비활성화로 실제 브라우저 시각 검증은 미검증
+
+## 2026-11-06 PatchTST 학습과 예측 방식 자동 선정
+
+- 한 번의 학습 job에서 XGBoost 24개 horizon 회귀기와 `kwh` 단일 채널 168→24 PatchTST를 순차 학습하도록 구현
+- 동일한 고정 Validation·Test origin에서 XGBoost, PatchTST, 50:50 평균, Last-24h, Last-168h 다섯 후보를 같은 24시간 실측으로 평가
+- 세 학습 기반 후보에 기존 MAE 5% 개선·RMSE/WAPE 5% 악화 제한·유한/비음수 규칙을 동일 적용하고, 통과 후보 중 Validation MAE 최저 방식을 채택하며 Test 재선택은 차단
+- PatchTST state dict·config·Train 전용 scaler와 XGBoost bundle을 불변 run에 저장하고 PatchTST·50:50 평균 선택 run의 재로딩 추론 구현; 기존 XGBoost·baseline·GRU 읽기 호환 유지
+- 학습 화면을 `모델 학습 및 비교`, `모델 학습 시작`으로 변경하고 현재 학습 모델 진행 문구와 다섯 후보 Validation·Test 표 연결
+- 전체 Python 91/91 PASS, JavaScript 문법 PASS. 테스트용 90일 합성 CSV 축소 설정에서 XGBoost 2.92초·PatchTST 2.30초, Last-168h 채택, 저장·재로딩 24시간 예측 PASS
+- 실제 Office 신규 학습이나 운영 모델 승격은 실행하지 않음
+
+## 2026-11-06 채택된 예측 방식 결과 카드 강조
+
+- STEP 02 결과 카드에서 `채택된 예측 방식` 라벨 아래 실제 방식명을 가장 크게 표시하고 `학습 완료`를 보조 배지로 이동
+- 24시간 예측 요약과 같은 연한 파란 배경·파란 왼쪽 강조선을 재사용하고, 저장된 Validation MAE로 최우수 기준 예측 대비 개선율을 한 줄 설명으로 표시
+- Last-24h·Last-168h 채택 시 실제 반복 기준을 구분해 설명하며, 구형 저장 결과처럼 개선율 계산이 불가능하면 숫자 없는 정책 설명으로 대체
+- 상세 평가 지표는 기본 접힘을 유지하고 기존 다섯 후보 Validation·Test 표를 그대로 보존
+- 최신 완료 저장 job `b7457c03...`에서 XGBoost·25.7% 개선 문구 확인, 합성 표시 데이터로 PatchTST·50:50·두 baseline과 지표 누락 폴백 16/16 PASS
+- 실제 Headless Chrome 1440px·390px에서 카드 위계·색상·4px 강조선·기본 접힘·모바일 가로 오버플로·콘솔 오류 없음 10/10 PASS
+- 검증 결과: `analysis/training_selection_card_validation/`

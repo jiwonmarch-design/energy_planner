@@ -54,10 +54,18 @@ FEATURE_DESCRIPTIONS = {
 
 
 def model_input_info() -> dict[str, Any]:
-    """Expose the active XGBoost input contract for the training UI."""
+    """Expose the active XGBoost and PatchTST input contracts for the training UI."""
 
     return {
-        "model_kind": "xgboost",
+        "model_kind": "xgboost_patchtst",
+        "trained_models": ["xgboost", "patchtst"],
+        "candidate_methods": [
+            "xgboost",
+            "patchtst",
+            "xgboost_patchtst_50_50",
+            "last_24h",
+            "last_168h",
+        ],
         "feature_count": len(FEATURE_NAMES),
         "features": [
             {
@@ -67,6 +75,8 @@ def model_input_info() -> dict[str, Any]:
             for name in FEATURE_NAMES
         ],
         "lookback_hours": LOOKBACK,
+        "patchtst_channels": ["kwh"],
+        "forecast_horizon_hours": 24,
         "minimum_upload_days": 90,
     }
 
@@ -219,6 +229,7 @@ class TrainingJob:
     selected_model: str | None = None
     validation_metrics: dict[str, Any] | None = None
     test_metrics: dict[str, Any] | None = None
+    model_training_seconds: dict[str, float] | None = None
     error: str | None = None
     progress_message: str = "학습 대기 중"
     progress_mode: str = "determinate"
@@ -382,6 +393,7 @@ class TrainingJobManager:
             job.selected_model = outcome.selected_model
             job.validation_metrics = getattr(outcome, "validation_metrics", None)
             job.test_metrics = getattr(outcome, "test_metrics", None)
+            job.model_training_seconds = getattr(outcome, "model_training_seconds", None)
             if job.validation_metrics is None:
                 metrics_path = Path(job.run_dir) / "validation_metrics.json"
                 if metrics_path.exists():

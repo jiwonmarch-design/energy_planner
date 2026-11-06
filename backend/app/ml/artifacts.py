@@ -18,12 +18,17 @@ import numpy as np
 import sklearn
 
 from .contracts import (
+    ENSEMBLE_50_50,
+    PATCHTST,
+    XGBOOST,
     ArtifactError,
     FEATURE_NAMES,
+    PatchTSTConfig,
     SourceTimezoneMode,
     TrainingConfig,
     to_jsonable,
 )
+from .patchtst import PatchTSTScaler
 from .scaling import ScalerBundle
 
 
@@ -60,8 +65,12 @@ def save_run_artifacts(
     test_metrics: dict[str, Any],
     selection: Any,
     data_hash: str,
+    patchtst_config: PatchTSTConfig | None = None,
     xgboost_models: list[Any] | None = None,
     training_history: list[dict[str, Any]] | None = None,
+    patchtst_model: Any | None = None,
+    patchtst_scaler: PatchTSTScaler | None = None,
+    patchtst_history: list[dict[str, Any]] | None = None,
     derived_input_csv: bytes | None = None,
     distribution_report: Any | None = None,
     source_timezone_mode: SourceTimezoneMode | str = SourceTimezoneMode.IANA_CIVIL_TIME,
@@ -70,10 +79,14 @@ def save_run_artifacts(
     """Create one immutable run directory; existing runs are never overwritten."""
     building_id = _safe_component(building_id, "building_id")
     run_id = _safe_component(run_id, "run_id")
-    if model_kind not in {"xgboost", "last_24h", "last_168h"}:
+    if model_kind not in {XGBOOST, PATCHTST, ENSEMBLE_50_50, "last_24h", "last_168h"}:
         raise ArtifactError(f"unsupported model kind: {model_kind}")
-    if model_kind == "xgboost" and not xgboost_models:
+    if model_kind in {XGBOOST, ENSEMBLE_50_50} and not xgboost_models:
         raise ArtifactError("XGBoost artifacts require trained models")
+    if model_kind in {PATCHTST, ENSEMBLE_50_50} and patchtst_model is None:
+        raise ArtifactError("PatchTST artifacts require a trained model")
+    if patchtst_model is not None and (patchtst_config is None or patchtst_scaler is None):
+        raise ArtifactError("PatchTST artifacts require config and scaler")
     if xgboost_models is not None and len(xgboost_models) != 24:
         raise ArtifactError("XGBoost artifacts require 24 horizon models")
     run_dir = Path(artifact_root) / building_id / run_id
@@ -82,6 +95,10 @@ def save_run_artifacts(
     run_dir.mkdir(parents=True, exist_ok=False)
     try:
         _write_json(run_dir / "training_config.json", asdict(training_config))
+        if patchtst_config is not None:
+            _write_json(run_dir / "patchtst_config.json", asdict(patchtst_config))
+        if patchtst_scaler is not None:
+            _write_json(run_dir / "patchtst_scaler.json", patchtst_scaler.to_dict())
         _write_json(
             run_dir / "feature_spec.json",
             {
@@ -114,11 +131,32 @@ def save_run_artifacts(
             (run_dir / "derived_input_utc.csv").write_bytes(derived_input_csv)
         if xgboost_models is not None:
             joblib.dump(xgboost_models, run_dir / "xgboost_models.joblib")
+        if patchtst_model is not None:
+            import torch
+
+            state_dict = {
+                name: value.detach().cpu() for name, value in patchtst_model.state_dict().items()
+            }
+            torch.save(state_dict, run_dir / "patchtst_state_dict.pth")
+        if patchtst_history is not None:
+            fields = list(patchtst_history[0]) if patchtst_history else [
+                "epoch",
+                "train_mse",
+                "validation_mae",
+            ]
+            with (run_dir / "patchtst_history.csv").open(
+                "w", encoding="utf-8", newline=""
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(patchtst_history)
 
         files = sorted(path for path in run_dir.iterdir() if path.name != "manifest.json")
         hashes = {path.name: _sha256(path) for path in files}
         manifest = {
-            "schema_version": "xgboost-v1",
+            "schema_version": "hybrid-xgboost-patchtst-v1"
+            if patchtst_model is not None
+            else "xgboost-v1",
             "building_id": building_id,
             "run_id": run_id,
             "model_kind": model_kind,
@@ -135,11 +173,14 @@ def save_run_artifacts(
             "data_sha256": data_hash,
             "selection": to_jsonable(selection),
             "xgboost_candidate_saved": xgboost_models is not None,
+            "patchtst_candidate_saved": patchtst_model is not None,
+            "ensemble_50_50_available": xgboost_models is not None and patchtst_model is not None,
             "status": "candidate",
             "created_at_utc": datetime.now(UTC).isoformat(),
             "environment": {
                 "python": platform.python_version(),
                 "xgboost": _package_version("xgboost"),
+                "torch": _package_version("torch"),
                 "numpy": np.__version__,
                 "sklearn": sklearn.__version__,
                 "device": "cpu",
@@ -218,6 +259,38 @@ def load_xgboost_artifacts(
     if not isinstance(models, list) or len(models) != 24:
         raise ArtifactError("XGBoost horizon model bundle is invalid")
     return manifest, config, models
+
+
+def load_patchtst_artifacts(
+    run_dir: str | Path,
+    *,
+    expected_building_id: str,
+) -> tuple[dict[str, Any], PatchTSTConfig, dict[str, Any], PatchTSTScaler]:
+    run_dir = Path(run_dir)
+    manifest = load_manifest(run_dir, expected_building_id=expected_building_id)
+    if manifest["model_kind"] not in {PATCHTST, ENSEMBLE_50_50} and not manifest.get(
+        "patchtst_candidate_saved", False
+    ):
+        raise ArtifactError("requested run does not contain a PatchTST candidate")
+    try:
+        config = PatchTSTConfig(
+            **json.loads((run_dir / "patchtst_config.json").read_text(encoding="utf-8"))
+        )
+        scaler = PatchTSTScaler(
+            **json.loads((run_dir / "patchtst_scaler.json").read_text(encoding="utf-8"))
+        )
+        import torch
+
+        state_dict = torch.load(
+            run_dir / "patchtst_state_dict.pth",
+            map_location="cpu",
+            weights_only=True,
+        )
+    except Exception as exc:
+        raise ArtifactError("trusted local PatchTST artifacts could not be loaded") from exc
+    if not isinstance(state_dict, dict):
+        raise ArtifactError("PatchTST state dictionary is invalid")
+    return manifest, config, state_dict, scaler
 
 
 def load_gru_artifacts(
