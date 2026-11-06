@@ -2094,6 +2094,35 @@ function initHeroWave() {
   wave.innerHTML = markup;
 }
 
+function initServicePreview() {
+  const tabs = [...document.querySelectorAll(".service-preview-tabs [role='tab']")];
+  const panels = [...document.querySelectorAll(".service-preview-panel")];
+  if (!tabs.length || tabs.length !== panels.length) return;
+
+  const activate = (index, focus = false) => {
+    tabs.forEach((tab, tabIndex) => {
+      const selected = tabIndex === index;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      panels[tabIndex].hidden = !selected;
+    });
+    if (focus) tabs[index].focus();
+  };
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activate(index));
+    tab.addEventListener("keydown", (event) => {
+      let next;
+      if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+      else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      activate(next, true);
+    });
+  });
+}
+
 function initBrandCurve() {
   const hero = $("landing-home");
   const energy = $("brand-energy-toggle");
@@ -2157,6 +2186,7 @@ window.addEventListener("resize", () => {
 drawEmptyChart();
 initHeroWave();
 initBrandCurve();
+initServicePreview();
 initIntegratedNavigation();
 renderWorkspaceSteps();
 if (location.hash) {

@@ -1,0 +1,403 @@
+[
+  {
+    "name": "responsive_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_1440",
+    "status": "PASS",
+    "details": {
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "responsive_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_390",
+    "status": "PASS",
+    "details": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "responsive_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "brand_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "accessibility_320",
+    "status": "PASS",
+    "details": {
+      "viewport": 320,
+      "scrollWidth": 320,
+      "horizontalScroll": 0,
+      "titleOverflow": false,
+      "title": "EnergyPlannermini",
+      "energyColor": "rgb(31, 79, 219)",
+      "plannerColor": "rgb(16, 33, 61)",
+      "primaryHeight": 44,
+      "energyTag": "BUTTON",
+      "tabIndex": 0
+    }
+  },
+  {
+    "name": "timezone_before_upload",
+    "status": "PASS",
+    "details": {
+      "first": "panel timezone-panel",
+      "second": "panel upload-panel",
+      "firstLeft": 457,
+      "secondLeft": 816
+    }
+  },
+  {
+    "name": "click_toggle",
+    "status": "PASS",
+    "details": {
+      "pressed": "true",
+      "active": true
+    }
+  },
+  {
+    "name": "keyboard_toggle",
+    "status": "PASS",
+    "details": {
+      "pressed": "false",
+      "active": false,
+      "focused": true
+    }
+  },
+  {
+    "name": "reduced_motion",
+    "status": "PASS",
+    "details": {
+      "past": "0s",
+      "future": "0s"
+    }
+  },
+  {
+    "name": "default_collapsed_one_line",
+    "status": "PASS",
+    "details": {
+      "open": false,
+      "label": "처음 이용하시나요? 서비스 미리보기 ▾",
+      "height": 53,
+      "afterHero": 4,
+      "beforeMenu": 4,
+      "heroHeight": 531.671875
+    }
+  },
+  {
+    "name": "between_curve_and_steps",
+    "status": "PASS",
+    "details": {
+      "open": false,
+      "label": "처음 이용하시나요? 서비스 미리보기 ▾",
+      "height": 53,
+      "afterHero": 4,
+      "beforeMenu": 4,
+      "heroHeight": 531.671875
+    }
+  },
+  {
+    "name": "hero_markup_unchanged",
+    "status": "PASS",
+    "details": {
+      "sameAs": "8684a2f"
+    }
+  },
+  {
+    "name": "open_defaults_to_01",
+    "status": "PASS",
+    "details": {
+      "open": true,
+      "selected": "preview-tab-1",
+      "heroHeight": 531.671875
+    }
+  },
+  {
+    "name": "hero_geometry_unchanged",
+    "status": "PASS",
+    "details": {
+      "open": true,
+      "selected": "preview-tab-1",
+      "heroHeight": 531.671875
+    }
+  },
+  {
+    "name": "tab_1",
+    "status": "PASS",
+    "details": {
+      "count": 1,
+      "heading": "에너지 플래너란?",
+      "id": "preview-panel-1",
+      "height": 367
+    }
+  },
+  {
+    "name": "tab_2",
+    "status": "PASS",
+    "details": {
+      "count": 1,
+      "heading": "건물 한 곳의 시간별 CSV",
+      "id": "preview-panel-2",
+      "height": 367
+    }
+  },
+  {
+    "name": "tab_3",
+    "status": "PASS",
+    "details": {
+      "count": 1,
+      "heading": "향후 24시간 전력 사용량",
+      "id": "preview-panel-3",
+      "height": 367
+    }
+  },
+  {
+    "name": "tab_4",
+    "status": "PASS",
+    "details": {
+      "count": 1,
+      "heading": "피크 시간에 잡힌 작업을 옮긴다면?",
+      "id": "preview-panel-4",
+      "height": 367
+    }
+  },
+  {
+    "name": "tab_height_stable",
+    "status": "PASS",
+    "details": [
+      367,
+      367,
+      367,
+      367
+    ]
+  },
+  {
+    "name": "same_control_closes",
+    "status": "PASS",
+    "details": {
+      "open": false,
+      "height": 53
+    }
+  },
+  {
+    "name": "same_control_reopens",
+    "status": "PASS",
+    "details": {}
+  },
+  {
+    "name": "mobile_390_tab_1",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_390_tab_2",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_390_tab_3",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_390_tab_4",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_390_stable_height",
+    "status": "PASS",
+    "details": [
+      421,
+      421,
+      421,
+      421
+    ]
+  },
+  {
+    "name": "mobile_320_tab_1",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_320_tab_2",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_320_tab_3",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_320_tab_4",
+    "status": "PASS",
+    "details": {
+      "overflow": 0,
+      "panelOverflow": 0,
+      "stacked": true,
+      "height": 421
+    }
+  },
+  {
+    "name": "mobile_320_stable_height",
+    "status": "PASS",
+    "details": [
+      421,
+      421,
+      421,
+      421
+    ]
+  },
+  {
+    "name": "report_print_excludes_home_preview",
+    "status": "PASS",
+    "details": {}
+  },
+  {
+    "name": "runtime_errors",
+    "status": "PASS",
+    "details": []
+  }
+]
