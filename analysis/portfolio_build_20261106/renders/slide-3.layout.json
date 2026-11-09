@@ -1,0 +1,14 @@
+{"schema":"openai.presentation.layout/v5","unit":"px","slide":{"id":"sl/90ss6v","index":2,"layout":{"id":"ly/kbe10ri5","name":"Blank"},"backgroundColor":"rgba(243,240,232,1)","position":{"left":0,"top":0,"width":1280,"height":720}},
+"elements":[
+{"id":"sh/ja903atw","kind":"textbox","name":"text-28","position":{"left":64,"top":48,"width":1152,"height":65},"text":"시간 변경 시뮬레이터","style":{"fontSize":43,"typeface":"Malgun Gothic","color":"#10213D","bold":true,"alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/4bi1wvah","kind":"textbox","name":"text-29","position":{"left":64,"top":118,"width":1152,"height":45},"text":"예측을 확인한 뒤, 작업 시간을 바꾸었을 때의 부하와 가상 비용을 비교합니다","style":{"fontSize":23,"typeface":"Malgun Gothic","color":"#596579","alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/5cri50b2","kind":"textbox","name":"text-30","position":{"left":1138,"top":678,"width":90,"height":25},"text":"03 / 07","style":{"fontSize":16,"typeface":"Malgun Gothic","color":"#596579","alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"im/7utoz25k","kind":"image","position":{"left":64,"top":180,"width":806,"height":226},"fit":"contain","alt":"simulator-controls.png"},
+{"id":"im/6tknqxoz","kind":"image","position":{"left":64,"top":422,"width":806,"height":230},"fit":"contain","alt":"simulator-chart-current.png"},
+{"id":"sh/sf210fat","kind":"textbox","name":"text-31","position":{"left":914,"top":185,"width":300,"height":35},"text":"작업 이동 예시","style":{"fontSize":23,"typeface":"Malgun Gothic","color":"#1F4FDB","bold":true,"alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/tgb29kbe","kind":"textbox","name":"text-32","position":{"left":914,"top":231,"width":300,"height":60},"text":"1 kWh","style":{"fontSize":46,"typeface":"Malgun Gothic","color":"#10213D","bold":true,"alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/mhgzmlsj","kind":"textbox","name":"text-33","position":{"left":914,"top":302,"width":300,"height":40},"text":"13시에서 18시로","style":{"fontSize":26,"typeface":"Malgun Gothic","color":"#10213D","bold":true,"alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/7ip0vqt4","kind":"textbox","name":"text-34","position":{"left":914,"top":367,"width":300,"height":38},"text":"가상 단가 180원 / 110원","style":{"fontSize":20,"typeface":"Malgun Gothic","color":"#596579","alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/jylkje90","kind":"textbox","name":"text-35","position":{"left":914,"top":419,"width":300,"height":60},"text":"70원 차이","style":{"fontSize":40,"typeface":"Malgun Gothic","color":"#087A55","bold":true,"alignment":"left"},"geometry":"rect","lineWidth":0},
+{"id":"sh/ixcjq9sf","kind":"textbox","name":"text-36","position":{"left":914,"top":510,"width":300,"height":100},"text":"입력 단가로 계산한 예시입니다.\n실제 요금·절감액은 아닙니다.","style":{"fontSize":21,"typeface":"Malgun Gothic","color":"#596579","alignment":"left"},"geometry":"rect","lineWidth":0}
+]}
