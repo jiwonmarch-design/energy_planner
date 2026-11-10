@@ -31,6 +31,11 @@ const fileInput = $("csv-file");
 const drop = $("drop-zone");
 const error = $("form-error");
 const jobSessionKey = "energy-planner.active-job.v1";
+const apiBaseUrl = String(window.ENERGY_PLANNER_CONFIG?.API_BASE_URL || "").replace(/\/+$/, "");
+
+function apiUrl(path) {
+  return `${apiBaseUrl}${path}`;
+}
 
 function fmt(number, digits = 1) {
   return Number(number).toLocaleString("ko-KR", { maximumFractionDigits: digits });
@@ -694,7 +699,7 @@ $("warning-approved").addEventListener("change", () => {
 });
 
 async function api(path, body) {
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -1097,7 +1102,7 @@ function jobStatusText(status) {
 async function pollJob() {
   if (!state.job) return;
   try {
-    const response = await fetch(`/api/training-jobs/${state.job.job_id}`);
+    const response = await fetch(apiUrl(`/api/training-jobs/${state.job.job_id}`));
     if (!response.ok) throw new Error("서버에서 학습 작업 상태를 확인하지 못했습니다.");
     const job = await response.json();
     state.job = job;
@@ -1130,7 +1135,7 @@ async function recoverJob() {
     $("timezone").value = state.jobContext.timezone || $("timezone").value;
   }
   try {
-    const response = await fetch(`/api/training-jobs/${saved.jobId}`);
+    const response = await fetch(apiUrl(`/api/training-jobs/${saved.jobId}`));
     if (!response.ok) throw new Error("저장된 학습 작업을 현재 서버에서 찾을 수 없습니다.");
     state.job = await response.json();
     state.jobRecovered = state.job.status === "COMPLETED" && !state.csvText;
@@ -1853,7 +1858,7 @@ window.addEventListener("afterprint", () => document.body.classList.remove("prin
 
 async function loadCapabilities() {
   try {
-    const response = await fetch("/api/health", { cache: "no-store" });
+    const response = await fetch(apiUrl("/api/health"), { cache: "no-store" });
     if (!response.ok) throw new Error("health check failed");
     const health = await response.json();
     state.aiAnalysisAvailable = Boolean(health.ai_analysis?.enabled);
