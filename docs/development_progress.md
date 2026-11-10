@@ -432,5 +432,6 @@ PM 검토 후 유효한 사용자 키가 있는 로컬 환경에서 OpenAI 해�
 - 합성·삼다수 샘플 모두 결측 0, 품질 및 학습 적합성 PASS. 임시 산출물에서 실제 학습·예측 완료: 합성 217.29초, 삼다수 150.57초, 두 샘플 모두 XGBoost + PatchTST 50:50 선택 및 24개 시점 예측 PASS
 - 제주삼다수공장 데이터는 공공데이터포털 이용허락 범위 제한 없음 확인 후 포함. 공개 권한이 불명확한 U 파일은 저장소·배포 자산에서 제외
 - 배포 화면에서 업로드 영역과 파일·샘플 버튼이 붙어 보이는 캐시 문제를 방지하기 위해 간격을 16px로 확대하고 디자인 시스템 CSS URL에 버전 쿼리를 추가
-- JavaScript 계약 검사 35/35 PASS(기존 20 + 샘플 15), 전체 Python unittest 99/99 PASS, JS 문법·Python compileall PASS. 사용자가 로컬 화면 확인 완료; 자동 Windows 브라우저 시각 검증은 URL 안전 판별 실패로 미검증
+- 배포 브라우저가 이전 `app.js`를 재사용해 샘플 버튼 이벤트가 연결되지 않는 문제를 방지하기 위해 스크립트 URL에 버전 쿼리를 추가
+- JavaScript 계약 검사 36/36 PASS(기존 20 + 샘플 16), 전체 Python unittest 99/99 PASS, JS 문법·Python compileall PASS. 사용자가 로컬 화면 확인 완료; 자동 Windows 브라우저 시각 검증은 URL 안전 판별 실패로 미검증
 - 검증 보고서: `analysis/sample_csv_validation/report.md`

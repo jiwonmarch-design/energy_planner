@@ -18,6 +18,7 @@ assert.doesNotMatch(source, /loadSampleCsv[\s\S]{0,1000}\$\("train"\)\.click/);
 assert.match(css, /\.upload-choice-actions[^}]*grid-template-columns:\s*repeat\(2/);
 assert.match(css, /\.upload-choice-actions[^}]*margin-top:\s*16px/);
 assert.match(html, /reference-system\.css\?v=20261110-sample-spacing/);
+assert.match(html, /app\.js\?v=20261110-sample-loader/);
 assert.match(source, /fileInput\.onchange = \(\) =>/);
 assert.match(source, /drop\.addEventListener\("drop"/);
 
@@ -26,4 +27,4 @@ for (const sample of ["synthetic-power-202604-202610.csv", "jeju-samdasoo-factor
   assert.match(csv, /^\uFEFF?timestamp,kwh\r?\n/);
 }
 
-console.log("sample-loader: 15/15 PASS");
+console.log("sample-loader: 16/16 PASS");
