@@ -32,6 +32,16 @@ const drop = $("drop-zone");
 const error = $("form-error");
 const jobSessionKey = "energy-planner.active-job.v1";
 const apiBaseUrl = String(window.ENERGY_PLANNER_CONFIG?.API_BASE_URL || "").replace(/\/+$/, "");
+const sampleCsvFiles = Object.freeze({
+  synthetic: {
+    url: "/samples/synthetic-power-202604-202610.csv",
+    fileName: "합성추정_전력데이터_202604-202610.csv",
+  },
+  samdasoo: {
+    url: "/samples/jeju-samdasoo-factory-2025.csv",
+    fileName: "제주삼다수공장_2025_전체.csv",
+  },
+});
 
 function apiUrl(path) {
   return `${apiBaseUrl}${path}`;
@@ -555,7 +565,7 @@ function estimateObservationDays(csvText) {
   return (Math.max(...timestamps) - Math.min(...timestamps) + 60 * 60 * 1000) / 86400000;
 }
 
-async function readFile(file) {
+async function readFile(file, { sourceLabel = "브라우저에서 선택됨" } = {}) {
   error.textContent = "";
   clearTimeModeError();
   if (!file || !file.name.toLowerCase().endsWith(".csv")) throw new Error("CSV 파일만 선택할 수 있습니다.");
@@ -572,10 +582,39 @@ async function readFile(file) {
   $("file-info").hidden = false;
   $("selected-file-name").textContent = file.name;
   $("selected-file-name").title = file.name;
-  $("selected-file-meta").textContent = `${fmt(file.size / 1024)}KB · 브라우저에서 선택됨`;
+  $("selected-file-meta").textContent = `${fmt(file.size / 1024)}KB · ${sourceLabel}`;
   $("selected-file-state").textContent = "아직 서버에 전송되지 않음 · 품질 진단 전";
   invalidateAnalysis("선택한 파일의 품질 진단을 실행해 주세요.");
   updateAnalyzeAvailability();
+}
+
+function setSamplePicker(open) {
+  $("sample-picker").hidden = !open;
+  $("sample-file").setAttribute("aria-expanded", String(open));
+  if (!open) $("sample-load-status").textContent = "";
+}
+
+async function loadSampleCsv(sampleId) {
+  const sample = sampleCsvFiles[sampleId];
+  if (!sample) throw new Error("선택한 샘플을 찾을 수 없습니다.");
+  const buttons = [...document.querySelectorAll("[data-sample-id]")];
+  buttons.forEach((button) => (button.disabled = true));
+  $("sample-picker").setAttribute("aria-busy", "true");
+  $("sample-load-status").textContent = "샘플 CSV를 불러오고 있습니다.";
+  try {
+    const response = await fetch(sample.url, { cache: "force-cache" });
+    if (!response.ok) throw new Error("샘플 CSV를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    const csvText = await response.text();
+    const file = new File([csvText], sample.fileName, { type: "text/csv", lastModified: 0 });
+    fileInput.value = "";
+    $("timezone").value = "Asia/Seoul";
+    await readFile(file, { sourceLabel: "샘플 CSV · Asia/Seoul" });
+    setSamplePicker(false);
+    $("analyze").focus();
+  } finally {
+    buttons.forEach((button) => (button.disabled = false));
+    $("sample-picker").removeAttribute("aria-busy");
+  }
 }
 
 function clearSelectedFile() {
@@ -644,8 +683,22 @@ function qualityErrorDetails(message) {
 
 $("choose-file").onclick = (event) => {
   event.stopPropagation();
+  setSamplePicker(false);
   fileInput.click();
 };
+$("sample-file").onclick = () => setSamplePicker($("sample-picker").hidden);
+$("close-sample-picker").onclick = () => {
+  setSamplePicker(false);
+  $("sample-file").focus();
+};
+document.querySelectorAll("[data-sample-id]").forEach((button) => {
+  button.addEventListener("click", () => {
+    loadSampleCsv(button.dataset.sampleId).catch((caught) => {
+      error.textContent = caught.message;
+      $("sample-load-status").textContent = caught.message;
+    });
+  });
+});
 $("change-file").onclick = () => fileInput.click();
 $("clear-file").onclick = clearSelectedFile;
 drop.onclick = () => fileInput.click();
@@ -655,6 +708,7 @@ drop.onkeydown = (event) => {
 fileInput.onchange = () => {
   const [file] = fileInput.files;
   if (!file) return;
+  setSamplePicker(false);
   readFile(file).catch((caught) => (error.textContent = caught.message));
 };
 ["dragenter", "dragover"].forEach((name) =>
