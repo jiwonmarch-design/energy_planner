@@ -177,7 +177,7 @@ a { color: inherit; }
 .upload-arrow { color: var(--blue); font-size: 32px; line-height: 1; }
 .drop strong { font-size: 15px; }
 .drop small { color: #7d899c; font-size: 11px; }
-.upload-choice-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.upload-choice-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
 .upload-choice-actions .btn { width: 100%; min-height: 44px; }
 .sample-picker { margin-top: 12px; border: 1px solid #aebff0; background: #f6f8ff; padding: 16px; }
 .sample-picker-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
